@@ -1,0 +1,39 @@
+# Sistema de Restaurante Modular - Reglas del Proyecto
+
+## Tecnología Principal
+- **Framework**: Flutter para todas las plataformas (Windows, Android, Web)
+
+## Arquitectura
+- **Estructura de carpetas**: Organización por Features
+  - Ejemplo: `features/orders/`, `features/inventory/`, `features/kitchen/`, etc.
+  - Cada feature debe contener su propia lógica, modelos, vistas y widgets
+
+## Plataformas Objetivo
+- **Windows**: Funcionalidad de impresión para tickets y reportes
+- **Android**: Interfaz para camareros/meseros
+- **Web**: Interfaz para cocina y clientes
+
+## Estándares de Código
+- **Idioma de comentarios**: Todos los comentarios deben estar en español
+- **Separación de responsabilidades**: 
+  - Separación total entre la lógica de negocio y la interfaz de usuario
+  - Usar patrón de arquitectura limpia (Clean Architecture)
+  - Lógica de negocio en carpetas separadas (domain/business logic)
+  - UI/Presentación en carpetas separadas (presentation)
+
+## Estructura Recomendada por Feature
+```
+features/
+  ├── nombre_feature/
+  │   ├── data/           # Fuentes de datos y repositorios
+  │   ├── domain/         # Lógica de negocio, casos de uso, entidades
+  │   ├── presentation/   # UI, widgets, páginas, controladores
+  │   └── models/         # Modelos de datos
+```
+
+## Prácticas Obligatorias
+1. Mantener la lógica de negocio independiente de Flutter
+2. Implementar inyección de dependencias
+3. Código modular y reutilizable
+4. Considerar las capacidades específicas de cada plataforma
+5. Documentación clara en español

@@ -1,0 +1,59 @@
+name: programa_caja
+description: "Sistema de gestión para restaurante - Caja, Pedidos, Cocina y Buffet"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  
+  # Base de datos local - Isar es rápida y soporta Windows/Android/Web
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  
+  # Servidor HTTP local para comunicación entre dispositivos
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  
+  # Inyección de dependencias
+  get_it: ^8.0.3
+  
+  # Manejo de estado
+  provider: ^6.1.2
+  
+  # Utilidades
+  uuid: ^4.5.1
+  intl: ^0.20.1
+  
+  # Manejo de rutas
+  go_router: ^14.6.2
+  
+  # Networking
+  http: ^1.2.2
+  network_info_plus: ^6.1.1
+  
+  # Acceso al sistema de archivos
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # Generador de código para Isar
+  isar_generator: ^3.1.0+1
+  build_runner: ^2.4.13
+
+flutter:
+  uses-material-design: true
+
+  # Assets para imágenes de productos
+  assets:
+    - assets/images/
+    - assets/icons/
