@@ -412,11 +412,6 @@ class _PedidosPageState extends State<PedidosPage> {
       setState(() {
         _carrito.clear();
       });
-
-      // Recargar productos para reflejar stock actualizado (sobre todo en Web)
-      if (mounted) {
-        context.read<PedidosProvider>().recargar();
-      }
       
     } catch (e) {
       debugPrint('❌ Error al enviar pedido: $e');

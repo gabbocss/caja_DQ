@@ -901,6 +901,18 @@ class LocalServer {
     }
     .mensaje.visible { display: block; }
     .mensaje h2 { color: #00D9A5; margin-bottom: 16px; }
+    .mensaje p { margin-bottom: 20px; }
+    .btn-aceptar-mensaje {
+      background: #00D9A5;
+      color: #1A1A2E;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-aceptar-mensaje:active { opacity: 0.9; }
     .overlay {
       position: fixed;
       inset: 0;
@@ -1050,6 +1062,7 @@ class LocalServer {
   <div class="mensaje" id="mensaje">
     <h2>✅ ¡Pedido Enviado!</h2>
     <p>Tu pedido llegará pronto a tu mesa.</p>
+    <button class="btn-aceptar-mensaje" onclick="cerrarMensajeYRecargar()">Aceptar</button>
   </div>
   
   <script>
@@ -1166,11 +1179,6 @@ class LocalServer {
           actualizarUI();
           document.getElementById('overlay').classList.add('visible');
           document.getElementById('mensaje').classList.add('visible');
-          
-          setTimeout(() => {
-            document.getElementById('overlay').classList.remove('visible');
-            document.getElementById('mensaje').classList.remove('visible');
-          }, 3000);
         } else {
           const errorData = await response.json().catch(() => ({}));
           if (errorData.productos_agotados) {
@@ -1186,6 +1194,12 @@ class LocalServer {
         btn.disabled = carrito.length === 0;
         btn.textContent = 'Enviar Pedido';
       }
+    }
+    
+    function cerrarMensajeYRecargar() {
+      document.getElementById('overlay').classList.remove('visible');
+      document.getElementById('mensaje').classList.remove('visible');
+      location.reload();
     }
     
     function marcarProductosAgotados(ids) {
