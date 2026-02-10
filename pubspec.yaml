@@ -14,8 +14,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   
   # Base de datos local - Isar es rápida y soporta Windows/Android/Web
-  isar: ^3.1.0+1
-  isar_flutter_libs: ^3.1.0+1
+  isar: 3.1.0+1
+  isar_flutter_libs: 3.1.0+1
   
   # Servidor HTTP local para comunicación entre dispositivos
   shelf: ^1.4.2
@@ -41,13 +41,16 @@ dependencies:
   # Acceso al sistema de archivos
   path_provider: ^2.1.5
 
+  # Código QR para enlace de pedidos desde móvil
+  qr_flutter: ^4.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
   # Generador de código para Isar
-  isar_generator: ^3.1.0+1
+  isar_generator: 3.1.0+1
   build_runner: ^2.4.13
 
 flutter:

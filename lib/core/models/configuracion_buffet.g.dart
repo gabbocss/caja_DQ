@@ -83,13 +83,18 @@ const ConfiguracionBuffetSchema = CollectionSchema(
       name: r'precioAdulto',
       type: IsarType.double,
     ),
-    r'precioMenor': PropertySchema(
+    r'precioCubierto': PropertySchema(
       id: 13,
+      name: r'precioCubierto',
+      type: IsarType.double,
+    ),
+    r'precioMenor': PropertySchema(
+      id: 14,
       name: r'precioMenor',
       type: IsarType.double,
     ),
     r'precioNino': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'precioNino',
       type: IsarType.double,
     )
@@ -171,8 +176,9 @@ void _configuracionBuffetSerialize(
   writer.writeString(offsets[10], object.mensajePromocion);
   writer.writeString(offsets[11], object.nombre);
   writer.writeDouble(offsets[12], object.precioAdulto);
-  writer.writeDouble(offsets[13], object.precioMenor);
-  writer.writeDouble(offsets[14], object.precioNino);
+  writer.writeDouble(offsets[13], object.precioCubierto);
+  writer.writeDouble(offsets[14], object.precioMenor);
+  writer.writeDouble(offsets[15], object.precioNino);
 }
 
 ConfiguracionBuffet _configuracionBuffetDeserialize(
@@ -196,8 +202,9 @@ ConfiguracionBuffet _configuracionBuffetDeserialize(
   object.mensajePromocion = reader.readStringOrNull(offsets[10]);
   object.nombre = reader.readString(offsets[11]);
   object.precioAdulto = reader.readDouble(offsets[12]);
-  object.precioMenor = reader.readDouble(offsets[13]);
-  object.precioNino = reader.readDouble(offsets[14]);
+  object.precioCubierto = reader.readDouble(offsets[13]);
+  object.precioMenor = reader.readDouble(offsets[14]);
+  object.precioNino = reader.readDouble(offsets[15]);
   return object;
 }
 
@@ -237,6 +244,8 @@ P _configuracionBuffetDeserializeProp<P>(
     case 13:
       return (reader.readDouble(offset)) as P;
     case 14:
+      return (reader.readDouble(offset)) as P;
+    case 15:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1776,6 +1785,72 @@ extension ConfiguracionBuffetQueryFilter on QueryBuilder<ConfiguracionBuffet,
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      precioCubiertoEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'precioCubierto',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      precioCubiertoGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'precioCubierto',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      precioCubiertoLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'precioCubierto',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      precioCubiertoBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'precioCubierto',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
       precioMenorEqualTo(
     double value, {
     double epsilon = Query.epsilon,
@@ -2099,6 +2174,20 @@ extension ConfiguracionBuffetQuerySortBy
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByPrecioCubierto() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'precioCubierto', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByPrecioCubiertoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'precioCubierto', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
       sortByPrecioMenor() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'precioMenor', Sort.asc);
@@ -2326,6 +2415,20 @@ extension ConfiguracionBuffetQuerySortThenBy
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByPrecioCubierto() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'precioCubierto', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByPrecioCubiertoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'precioCubierto', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
       thenByPrecioMenor() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'precioMenor', Sort.asc);
@@ -2449,6 +2552,13 @@ extension ConfiguracionBuffetQueryWhereDistinct
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
+      distinctByPrecioCubierto() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'precioCubierto');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
       distinctByPrecioMenor() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'precioMenor');
@@ -2557,6 +2667,13 @@ extension ConfiguracionBuffetQueryProperty
       precioAdultoProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'precioAdulto');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, double, QQueryOperations>
+      precioCubiertoProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'precioCubierto');
     });
   }
 

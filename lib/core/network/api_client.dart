@@ -156,6 +156,42 @@ class ApiClient {
     }
   }
 
+  /// Cuenta por mesa: pedidos no pagados de la mesa
+  Future<List<Pedido>> obtenerCuentaMesa(int numeroMesa) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/mesas/$numeroMesa/cuenta'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) => Pedido.fromJson(item)).toList();
+      }
+      throw Exception('Error al obtener cuenta: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('Error en obtenerCuentaMesa: $e');
+      rethrow;
+    }
+  }
+
+  /// Mesas que tienen al menos un pedido no pagado (cuenta abierta)
+  Future<List<int>> obtenerMesasConCuentaAbierta() async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/mesas/cuentas-abiertas'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.cast<int>();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error en obtenerMesasConCuentaAbierta: $e');
+      return [];
+    }
+  }
+
   // ==================== PEDIDOS ====================
 
   /// Obtiene todos los pedidos activos

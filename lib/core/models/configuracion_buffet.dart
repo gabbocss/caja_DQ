@@ -48,6 +48,9 @@ class ConfiguracionBuffet {
   /// Precio para menores de edadMinimaInfantil (normalmente gratis)
   late double precioMenor;
 
+  /// Precio por cubierto cuando NO es horario de buffet (€)
+  late double precioCubierto;
+
   /// Indica si la configuración está activa
   late bool activo;
 
@@ -78,6 +81,7 @@ class ConfiguracionBuffet {
         edadMinimaInfantil = 6,
         edadMaximaInfantil = 10,
         precioMenor = 0.0,
+        precioCubierto = 2.0,
         activo = true,
         mensajePromocion = '¡Buffet All You Can Eat!',
         colorTema = '#FFD700',
@@ -95,6 +99,7 @@ class ConfiguracionBuffet {
     this.edadMinimaInfantil = 6,
     this.edadMaximaInfantil = 10,
     this.precioMenor = 0.0,
+    this.precioCubierto = 2.0,
     this.activo = true,
     this.mensajePromocion,
     this.colorTema,
@@ -156,6 +161,7 @@ class ConfiguracionBuffet {
       'edadMinimaInfantil': edadMinimaInfantil,
       'edadMaximaInfantil': edadMaximaInfantil,
       'precioMenor': precioMenor,
+      'precioCubierto': precioCubierto,
       'activo': activo,
       'mensajePromocion': mensajePromocion,
       'colorTema': colorTema,
@@ -177,6 +183,7 @@ class ConfiguracionBuffet {
       ..edadMinimaInfantil = json['edadMinimaInfantil'] as int? ?? 6
       ..edadMaximaInfantil = json['edadMaximaInfantil'] as int? ?? 10
       ..precioMenor = (json['precioMenor'] as num?)?.toDouble() ?? 0.0
+      ..precioCubierto = (json['precioCubierto'] as num?)?.toDouble() ?? 2.0
       ..activo = json['activo'] as bool? ?? true
       ..mensajePromocion = json['mensajePromocion'] as String?
       ..colorTema = json['colorTema'] as String?

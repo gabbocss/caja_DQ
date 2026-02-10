@@ -453,6 +453,33 @@ class DatabaseService {
         .findFirst();
   }
 
+  /// Cuenta por mesa: pedidos de la mesa que NO están pagados (ni cancelados)
+  Future<List<Pedido>> obtenerCuentaMesa(int mesaNumero) async {
+    final todos = await isar.pedidos
+        .filter()
+        .mesaNumeroEqualTo(mesaNumero)
+        .sortByFechaCreacionDesc()
+        .findAll();
+    return todos
+        .where((p) =>
+            p.estado != EstadoPedido.pagado &&
+            p.estado != EstadoPedido.cancelado)
+        .toList();
+  }
+
+  /// Números de mesas que tienen al menos un pedido no pagado (cuenta abierta)
+  Future<List<int>> obtenerMesasConCuentaAbierta() async {
+    final pedidos = await isar.pedidos.where().findAll();
+    final mesas = <int>{};
+    for (final p in pedidos) {
+      if (p.estado != EstadoPedido.pagado &&
+          p.estado != EstadoPedido.cancelado) {
+        mesas.add(p.mesaNumero);
+      }
+    }
+    return mesas.toList()..sort();
+  }
+
   /// Guarda o actualiza un pedido
   Future<int> guardarPedido(Pedido pedido) async {
     pedido.fechaActualizacion = DateTime.now();

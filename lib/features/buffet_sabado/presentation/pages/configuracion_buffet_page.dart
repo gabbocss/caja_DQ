@@ -25,6 +25,7 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
   late TextEditingController _precioAdultoController;
   late TextEditingController _precioNinoController;
   late TextEditingController _precioMenorController;
+  late TextEditingController _precioCubiertoController;
   late TextEditingController _edadMinimaController;
   late TextEditingController _edadMaximaController;
   late TextEditingController _mensajeController;
@@ -48,6 +49,7 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
     _precioAdultoController = TextEditingController();
     _precioNinoController = TextEditingController();
     _precioMenorController = TextEditingController();
+    _precioCubiertoController = TextEditingController();
     _edadMinimaController = TextEditingController();
     _edadMaximaController = TextEditingController();
     _mensajeController = TextEditingController();
@@ -60,10 +62,23 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
     _precioAdultoController.dispose();
     _precioNinoController.dispose();
     _precioMenorController.dispose();
+    _precioCubiertoController.dispose();
     _edadMinimaController.dispose();
     _edadMaximaController.dispose();
     _mensajeController.dispose();
     super.dispose();
+  }
+
+  /// Evita mostrar NaN en precios (valores no inicializados o corruptos)
+  String _precioParaTexto(double value, double fallback) {
+    if (value.isNaN || value.isInfinite || value < 0) return fallback.toStringAsFixed(2);
+    return value.toStringAsFixed(2);
+  }
+
+  double _parsearPrecio(String text, double fallback) {
+    final v = double.tryParse(text.replaceAll(',', '.'));
+    if (v == null || v.isNaN || v.isInfinite || v < 0) return fallback;
+    return v;
   }
 
   Future<void> _cargarConfiguracion() async {
@@ -73,9 +88,10 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
         _config = config;
         _nombreController.text = config.nombre;
         _descripcionController.text = config.descripcion ?? '';
-        _precioAdultoController.text = config.precioAdulto.toStringAsFixed(2);
-        _precioNinoController.text = config.precioNino.toStringAsFixed(2);
-        _precioMenorController.text = config.precioMenor.toStringAsFixed(2);
+        _precioAdultoController.text = _precioParaTexto(config.precioAdulto, 18.0);
+        _precioNinoController.text = _precioParaTexto(config.precioNino, 9.0);
+        _precioMenorController.text = _precioParaTexto(config.precioMenor, 0.0);
+        _precioCubiertoController.text = _precioParaTexto(config.precioCubierto, 2.0);
         _edadMinimaController.text = config.edadMinimaInfantil.toString();
         _edadMaximaController.text = config.edadMaximaInfantil.toString();
         _mensajeController.text = config.mensajePromocion ?? '';
@@ -100,6 +116,7 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
         _precioAdultoController.text = '18.00';
         _precioNinoController.text = '9.00';
         _precioMenorController.text = '0.00';
+        _precioCubiertoController.text = '2.00';
         _edadMinimaController.text = '6';
         _edadMaximaController.text = '10';
         _mensajeController.text = '¡Buffet All You Can Eat!';
@@ -123,9 +140,10 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
       
       config.nombre = _nombreController.text;
       config.descripcion = _descripcionController.text;
-      config.precioAdulto = double.parse(_precioAdultoController.text);
-      config.precioNino = double.parse(_precioNinoController.text);
-      config.precioMenor = double.parse(_precioMenorController.text);
+      config.precioAdulto = _parsearPrecio(_precioAdultoController.text, 18.0);
+      config.precioNino = _parsearPrecio(_precioNinoController.text, 9.0);
+      config.precioMenor = _parsearPrecio(_precioMenorController.text, 0.0);
+      config.precioCubierto = _parsearPrecio(_precioCubiertoController.text, 2.0);
       config.edadMinimaInfantil = int.parse(_edadMinimaController.text);
       config.edadMaximaInfantil = int.parse(_edadMaximaController.text);
       config.mensajePromocion = _mensajeController.text;
@@ -318,6 +336,28 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
                         ),
                       ),
                     ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Sección: Cubiertos (fuera de horario buffet)
+              _buildSeccion(
+                titulo: 'Cubiertos (fuera de horario buffet)',
+                icono: Icons.restaurant,
+                children: [
+                  _buildCampoPrecio(
+                    controller: _precioCubiertoController,
+                    label: 'Precio por cubierto (€)',
+                    color: const Color(0xFF0F3460),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Se usará cuando el cliente abra mesa fuera del horario de buffet.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),

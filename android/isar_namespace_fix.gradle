@@ -1,0 +1,14 @@
+// Workaround: Isar 3.x no declara namespace en AGP 8+ (error "Namespace not specified")
+// Script en Groovy para evitar problemas de Kotlin DSL con Closure y Property.
+gradle.beforeProject { proj ->
+    if (proj == rootProject) return
+    proj.afterEvaluate {
+        if ((proj.name.contains("isar_flutter_libs") || proj.path.contains("isar_flutter_libs"))
+            && proj.plugins.hasPlugin("com.android.library")) {
+            def android = proj.extensions.findByName("android")
+            if (android != null && (android.namespace == null || android.namespace.isEmpty())) {
+                android.namespace = "dev.isar.isar_flutter_libs"
+            }
+        }
+    }
+}

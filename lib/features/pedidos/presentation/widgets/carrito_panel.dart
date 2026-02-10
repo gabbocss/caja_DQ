@@ -5,11 +5,16 @@ import '../pages/pedidos_page.dart';
 
 /// Panel lateral del carrito de compras
 /// 
-/// Muestra la mesa seleccionada, items agregados y botón de envío
+/// Muestra la mesa seleccionada, items agregados, consumo actual de la mesa y botón de envío
 class CarritoPanel extends StatelessWidget {
   final int mesaSeleccionada;
   final List<ItemCarrito> items;
+  final List<Pedido> consumoActual; // Pedidos no pagados de la mesa (cuenta abierta)
+  final Set<int> mesasConCuentaAbierta; // Mesas con al menos un pedido no pagado
   final ValueChanged<int> onMesaChanged;
+  /// Si se proporciona, se llama al tocar una mesa (para mostrar diálogo de apertura)
+  final Future<void> Function(int mesa)? onMesaTap;
+  final ValueChanged<int>? onMostrarQrMesa;
   final ValueChanged<int> onItemRemoved;
   final void Function(int index, int cantidad) onItemQuantityChanged;
   final VoidCallback onEnviar;
@@ -20,7 +25,11 @@ class CarritoPanel extends StatelessWidget {
     super.key,
     required this.mesaSeleccionada,
     required this.items,
+    this.consumoActual = const [],
+    this.mesasConCuentaAbierta = const {},
     required this.onMesaChanged,
+    this.onMesaTap,
+    this.onMostrarQrMesa,
     required this.onItemRemoved,
     required this.onItemQuantityChanged,
     required this.onEnviar,
@@ -55,7 +64,10 @@ class CarritoPanel extends StatelessWidget {
           // Selector de mesa
           _buildMesaSelector(),
           
-          // Lista de items
+          // Consumo actual de la mesa (cuenta abierta)
+          if (consumoActual.isNotEmpty) _buildConsumoActual(),
+          
+          // Lista de items del carrito
           Expanded(
             child: items.isEmpty
                 ? _buildCarritoVacio()
@@ -84,23 +96,32 @@ class CarritoPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.table_restaurant,
                 color: Color(0xFFE94560),
                 size: 20,
               ),
-              SizedBox(width: 8),
-              Text(
-                'MESA SELECCIONADA',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'MESA SELECCIONADA',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
                 ),
               ),
+              if (onMostrarQrMesa != null)
+                IconButton(
+                  onPressed: () => onMostrarQrMesa!(mesaSeleccionada),
+                  icon: const Icon(Icons.qr_code_2),
+                  color: const Color(0xFF00D9A5),
+                  tooltip: 'Ver QR para pedir desde móvil',
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -120,11 +141,31 @@ class CarritoPanel extends StatelessWidget {
               itemBuilder: (context, index) {
                 final numeroMesa = index + 1;
                 final isSelected = mesaSeleccionada == numeroMesa;
+                final tieneCuentaAbierta = mesasConCuentaAbierta.contains(numeroMesa);
+                
+                Color borderColor = const Color(0xFF16213E);
+                Color? backgroundColor = const Color(0xFF1A1A2E);
+                if (isSelected) {
+                  borderColor = const Color(0xFFE94560);
+                  backgroundColor = null;
+                } else if (tieneCuentaAbierta) {
+                  borderColor = const Color(0xFF00D9A5);
+                  backgroundColor = const Color(0xFF00D9A5).withValues(alpha: 0.15);
+                }
                 
                 return Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => onMesaChanged(numeroMesa),
+                    onTap: () {
+                      if (onMesaTap != null) {
+                        onMesaTap!(numeroMesa);
+                      } else {
+                        onMesaChanged(numeroMesa);
+                      }
+                    },
+                    onLongPress: onMostrarQrMesa != null
+                        ? () => onMostrarQrMesa!(numeroMesa)
+                        : null,
                     borderRadius: BorderRadius.circular(8),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -134,12 +175,10 @@ class CarritoPanel extends StatelessWidget {
                                 colors: [Color(0xFFE94560), Color(0xFFFF6B6B)],
                               )
                             : null,
-                        color: isSelected ? null : const Color(0xFF1A1A2E),
+                        color: isSelected ? null : backgroundColor,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: isSelected
-                              ? const Color(0xFFE94560)
-                              : const Color(0xFF16213E),
+                          color: borderColor,
                           width: 2,
                         ),
                       ),
@@ -147,7 +186,11 @@ class CarritoPanel extends StatelessWidget {
                         child: Text(
                           '$numeroMesa',
                           style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white60,
+                            color: isSelected
+                                ? Colors.white
+                                : tieneCuentaAbierta
+                                    ? const Color(0xFF00D9A5)
+                                    : Colors.white60,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
@@ -158,6 +201,119 @@ class CarritoPanel extends StatelessWidget {
                 );
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Lista de consumo actual (items de pedidos no pagados de la mesa)
+  Widget _buildConsumoActual() {
+    final todosLosItems = <ItemPedido>[];
+    for (final pedido in consumoActual) {
+      todosLosItems.addAll(pedido.items);
+    }
+    if (todosLosItems.isEmpty) return const SizedBox.shrink();
+
+    final totalConsumo = todosLosItems.fold<double>(
+      0,
+      (sum, item) => sum + item.subtotal,
+    );
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F3460),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF00D9A5).withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.receipt_long, color: const Color(0xFF00D9A5), size: 18),
+              const SizedBox(width: 6),
+              const Text(
+                'CONSUMO ACTUAL',
+                style: TextStyle(
+                  color: Color(0xFF00D9A5),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 140),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: todosLosItems.length,
+              itemBuilder: (context, index) {
+                final item = todosLosItems[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${item.cantidad}×',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          item.nombreProducto,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '\$${item.subtotal.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Color(0xFF00D9A5),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const Divider(color: Color(0xFF00D9A5), height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Subtotal cuenta',
+                style: TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+              Text(
+                '\$${totalConsumo.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: Color(0xFF00D9A5),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ],
       ),

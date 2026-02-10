@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/core.dart';
 import '../providers/pedidos_provider.dart';
@@ -27,11 +28,51 @@ class _PedidosPageState extends State<PedidosPage> {
   bool _enviando = false;
   List<DestinoImpresion> _destinos = [];
   Set<int> _productosAgotados = {}; // IDs de productos marcados como agotados
+  List<Pedido> _cuentaActual = []; // Pedidos no pagados de la mesa seleccionada
+  Set<int> _mesasConCuentaAbierta = {}; // Mesas con al menos un pedido no pagado
+  // Apertura de mesa: buffet (sábado horario) o cubiertos
+  int _adultosBuffet = 0;
+  int _ninosBuffet = 0;
+  int _cubiertos = 0;
 
   @override
   void initState() {
     super.initState();
     _cargarDestinos();
+    _cargarMesasConCuentaAbierta();
+    _cargarCuentaMesa(_mesaSeleccionada);
+  }
+
+  /// Obtiene cuenta (pedidos no pagados) desde servidor o DB local
+  Future<void> _cargarCuentaMesa(int numeroMesa) async {
+    try {
+      List<Pedido> pedidos;
+      if (sl.isRegistered<ApiClient>()) {
+        pedidos = await sl<ApiClient>().obtenerCuentaMesa(numeroMesa);
+      } else {
+        pedidos = await DatabaseService.instance.obtenerCuentaMesa(numeroMesa);
+      }
+      if (mounted) setState(() => _cuentaActual = pedidos);
+    } catch (e) {
+      debugPrint('Error al cargar cuenta mesa $numeroMesa: $e');
+      if (mounted) setState(() => _cuentaActual = []);
+    }
+  }
+
+  /// Carga qué mesas tienen cuenta abierta (para pintar icono verde)
+  Future<void> _cargarMesasConCuentaAbierta() async {
+    try {
+      List<int> mesas;
+      if (sl.isRegistered<ApiClient>()) {
+        mesas = await sl<ApiClient>().obtenerMesasConCuentaAbierta();
+      } else {
+        mesas = await DatabaseService.instance.obtenerMesasConCuentaAbierta();
+      }
+      if (mounted) setState(() => _mesasConCuentaAbierta = mesas.toSet());
+    } catch (e) {
+      debugPrint('Error al cargar mesas con cuenta abierta: $e');
+      if (mounted) setState(() => _mesasConCuentaAbierta = {});
+    }
   }
 
   Future<void> _cargarDestinos() async {
@@ -41,6 +82,361 @@ class _PedidosPageState extends State<PedidosPage> {
     } catch (e) {
       debugPrint('Error al cargar destinos: $e');
     }
+  }
+
+  /// Al tocar una mesa: si ya está en uso solo cambia; si no, pregunta adultos/niños o cubiertos
+  Future<void> _alSeleccionarMesa(int mesa) async {
+    // Si la mesa ya tiene cuenta abierta, solo seleccionarla sin preguntar
+    if (_mesasConCuentaAbierta.contains(mesa)) {
+      setState(() => _mesaSeleccionada = mesa);
+      _cargarCuentaMesa(mesa);
+      return;
+    }
+
+    ConfiguracionBuffet? config;
+    try {
+      config = await DatabaseService.instance.obtenerConfiguracionBuffetActiva();
+    } catch (e) {
+      debugPrint('Error al cargar config buffet: $e');
+    }
+    final esHorarioBuffet = config?.esHorarioBuffet() ?? false;
+
+    if (!mounted) return;
+    if (esHorarioBuffet) {
+      await _mostrarDialogoAperturaBuffet(context, mesa, config!);
+    } else {
+      await _mostrarDialogoAperturaCubiertos(context, mesa, config);
+    }
+  }
+
+  /// Diálogo: apertura de mesa en horario buffet (adultos y niños)
+  Future<void> _mostrarDialogoAperturaBuffet(
+    BuildContext context,
+    int mesa,
+    ConfiguracionBuffet config,
+  ) async {
+    int adultos = 1;
+    int ninos = 0;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF16213E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.star, color: Color(0xFFFFD700)),
+              const SizedBox(width: 8),
+              Text('Abrir mesa $mesa - Buffet', style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Horario buffet activo. Indique comensales:',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Text('Adultos:', style: TextStyle(color: Colors.white70)),
+                    const SizedBox(width: 16),
+                    IconButton.filled(
+                      onPressed: () => setDialogState(() => adultos = (adultos - 1).clamp(0, 99)),
+                      icon: const Icon(Icons.remove),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFE94560)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('$adultos', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    ),
+                    IconButton.filled(
+                      onPressed: () => setDialogState(() => adultos++),
+                      icon: const Icon(Icons.add),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFF00D9A5)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('Niños:', style: TextStyle(color: Colors.white70)),
+                    const SizedBox(width: 24),
+                    IconButton.filled(
+                      onPressed: () => setDialogState(() => ninos = (ninos - 1).clamp(0, 99)),
+                      icon: const Icon(Icons.remove),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFE94560)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('$ninos', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    ),
+                    IconButton.filled(
+                      onPressed: () => setDialogState(() => ninos++),
+                      icon: const Icon(Icons.add),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFF00D9A5)),
+                    ),
+                  ],
+                ),
+                if (adultos + ninos == 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Debe haber al menos 1 comensal',
+                      style: TextStyle(color: Colors.orange.shade300, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: (adultos + ninos) < 1
+                  ? null
+                  : () {
+                      final precioA = (config.precioAdulto.isNaN || config.precioAdulto < 0) ? 18.0 : config.precioAdulto;
+                      final precioN = (config.precioNino.isNaN || config.precioNino < 0) ? 9.0 : config.precioNino;
+                      setState(() {
+                        _mesaSeleccionada = mesa;
+                        _adultosBuffet = adultos;
+                        _ninosBuffet = ninos;
+                        _cubiertos = 0;
+                        // Añadir adultos y niños como ítems en el carrito de la mesa
+                        if (adultos > 0) {
+                          _carrito.add(ItemCarrito(
+                            producto: Producto.crear(nombre: 'Buffet - Adulto', precio: precioA, esBuffet: true),
+                            cantidad: adultos,
+                          ));
+                        }
+                        if (ninos > 0) {
+                          _carrito.add(ItemCarrito(
+                            producto: Producto.crear(nombre: 'Buffet - Niño', precio: precioN, esBuffet: true),
+                            cantidad: ninos,
+                          ));
+                        }
+                      });
+                      _cargarCuentaMesa(mesa);
+                      Navigator.of(ctx).pop();
+                    },
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFFD700)),
+              child: const Text('Abrir mesa', style: TextStyle(color: Colors.black87)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Diálogo: apertura de mesa con cubiertos (fuera de horario buffet)
+  Future<void> _mostrarDialogoAperturaCubiertos(
+    BuildContext context,
+    int mesa,
+    ConfiguracionBuffet? config,
+  ) async {
+    int cubiertos = 1;
+    final precioCubierto = config?.precioCubierto ?? 2.0;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF16213E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.restaurant, color: Color(0xFF00D9A5)),
+              const SizedBox(width: 8),
+              Text('Abrir mesa $mesa - Cubiertos', style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Número de cubiertos:',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton.filled(
+                      onPressed: () => setDialogState(() => cubiertos = (cubiertos - 1).clamp(1, 99)),
+                      icon: const Icon(Icons.remove),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFE94560)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text('$cubiertos', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                    ),
+                    IconButton.filled(
+                      onPressed: () => setDialogState(() => cubiertos++),
+                      icon: const Icon(Icons.add),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFF00D9A5)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F3460),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Precio por cubierto:', style: TextStyle(color: Colors.white70)),
+                      Text('\$${precioCubierto.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF00D9A5), fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final precio = (precioCubierto.isNaN || precioCubierto < 0) ? 2.0 : precioCubierto;
+                setState(() {
+                  _mesaSeleccionada = mesa;
+                  _cubiertos = cubiertos;
+                  _adultosBuffet = 0;
+                  _ninosBuffet = 0;
+                  // Añadir cubiertos como ítem en el carrito de la mesa
+                  _carrito.add(ItemCarrito(
+                    producto: Producto.crear(nombre: 'Cubiertos', precio: precio),
+                    cantidad: cubiertos,
+                  ));
+                });
+                _cargarCuentaMesa(mesa);
+                Navigator.of(ctx).pop();
+              },
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00D9A5)),
+              child: const Text('Abrir mesa'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Base URL del servidor (IP:8080) para generar el enlace QR
+  String _obtenerBaseUrlServidor() {
+    String? base = serverUrl;
+    if (sl.isRegistered<LocalServer>()) {
+      base ??= LocalServer.instance.serverUrl;
+    }
+    base ??= 'http://localhost:8080';
+    return base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+  }
+
+  void _mostrarDialogoQrMesa(int numeroMesa) {
+    final baseUrl = _obtenerBaseUrlServidor();
+    final qrUrl = '$baseUrl/qr/$numeroMesa';
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF16213E),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF00D9A5), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00D9A5).withValues(alpha: 0.2),
+                blurRadius: 24,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Icon(Icons.qr_code_2, color: Color(0xFF00D9A5), size: 28),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Escanee para pedir desde su móvil',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                'Mesa $numeroMesa',
+                style: const TextStyle(
+                  color: Color(0xFF00D9A5),
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: QrImageView(
+                  data: qrUrl,
+                  version: QrVersions.auto,
+                  size: 220,
+                  backgroundColor: Colors.white,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Mesa $numeroMesa',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -86,9 +482,14 @@ class _PedidosPageState extends State<PedidosPage> {
                   CarritoPanel(
                     mesaSeleccionada: _mesaSeleccionada,
                     items: _carrito,
+                    consumoActual: _cuentaActual,
+                    mesasConCuentaAbierta: _mesasConCuentaAbierta,
                     onMesaChanged: (mesa) {
                       setState(() => _mesaSeleccionada = mesa);
+                      _cargarCuentaMesa(mesa);
                     },
+                    onMesaTap: _alSeleccionarMesa,
+                    onMostrarQrMesa: _mostrarDialogoQrMesa,
                     onItemRemoved: _removerDelCarrito,
                     onItemQuantityChanged: _cambiarCantidad,
                     onEnviar: _enviarPedido,
@@ -257,7 +658,8 @@ class _PedidosPageState extends State<PedidosPage> {
   }
 
   Future<void> _enviarPedido() async {
-    if (_carrito.isEmpty) {
+    final tieneApertura = _adultosBuffet > 0 || _ninosBuffet > 0 || _cubiertos > 0;
+    if (_carrito.isEmpty && !tieneApertura) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('El carrito está vacío'),
@@ -271,7 +673,7 @@ class _PedidosPageState extends State<PedidosPage> {
 
     try {
       // =====================================================
-      // VALIDACIÓN PRE-VUELO - Verificar disponibilidad con cantidades
+      // VALIDACIÓN PRE-VUELO - Verificar disponibilidad con cantidades (solo productos)
       // =====================================================
       final itemsParaValidar = _carrito
           .where((item) => item.producto.id != null)
@@ -281,23 +683,24 @@ class _PedidosPageState extends State<PedidosPage> {
               })
           .toList();
       
-      // Llamar al endpoint de validación
-      final response = await http.post(
-        Uri.parse('http://localhost:8080/api/productos/validar-stock'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'items': itemsParaValidar}),
-      );
-      
-      if (response.statusCode != 200) {
-        throw Exception('Error al validar stock: ${response.statusCode}');
-      }
-      
-      final validacionJson = jsonDecode(response.body) as Map<String, dynamic>;
-      final errores = (validacionJson['errores'] as List<dynamic>?)
-              ?.cast<Map<String, dynamic>>() ??
-          [];
-      
-      if (errores.isNotEmpty) {
+      // Validar stock solo si hay productos en el carrito
+      if (itemsParaValidar.isNotEmpty) {
+        final response = await http.post(
+          Uri.parse('http://localhost:8080/api/productos/validar-stock'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'items': itemsParaValidar}),
+        );
+
+        if (response.statusCode != 200) {
+          throw Exception('Error al validar stock: ${response.statusCode}');
+        }
+
+        final validacionJson = jsonDecode(response.body) as Map<String, dynamic>;
+        final errores = (validacionJson['errores'] as List<dynamic>?)
+                ?.cast<Map<String, dynamic>>() ??
+            [];
+
+        if (errores.isNotEmpty) {
         // Hay errores: ajustar cantidades o marcar como agotados
         final ajustes = <Map<String, dynamic>>[];
         final agotados = <int>{};
@@ -346,22 +749,23 @@ class _PedidosPageState extends State<PedidosPage> {
         }
         
         // Si solo hubo ajustes, continuar con el pedido ajustado (no retornar)
+        }
       }
-      
+
       // Limpiar marcas de agotados si todo está bien
       setState(() {
         _productosAgotados.clear();
       });
-      
+
       // =====================================================
       // PROCESAR PEDIDO
       // =====================================================
-      
+
       final db = DatabaseService.instance;
-      
-      // Agrupar productos por destino dinámico
+
+      // Agrupar productos por destino (los de apertura - buffet/cubiertos - ya están en _carrito)
       final itemsPorDestino = <int?, List<ItemPedido>>{};
-      
+
       for (final item in _carrito) {
         // Obtener info del destino del producto
         final destinoId = item.producto.destinoId;
@@ -388,10 +792,13 @@ class _PedidosPageState extends State<PedidosPage> {
       final todosItems = itemsPorDestino.values.expand((items) => items).toList();
       
       // Crear el pedido
+      final esBuffet = _adultosBuffet > 0 || _ninosBuffet > 0;
       final pedido = Pedido.crear(
         mesaNumero: _mesaSeleccionada,
         usuarioCamarero: 'Mesero', // TODO: Obtener del usuario logueado
         items: todosItems,
+        esBuffet: esBuffet,
+        numeroComensales: esBuffet ? (_adultosBuffet + _ninosBuffet) : _cubiertos,
       );
       pedido.calcularTotal();
 
@@ -408,10 +815,17 @@ class _PedidosPageState extends State<PedidosPage> {
         _mostrarResumenEnvio(itemsPorDestino);
       }
       
-      // Limpiar carrito
+      // Limpiar carrito y datos de apertura de mesa
       setState(() {
         _carrito.clear();
+        _adultosBuffet = 0;
+        _ninosBuffet = 0;
+        _cubiertos = 0;
       });
+
+      // Actualizar cuenta actual y mesas con cuenta abierta
+      _cargarCuentaMesa(_mesaSeleccionada);
+      _cargarMesasConCuentaAbierta();
       
     } catch (e) {
       debugPrint('❌ Error al enviar pedido: $e');

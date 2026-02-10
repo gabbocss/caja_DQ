@@ -19,6 +19,9 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Workaround Isar 3.x "Namespace not specified" (script Groovy para compatibilidad)
+apply(from = "isar_namespace_fix.gradle")
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

@@ -263,6 +263,32 @@ class LocalServer {
       }
     });
 
+    // GET /api/mesas/cuentas-abiertas - Mesas con al menos un pedido no pagado
+    router.get('/api/mesas/cuentas-abiertas', (Request request) async {
+      try {
+        final mesas = await _db.obtenerMesasConCuentaAbierta();
+        return Response.ok(
+          jsonEncode(mesas),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al obtener mesas con cuenta abierta: $e');
+      }
+    });
+
+    // GET /api/mesas/<numero>/cuenta - Cuenta de la mesa (pedidos no pagados)
+    router.get('/api/mesas/<numero>/cuenta', (Request request, String numero) async {
+      try {
+        final pedidos = await _db.obtenerCuentaMesa(int.parse(numero));
+        return Response.ok(
+          jsonEncode(pedidos.map((p) => p.toJson()).toList()),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al obtener cuenta de mesa: $e');
+      }
+    });
+
     // ==================== RUTAS DE PEDIDOS ====================
 
     // GET /api/pedidos - Obtener pedidos activos
@@ -1034,6 +1060,64 @@ class LocalServer {
     .btn-dialog:active {
       background: #c73850;
     }
+    
+    /* Mis Pedidos realizados */
+    .mis-pedidos-section {
+      padding: 16px;
+      background: #0F3460;
+      margin: 0 16px 16px;
+      border-radius: 12px;
+      border: 1px solid #16213E;
+    }
+    .mis-pedidos-section h2 {
+      color: #00D9A5;
+      font-size: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mis-pedidos-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .mis-pedidos-vacio {
+      color: #888;
+      font-size: 14px;
+      padding: 12px 0;
+      text-align: center;
+    }
+    .item-pedido-realizado {
+      background: #16213E;
+      padding: 12px 14px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-left: 4px solid #00D9A5;
+    }
+    .item-pedido-realizado .nombre-cantidad {
+      color: white;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .item-pedido-realizado .estado-badge {
+      font-size: 12px;
+      font-weight: bold;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .item-pedido-realizado .estado-preparacion {
+      background: #FFA500;
+      color: #1A1A2E;
+    }
+    .item-pedido-realizado .estado-servido {
+      background: #00D9A5;
+      color: #1A1A2E;
+    }
   </style>
 </head>
 <body>
@@ -1048,6 +1132,11 @@ class LocalServer {
   
   <div class="productos">
     $productosHtml
+  </div>
+  
+  <div class="mis-pedidos-section">
+    <h2>📋 Mis Pedidos realizados</h2>
+    <div id="mis-pedidos-lista" class="mis-pedidos-lista"></div>
   </div>
   
   <div class="carrito">
@@ -1069,6 +1158,50 @@ class LocalServer {
     const mesa = $mesa;
     const esBuffet = $esHorarioBuffet;
     let carrito = [];
+    
+    function estadoItemATexto(estadoItem) {
+      if (estadoItem === 'pendiente' || estadoItem === 'preparando') return { texto: 'En preparación', clase: 'estado-preparacion' };
+      if (estadoItem === 'listo' || estadoItem === 'servido') return { texto: 'Servido', clase: 'estado-servido' };
+      return { texto: estadoItem || 'En preparación', clase: 'estado-preparacion' };
+    }
+    
+    async function refrescarMisPedidos() {
+      const contenedor = document.getElementById('mis-pedidos-lista');
+      if (!contenedor) return;
+      try {
+        const response = await fetch('/api/pedidos/mesa/' + mesa);
+        if (!response.ok) {
+          contenedor.innerHTML = '<div class="mis-pedidos-vacio">No se pudieron cargar los pedidos.</div>';
+          return;
+        }
+        const pedidos = await response.json();
+        const items = [];
+        pedidos.forEach(function(p) {
+          if (p.items && p.items.length) {
+            p.items.forEach(function(item) {
+              items.push({
+                nombre: item.nombreProducto || 'Producto',
+                cantidad: item.cantidad || 1,
+                estadoItem: item.estadoItem || 'pendiente'
+              });
+            });
+          }
+        });
+        if (items.length === 0) {
+          contenedor.innerHTML = '<div class="mis-pedidos-vacio">Aún no tienes pedidos enviados.</div>';
+          return;
+        }
+        const html = items.map(function(it) {
+          const e = estadoItemATexto(it.estadoItem);
+          const linea = it.cantidad > 1 ? it.nombre + ' x' + it.cantidad : it.nombre;
+          return '<div class="item-pedido-realizado"><span class="nombre-cantidad">' + linea + '</span><span class="estado-badge ' + e.clase + '">' + e.texto + '</span></div>';
+        }).join('');
+        contenedor.innerHTML = html;
+      } catch (err) {
+        console.error('Error cargando mis pedidos:', err);
+        contenedor.innerHTML = '<div class="mis-pedidos-vacio">Error al cargar. Reintenta en un momento.</div>';
+      }
+    }
     
     function agregarAlCarrito(id, nombre, precio, destinoId) {
       const existente = carrito.find(item => item.productoId === id);
@@ -1177,6 +1310,7 @@ class LocalServer {
         if (response.ok) {
           carrito = [];
           actualizarUI();
+          refrescarMisPedidos();
           document.getElementById('overlay').classList.add('visible');
           document.getElementById('mensaje').classList.add('visible');
         } else {
@@ -1272,6 +1406,8 @@ class LocalServer {
     function mostrarDialogoAgotados(nombres) {
       mostrarDialogoValidacionStock([], nombres.map(n => ({nombre: n})));
     }
+    
+    refrescarMisPedidos();
   </script>
 </body>
 </html>
