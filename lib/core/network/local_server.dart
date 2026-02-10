@@ -289,6 +289,22 @@ class LocalServer {
       }
     });
 
+    // POST /api/mesas/liberar - Cierra la cuenta de la mesa y la deja libre
+    router.post('/api/mesas/liberar', (Request request) async {
+      try {
+        final body = await request.readAsString();
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final numero = json['numero'] as int;
+        await _db.liberarMesa(numero);
+        return Response.ok(
+          jsonEncode({'mensaje': 'Mesa $numero liberada correctamente'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al liberar mesa: $e');
+      }
+    });
+
     // ==================== RUTAS DE PEDIDOS ====================
 
     // GET /api/pedidos - Obtener pedidos activos

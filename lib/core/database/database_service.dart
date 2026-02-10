@@ -399,6 +399,20 @@ class DatabaseService {
     }
   }
 
+  /// Libera una mesa: marca todos los pedidos de la mesa como pagados y pone la mesa en libre
+  Future<void> liberarMesa(int numeroMesa) async {
+    final pedidos = await obtenerCuentaMesa(numeroMesa);
+    await isar.writeTxn(() async {
+      for (final pedido in pedidos) {
+        pedido.estado = EstadoPedido.pagado;
+        pedido.fechaCompletado = DateTime.now();
+        pedido.fechaActualizacion = DateTime.now();
+        await isar.pedidos.put(pedido);
+      }
+    });
+    await actualizarEstadoMesa(numeroMesa, EstadoMesa.libre);
+  }
+
   /// Guarda o actualiza una mesa
   Future<int> guardarMesa(Mesa mesa) async {
     mesa.ultimaActualizacion = DateTime.now();

@@ -337,6 +337,67 @@ class _PedidosPageState extends State<PedidosPage> {
     );
   }
 
+  /// Muestra diálogo de confirmación y libera la mesa seleccionada
+  Future<void> _mostrarDialogoLiberarMesa() async {
+    final numero = _mesaSeleccionada;
+    final confirmado = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.meeting_room, color: Colors.orange.shade300),
+            const SizedBox(width: 8),
+            Text('¿Liberar Mesa $numero?', style: const TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: const Text(
+          'Se cerrará la cuenta actual y la mesa quedará disponible para nuevos comensales. Esta acción no se puede deshacer.',
+          style: TextStyle(color: Colors.white70, fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCELAR'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade700),
+            child: const Text('CONFIRMAR LIBERACIÓN'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true || !mounted) return;
+
+    try {
+      if (sl.isRegistered<ApiClient>()) {
+        await sl<ApiClient>().liberarMesa(numero);
+      } else {
+        await DatabaseService.instance.liberarMesa(numero);
+      }
+      if (!mounted) return;
+      setState(() => _cuentaActual = []);
+      await _cargarMesasConCuentaAbierta();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mesa $numero liberada correctamente'),
+          backgroundColor: const Color(0xFF00D9A5),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al liberar mesa: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   /// Base URL del servidor (IP:8080) para generar el enlace QR
   String _obtenerBaseUrlServidor() {
     String? base = serverUrl;
@@ -493,6 +554,7 @@ class _PedidosPageState extends State<PedidosPage> {
                     onItemRemoved: _removerDelCarrito,
                     onItemQuantityChanged: _cambiarCantidad,
                     onEnviar: _enviarPedido,
+                    onLiberar: _mostrarDialogoLiberarMesa,
                     enviando: _enviando,
                     productosAgotados: _productosAgotados,
                   ),

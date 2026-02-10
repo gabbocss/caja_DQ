@@ -18,6 +18,8 @@ class CarritoPanel extends StatelessWidget {
   final ValueChanged<int> onItemRemoved;
   final void Function(int index, int cantidad) onItemQuantityChanged;
   final VoidCallback onEnviar;
+  /// Se llama al pulsar LIBERAR (solo visible si la mesa tiene consumo actual)
+  final VoidCallback? onLiberar;
   final bool enviando;
   final Set<int> productosAgotados; // IDs de productos agotados
 
@@ -33,6 +35,7 @@ class CarritoPanel extends StatelessWidget {
     required this.onItemRemoved,
     required this.onItemQuantityChanged,
     required this.onEnviar,
+    this.onLiberar,
     this.enviando = false,
     this.productosAgotados = const {},
   });
@@ -420,7 +423,34 @@ class CarritoPanel extends StatelessWidget {
           ),
           
           const SizedBox(height: 16),
-          
+
+          // Botón LIBERAR (solo si la mesa tiene consumo actual)
+          if (consumoActual.isNotEmpty && onLiberar != null) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton(
+                onPressed: enviando ? null : onLiberar,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFFF9800),
+                  side: const BorderSide(color: Color(0xFFFF9800), width: 2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'LIBERAR',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // Botón ENVIAR
           SizedBox(
             width: double.infinity,

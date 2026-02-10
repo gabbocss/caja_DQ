@@ -156,6 +156,26 @@ class ApiClient {
     }
   }
 
+  /// Libera una mesa: cierra la cuenta (marca pedidos como pagados) y deja la mesa libre
+  Future<void> liberarMesa(int numeroMesa) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/mesas/liberar'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({'numero': numeroMesa}),
+      );
+      if (response.statusCode != 200) {
+        throw Exception('Error al liberar mesa: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error en liberarMesa: $e');
+      rethrow;
+    }
+  }
+
   /// Cuenta por mesa: pedidos no pagados de la mesa
   Future<List<Pedido>> obtenerCuentaMesa(int numeroMesa) async {
     try {
