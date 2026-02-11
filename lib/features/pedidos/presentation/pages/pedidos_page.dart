@@ -372,11 +372,18 @@ class _PedidosPageState extends State<PedidosPage> {
     );
     if (confirmado != true || !mounted) return;
 
+    // Detectar si hay ítems de buffet en la cuenta (para no devolver stock en servidor)
+    final isBuffetClose = _cuentaActual.any((p) {
+      if (p.esBuffet) return true;
+      return p.items.any((item) =>
+          item.nombreProducto == 'Buffet - Adulto' || item.nombreProducto == 'Buffet - Niño');
+    });
+
     try {
       if (sl.isRegistered<ApiClient>()) {
-        await sl<ApiClient>().liberarMesa(numero);
+        await sl<ApiClient>().liberarMesa(numero, isBuffetClose: isBuffetClose);
       } else {
-        await DatabaseService.instance.liberarMesa(numero);
+        await DatabaseService.instance.liberarMesa(numero, isBuffetClose: isBuffetClose);
       }
       if (!mounted) return;
       setState(() => _cuentaActual = []);

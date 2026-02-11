@@ -399,8 +399,10 @@ class DatabaseService {
     }
   }
 
-  /// Libera una mesa: marca todos los pedidos de la mesa como pagados y pone la mesa en libre
-  Future<void> liberarMesa(int numeroMesa) async {
+  /// Libera una mesa: busca todos los pedidos de esa mesa, los marca como pagados y pone la mesa libre.
+  /// No devuelve stock a productos (consumo de buffet ya realizado).
+  /// El próximo cliente empezará de cero (mesa libre, sin pedidos abiertos).
+  Future<void> liberarMesa(int numeroMesa, {bool isBuffetClose = false}) async {
     final pedidos = await obtenerCuentaMesa(numeroMesa);
     await isar.writeTxn(() async {
       for (final pedido in pedidos) {
@@ -411,6 +413,7 @@ class DatabaseService {
       }
     });
     await actualizarEstadoMesa(numeroMesa, EstadoMesa.libre);
+    // No se devuelve stock: es cierre de cuenta (buffet o no), consumo ya realizado
   }
 
   /// Guarda o actualiza una mesa

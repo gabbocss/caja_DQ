@@ -157,7 +157,7 @@ class ApiClient {
   }
 
   /// Libera una mesa: cierra la cuenta (marca pedidos como pagados) y deja la mesa libre
-  Future<void> liberarMesa(int numeroMesa) async {
+  Future<void> liberarMesa(int numeroMesa, {bool isBuffetClose = false}) async {
     try {
       final response = await _client.post(
         Uri.parse('$baseUrl/api/mesas/liberar'),
@@ -165,7 +165,7 @@ class ApiClient {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: json.encode({'numero': numeroMesa}),
+        body: json.encode({'numero': numeroMesa, 'isBuffetClose': isBuffetClose}),
       );
       if (response.statusCode != 200) {
         throw Exception('Error al liberar mesa: ${response.statusCode}');

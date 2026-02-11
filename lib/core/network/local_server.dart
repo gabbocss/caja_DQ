@@ -295,7 +295,8 @@ class LocalServer {
         final body = await request.readAsString();
         final json = jsonDecode(body) as Map<String, dynamic>;
         final numero = json['numero'] as int;
-        await _db.liberarMesa(numero);
+        final isBuffetClose = json['isBuffetClose'] as bool? ?? false;
+        await _db.liberarMesa(numero, isBuffetClose: isBuffetClose);
         return Response.ok(
           jsonEncode({'mensaje': 'Mesa $numero liberada correctamente'}),
           headers: {'Content-Type': 'application/json'},
@@ -1076,6 +1077,24 @@ class LocalServer {
     .btn-dialog:active {
       background: #c73850;
     }
+    .btn-liberar {
+      background: #FF9800;
+      color: #1A1A2E;
+      border: none;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+      width: 100%;
+    }
+    .btn-liberar:hover {
+      background: #FFB74D;
+    }
+    .btn-liberar:active {
+      background: #F57C00;
+    }
     
     /* Mis Pedidos realizados */
     .mis-pedidos-section {
@@ -1160,6 +1179,7 @@ class LocalServer {
       <span class="carrito-items" id="carrito-items">0 productos</span>
       <span class="carrito-total" id="carrito-total">0.00€</span>
     </div>
+    <button class="btn-liberar" id="btn-liberar" style="display: none;" onclick="liberarMesa()">Liberar</button>
     <button class="btn-enviar" id="btn-enviar" disabled onclick="enviarPedido()">Enviar Pedido</button>
   </div>
   
@@ -1174,6 +1194,7 @@ class LocalServer {
     const mesa = $mesa;
     const esBuffet = $esHorarioBuffet;
     let carrito = [];
+    let pedidosCuenta = [];
     
     function estadoItemATexto(estadoItem) {
       if (estadoItem === 'pendiente' || estadoItem === 'preparando') return { texto: 'En preparación', clase: 'estado-preparacion' };
@@ -1183,16 +1204,20 @@ class LocalServer {
     
     async function refrescarMisPedidos() {
       const contenedor = document.getElementById('mis-pedidos-lista');
+      const btnLiberar = document.getElementById('btn-liberar');
       if (!contenedor) return;
       try {
-        const response = await fetch('/api/pedidos/mesa/' + mesa);
+        const response = await fetch('/api/mesas/' + mesa + '/cuenta');
         if (!response.ok) {
           contenedor.innerHTML = '<div class="mis-pedidos-vacio">No se pudieron cargar los pedidos.</div>';
+          pedidosCuenta = [];
+          if (btnLiberar) btnLiberar.style.display = 'none';
           return;
         }
         const pedidos = await response.json();
+        pedidosCuenta = pedidos || [];
         const items = [];
-        pedidos.forEach(function(p) {
+        pedidosCuenta.forEach(function(p) {
           if (p.items && p.items.length) {
             p.items.forEach(function(item) {
               items.push({
@@ -1203,8 +1228,9 @@ class LocalServer {
             });
           }
         });
+        if (btnLiberar) btnLiberar.style.display = items.length > 0 ? 'block' : 'none';
         if (items.length === 0) {
-          contenedor.innerHTML = '<div class="mis-pedidos-vacio">Aún no tienes pedidos enviados.</div>';
+          contenedor.innerHTML = '<div class="mis-pedidos-vacio">Aún no tienes pedidos en la cuenta. Añade productos y envía el pedido.</div>';
           return;
         }
         const html = items.map(function(it) {
@@ -1216,6 +1242,41 @@ class LocalServer {
       } catch (err) {
         console.error('Error cargando mis pedidos:', err);
         contenedor.innerHTML = '<div class="mis-pedidos-vacio">Error al cargar. Reintenta en un momento.</div>';
+        pedidosCuenta = [];
+        if (btnLiberar) btnLiberar.style.display = 'none';
+      }
+    }
+    
+    async function liberarMesa() {
+      if (!confirm('¿Liberar Mesa ' + mesa + '?\\n\\nSe cerrará la cuenta actual y la mesa quedará disponible para nuevos comensales. Esta acción no se puede deshacer.')) return;
+      const isBuffetClose = pedidosCuenta.some(function(p) {
+        if (p.esBuffet) return true;
+        return (p.items || []).some(function(it) {
+          const n = (it.nombreProducto || '').toString();
+          return n === 'Buffet - Adulto' || n === 'Buffet - Niño';
+        });
+      });
+      const btn = document.getElementById('btn-liberar');
+      if (btn) { btn.disabled = true; btn.textContent = 'Liberando...'; }
+      try {
+        const response = await fetch('/api/mesas/liberar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero: mesa, isBuffetClose: isBuffetClose })
+        });
+        if (response.ok) {
+          pedidosCuenta = [];
+          await refrescarMisPedidos();
+          alert('Mesa ' + mesa + ' liberada correctamente. La cuenta se ha cerrado.');
+        } else {
+          const err = await response.json().catch(function() { return {}; });
+          alert('Error al liberar: ' + (err.error || response.status));
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Error de conexión. Inténtalo de nuevo.');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Liberar'; }
       }
     }
     
@@ -1379,7 +1440,7 @@ class LocalServer {
       
       let contenidoAjustes = '';
       if (tieneAjustes) {
-        contenidoAjustes = \`
+        contenidoAjustes = `
           <div class="seccion-ajustes">
             <h3 style="color: #FFA500; margin-bottom: 12px; font-size: 16px;">Ajustes Automáticos:</h3>
             <ul class="lista-ajustes">
@@ -1389,12 +1450,12 @@ class LocalServer {
             </ul>
             <p class="dialog-hint" style="color: #FFA500; margin-top: 8px;">Hemos ajustado tu pedido automáticamente.</p>
           </div>
-        \`;
+        `;
       }
       
       let contenidoAgotados = '';
       if (tieneAgotados) {
-        contenidoAgotados = \`
+        contenidoAgotados = `
           <div class="seccion-agotados" style="margin-top: \${tieneAjustes ? '16px' : '0'};">
             <h3 style="color: #E94560; margin-bottom: 12px; font-size: 16px;">Productos Agotados:</h3>
             <ul class="lista-agotados">
@@ -1402,10 +1463,10 @@ class LocalServer {
             </ul>
             <p class="dialog-hint" style="color: #E94560; margin-top: 8px;">Se han eliminado del carrito automáticamente.</p>
           </div>
-        \`;
+        `;
       }
       
-      dialogOverlay.innerHTML = \`
+      dialogOverlay.innerHTML = `
         <div class="dialog-error">
           <div class="dialog-icon">\${(tieneAjustes && !tieneAgotados) ? '⚠️' : '❌'}</div>
           <h2>\${(tieneAjustes && !tieneAgotados) ? 'Ajuste de Cantidades' : tieneAjustes && tieneAgotados ? 'Problemas con el Pedido' : 'Productos Agotados'}</h2>
@@ -1415,7 +1476,7 @@ class LocalServer {
             \${(tieneAjustes && !tieneAgotados) ? 'CONTINUAR CON AJUSTES' : 'ENTENDIDO'}
           </button>
         </div>
-      \`;
+      `;
       document.body.appendChild(dialogOverlay);
     }
     
