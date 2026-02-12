@@ -131,6 +131,27 @@ class LocalServer {
   Router _createRouter() {
     final router = Router();
 
+    // ==================== QR CLIENTES (primero para que no lo capture otra ruta) ====================
+    router.get('/qr/<token>', (Request request, String token) async {
+      try {
+        final mesaNumero = await _db.getMesaNumeroPorQrToken(token);
+        if (mesaNumero == null) {
+          return Response.notFound(
+            jsonEncode({'error': 'Enlace no válido o caducado. Escanee el QR de su mesa.'}),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
+        final productos = await _db.obtenerProductosBuffet();
+        final esHorarioBuffet = await _db.esHorarioBuffet();
+        return Response.ok(
+          _generarPaginaClienteQR(mesaNumero, productos, esHorarioBuffet),
+          headers: {'Content-Type': 'text/html; charset=utf-8'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al cargar página QR: $e');
+      }
+    });
+
     // ==================== RUTAS DE INFORMACIÓN ====================
     
     router.get('/', (Request request) {
@@ -554,26 +575,6 @@ class LocalServer {
         return Response.notFound(jsonEncode({'error': 'Destino no encontrado'}));
       } catch (e) {
         return _errorResponse('Error al eliminar destino: $e');
-      }
-    });
-
-    // ==================== RUTAS DE CLIENTES QR ====================
-
-    // GET /qr/<mesa> - Página web simplificada para clientes
-    router.get('/qr/<mesa>', (Request request, String mesa) async {
-      try {
-        final mesaNumero = int.parse(mesa);
-        final productos = await _db.obtenerProductosBuffet();
-        
-        // Verificar si es horario de buffet
-        final esHorarioBuffet = await _db.esHorarioBuffet();
-        
-        return Response.ok(
-          _generarPaginaClienteQR(mesaNumero, productos, esHorarioBuffet),
-          headers: {'Content-Type': 'text/html; charset=utf-8'},
-        );
-      } catch (e) {
-        return _errorResponse('Error al cargar página QR: $e');
       }
     });
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -424,6 +425,77 @@ class DatabaseService {
   /// Obtiene todas las mesas
   Future<List<Mesa>> obtenerMesas() async {
     return await isar.mesas.where().sortByNumero().findAll();
+  }
+
+  // ==================== TOKENS QR (URLs aleatorias por mesa) ====================
+
+  static const _qrTokenChars =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  static const _qrTokenLength = 20;
+
+  Future<Map<int, String>> _cargarQrTokensMap() async {
+    if (_dbPath == null) return {};
+    final file = File('$_dbPath/mesa_qr_tokens.json');
+    if (!await file.exists()) return {};
+    try {
+      final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final map = <int, String>{};
+      for (final e in json.entries) {
+        final numMesa = int.tryParse(e.key);
+        if (numMesa != null && e.value is String) {
+          map[numMesa] = e.value as String;
+        }
+      }
+      return map;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _guardarQrTokensMap(Map<int, String> map) async {
+    if (_dbPath == null) return;
+    final file = File('$_dbPath/mesa_qr_tokens.json');
+    final json = map.map((k, v) => MapEntry(k.toString(), v));
+    await file.writeAsString(const JsonEncoder().convert(json));
+  }
+
+  String _generarTokenAleatorio() {
+    final rnd = Random.secure();
+    return List.generate(
+      _qrTokenLength,
+      (_) => _qrTokenChars[rnd.nextInt(_qrTokenChars.length)],
+    ).join();
+  }
+
+  /// Devuelve el token QR para una mesa; si no existe, lo genera y guarda.
+  Future<String> getQrTokenForMesa(int numeroMesa) async {
+    final map = await _cargarQrTokensMap();
+    if (map.containsKey(numeroMesa)) return map[numeroMesa]!;
+    final token = _generarTokenAleatorio();
+    map[numeroMesa] = token;
+    await _guardarQrTokensMap(map);
+    return token;
+  }
+
+  /// Resuelve un token de la URL a número de mesa. Devuelve null si el token no existe.
+  Future<int?> getMesaNumeroPorQrToken(String token) async {
+    if (token.isEmpty) return null;
+    final map = await _cargarQrTokensMap();
+    for (final e in map.entries) {
+      if (e.value == token) return e.key;
+    }
+    return null;
+  }
+
+  /// Regenera tokens QR para todas las mesas. Las URLs antiguas dejan de funcionar.
+  Future<void> regenerarQrTokens() async {
+    final mesas = await isar.mesas.where().sortByNumero().findAll();
+    final map = <int, String>{};
+    for (final m in mesas) {
+      map[m.numero] = _generarTokenAleatorio();
+    }
+    await _guardarQrTokensMap(map);
+    debugPrint('Tokens QR regenerados para ${map.length} mesas');
   }
 
   /// Obtiene mesas por estado

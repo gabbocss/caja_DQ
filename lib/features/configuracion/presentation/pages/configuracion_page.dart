@@ -191,6 +191,13 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                         Icons.restaurant_menu,
                         onTap: () => context.push(AppRoutes.buffetConfig),
                       ),
+                      _buildAccionTile(
+                        'Regenerar direcciones QR',
+                        'Nuevas URLs para todas las mesas. Los QR antiguos dejarán de funcionar',
+                        Icons.qr_code_2,
+                        color: const Color(0xFF00D9A5),
+                        onTap: _confirmarRegenerarUrlsQr,
+                      ),
                       _buildInfoTile(
                         'Hoy es día de buffet',
                         DateTime.now().weekday == DateTime.saturday ? 'Sí ⭐' : 'No',
@@ -425,6 +432,61 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmarRegenerarUrlsQr() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.qr_code_2, color: Color(0xFF00D9A5), size: 28),
+            SizedBox(width: 12),
+            Text(
+              'Regenerar URLs QR',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Se generarán nuevas direcciones para todas las mesas. '
+          'Los QR que tengas impresos o guardados dejarán de funcionar.\n\n'
+          '¿Continuar?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00D9A5)),
+            child: const Text('Regenerar', style: TextStyle(color: Color(0xFF1A1A2E))),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await DatabaseService.instance.regenerarQrTokens();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Direcciones QR regeneradas. Los QR antiguos ya no funcionarán.'),
+            backgroundColor: Color(0xFF00D9A5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _configurarImpresora() {

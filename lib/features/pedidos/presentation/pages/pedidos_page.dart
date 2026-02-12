@@ -405,20 +405,32 @@ class _PedidosPageState extends State<PedidosPage> {
     }
   }
 
-  /// Base URL del servidor (IP:8080) para generar el enlace QR
+  /// Base URL del servidor para el QR: prioriza la IP de red (192.168.x.x) para que
+  /// los móviles puedan escanear; si el servidor está activo usa su URL, si no el serverUrl global.
   String _obtenerBaseUrlServidor() {
-    String? base = serverUrl;
-    if (sl.isRegistered<LocalServer>()) {
-      base ??= LocalServer.instance.serverUrl;
+    if (sl.isRegistered<LocalServer>() && LocalServer.instance.serverUrl != null) {
+      final url = LocalServer.instance.serverUrl!;
+      return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
     }
-    base ??= 'http://localhost:8080';
+    final base = serverUrl ?? 'http://localhost:8080';
     return base.endsWith('/') ? base.substring(0, base.length - 1) : base;
   }
 
-  void _mostrarDialogoQrMesa(int numeroMesa) {
+  Future<void> _mostrarDialogoQrMesa(int numeroMesa) async {
     final baseUrl = _obtenerBaseUrlServidor();
-    final qrUrl = '$baseUrl/qr/$numeroMesa';
-
+    String qrUrl;
+    try {
+      final token = await DatabaseService.instance.getQrTokenForMesa(numeroMesa);
+      qrUrl = '$baseUrl/qr/$token';
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo generar el QR: $e'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
     showDialog<void>(
       context: context,
       barrierDismissible: true,
