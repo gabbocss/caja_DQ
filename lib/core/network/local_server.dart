@@ -66,10 +66,11 @@ class LocalServer {
           .addMiddleware(_corsHeaders())
           .addHandler(router.call);
 
-      // Iniciar el servidor
+      // Escuchar en 0.0.0.0 para aceptar conexiones desde otros dispositivos (ej. móvil por WiFi)
+      const host = '0.0.0.0';
       _server = await shelf_io.serve(
         handler,
-        InternetAddress.anyIPv4,
+        host,
         port,
       );
 
@@ -78,6 +79,10 @@ class LocalServer {
       debugPrint('║  📡 URL: http://$_serverIp:$port                           ║');
       debugPrint('║  💡 Usa esta URL en los dispositivos de la red local       ║');
       debugPrint('╚════════════════════════════════════════════════════════════╝');
+      debugPrint('');
+      debugPrint('Servidor listo en http://$_serverIp:$port');
+      debugPrint('En el móvil escribe esta URL en el navegador: http://$_serverIp:$port');
+      debugPrint('');
 
     } catch (e) {
       debugPrint('Error al iniciar el servidor: $e');
@@ -898,22 +903,119 @@ class LocalServer {
       margin-left: 12px;
     }
     .btn-agregar:active { transform: scale(0.95); }
-    .carrito {
+    /* Botón flotante del carrito (móvil) */
+    .btn-carrito-flotante {
       position: fixed;
-      bottom: 0;
-      left: 0;
+      bottom: 24px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #E94560, #FF6B6B);
+      border: none;
+      color: white;
+      box-shadow: 0 4px 20px rgba(233, 69, 96, 0.5);
+      cursor: pointer;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-carrito-flotante:active { transform: scale(0.95); }
+    .btn-carrito-flotante .carrito-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 10px;
+      background: #E94560;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 5px;
+      border: 2px solid #1A1A2E;
+    }
+    .btn-carrito-flotante .carrito-badge.oculto { display: none; }
+    /* Panel desplegable del carrito */
+    .carrito-drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 150;
+      display: none;
+      transition: opacity 0.3s;
+    }
+    .carrito-drawer-overlay.visible { display: block; }
+    .carrito-drawer {
+      position: fixed;
+      top: 0;
       right: 0;
+      width: 100%;
+      max-width: 320px;
+      height: 100%;
       background: #16213E;
-      border-top: 2px solid #E94560;
-      padding: 16px 20px;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+      z-index: 160;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s ease-out;
+    }
+    .carrito-drawer.abierto { transform: translateX(0); }
+    .carrito-drawer-header {
+      padding: 20px;
+      border-bottom: 1px solid #0F3460;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      z-index: 100;
+      flex-shrink: 0;
     }
-    .carrito-info { display: flex; flex-direction: column; gap: 4px; }
-    .carrito-items { font-size: 14px; color: #888; }
-    .carrito-total { font-size: 24px; font-weight: bold; color: #00D9A5; }
+    .carrito-drawer-header h2 { margin: 0; font-size: 20px; color: #eee; }
+    .btn-cerrar-drawer {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0 8px;
+      line-height: 1;
+    }
+    .btn-cerrar-drawer:active { color: #fff; }
+    .carrito-drawer-lista {
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .carrito-drawer-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      margin-bottom: 8px;
+      background: #0F3460;
+      border-radius: 12px;
+      font-size: 15px;
+    }
+    .carrito-drawer-item .nombre { color: #eee; flex: 1; }
+    .carrito-drawer-item .cantidad { color: #00D9A5; font-weight: bold; margin: 0 8px; }
+    .carrito-drawer-vacio {
+      color: #888;
+      text-align: center;
+      padding: 24px 16px;
+      font-size: 15px;
+    }
+    .carrito-drawer-footer {
+      padding: 16px 20px;
+      border-top: 2px solid #E94560;
+      flex-shrink: 0;
+    }
     .btn-enviar {
       background: linear-gradient(135deg, #E94560, #FF6B6B);
       border: none;
@@ -925,6 +1027,7 @@ class LocalServer {
       cursor: pointer;
       text-transform: uppercase;
       letter-spacing: 1px;
+      width: 100%;
     }
     .btn-enviar:disabled { background: #333; cursor: not-allowed; }
     .btn-enviar:active:not(:disabled) { transform: scale(0.98); }
@@ -1077,25 +1180,6 @@ class LocalServer {
     .btn-dialog:active {
       background: #c73850;
     }
-    .btn-liberar {
-      background: #FF9800;
-      color: #1A1A2E;
-      border: none;
-      padding: 14px 20px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 8px;
-      width: 100%;
-    }
-    .btn-liberar:hover {
-      background: #FFB74D;
-    }
-    .btn-liberar:active {
-      background: #F57C00;
-    }
-    
     /* Mis Pedidos realizados */
     .mis-pedidos-section {
       padding: 16px;
@@ -1174,13 +1258,21 @@ class LocalServer {
     <div id="mis-pedidos-lista" class="mis-pedidos-lista"></div>
   </div>
   
-  <div class="carrito">
-    <div class="carrito-info">
-      <span class="carrito-items" id="carrito-items">0 productos</span>
-      <span class="carrito-total" id="carrito-total">0.00€</span>
+  <button class="btn-carrito-flotante" id="btn-carrito-flotante" onclick="toggleCarritoDrawer()" aria-label="Ver carrito">
+    <span class="carrito-icon">🛒</span>
+    <span class="carrito-badge oculto" id="carrito-badge">0</span>
+  </button>
+  
+  <div class="carrito-drawer-overlay" id="carrito-drawer-overlay" onclick="cerrarCarritoDrawer()"></div>
+  <div class="carrito-drawer" id="carrito-drawer">
+    <div class="carrito-drawer-header">
+      <h2>Tu carrito</h2>
+      <button class="btn-cerrar-drawer" onclick="cerrarCarritoDrawer()" aria-label="Cerrar">✕</button>
     </div>
-    <button class="btn-liberar" id="btn-liberar" style="display: none;" onclick="liberarMesa()">Liberar</button>
-    <button class="btn-enviar" id="btn-enviar" disabled onclick="enviarPedido()">Enviar Pedido</button>
+    <div class="carrito-drawer-lista" id="carrito-drawer-lista"></div>
+    <div class="carrito-drawer-footer">
+      <button class="btn-enviar" id="btn-enviar" disabled onclick="enviarPedido()">Enviar Pedido</button>
+    </div>
   </div>
   
   <div class="overlay" id="overlay"></div>
@@ -1194,7 +1286,6 @@ class LocalServer {
     const mesa = $mesa;
     const esBuffet = $esHorarioBuffet;
     let carrito = [];
-    let pedidosCuenta = [];
     
     function estadoItemATexto(estadoItem) {
       if (estadoItem === 'pendiente' || estadoItem === 'preparando') return { texto: 'En preparación', clase: 'estado-preparacion' };
@@ -1204,20 +1295,16 @@ class LocalServer {
     
     async function refrescarMisPedidos() {
       const contenedor = document.getElementById('mis-pedidos-lista');
-      const btnLiberar = document.getElementById('btn-liberar');
       if (!contenedor) return;
       try {
         const response = await fetch('/api/mesas/' + mesa + '/cuenta');
         if (!response.ok) {
           contenedor.innerHTML = '<div class="mis-pedidos-vacio">No se pudieron cargar los pedidos.</div>';
-          pedidosCuenta = [];
-          if (btnLiberar) btnLiberar.style.display = 'none';
           return;
         }
         const pedidos = await response.json();
-        pedidosCuenta = pedidos || [];
         const items = [];
-        pedidosCuenta.forEach(function(p) {
+        (pedidos || []).forEach(function(p) {
           if (p.items && p.items.length) {
             p.items.forEach(function(item) {
               items.push({
@@ -1228,7 +1315,6 @@ class LocalServer {
             });
           }
         });
-        if (btnLiberar) btnLiberar.style.display = items.length > 0 ? 'block' : 'none';
         if (items.length === 0) {
           contenedor.innerHTML = '<div class="mis-pedidos-vacio">Aún no tienes pedidos en la cuenta. Añade productos y envía el pedido.</div>';
           return;
@@ -1242,41 +1328,6 @@ class LocalServer {
       } catch (err) {
         console.error('Error cargando mis pedidos:', err);
         contenedor.innerHTML = '<div class="mis-pedidos-vacio">Error al cargar. Reintenta en un momento.</div>';
-        pedidosCuenta = [];
-        if (btnLiberar) btnLiberar.style.display = 'none';
-      }
-    }
-    
-    async function liberarMesa() {
-      if (!confirm('¿Liberar Mesa ' + mesa + '?\\n\\nSe cerrará la cuenta actual y la mesa quedará disponible para nuevos comensales. Esta acción no se puede deshacer.')) return;
-      const isBuffetClose = pedidosCuenta.some(function(p) {
-        if (p.esBuffet) return true;
-        return (p.items || []).some(function(it) {
-          const n = (it.nombreProducto || '').toString();
-          return n === 'Buffet - Adulto' || n === 'Buffet - Niño';
-        });
-      });
-      const btn = document.getElementById('btn-liberar');
-      if (btn) { btn.disabled = true; btn.textContent = 'Liberando...'; }
-      try {
-        const response = await fetch('/api/mesas/liberar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ numero: mesa, isBuffetClose: isBuffetClose })
-        });
-        if (response.ok) {
-          pedidosCuenta = [];
-          await refrescarMisPedidos();
-          alert('Mesa ' + mesa + ' liberada correctamente. La cuenta se ha cerrado.');
-        } else {
-          const err = await response.json().catch(function() { return {}; });
-          alert('Error al liberar: ' + (err.error || response.status));
-        }
-      } catch (e) {
-        console.error(e);
-        alert('Error de conexión. Inténtalo de nuevo.');
-      } finally {
-        if (btn) { btn.disabled = false; btn.textContent = 'Liberar'; }
       }
     }
     
@@ -1297,12 +1348,44 @@ class LocalServer {
     }
     
     function actualizarUI() {
-      const total = carrito.reduce((sum, item) => sum + item.precioUnitario * item.cantidad, 0);
-      const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-      
-      document.getElementById('carrito-items').textContent = items + ' producto' + (items !== 1 ? 's' : '');
-      document.getElementById('carrito-total').textContent = total.toFixed(2) + '€';
-      document.getElementById('btn-enviar').disabled = items === 0;
+      const totalItems = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+      const badge = document.getElementById('carrito-badge');
+      if (badge) {
+        badge.textContent = totalItems > 99 ? '99+' : totalItems;
+        badge.classList.toggle('oculto', totalItems === 0);
+      }
+      document.getElementById('btn-enviar').disabled = totalItems === 0;
+      renderCarritoEnDrawer();
+    }
+    
+    function renderCarritoEnDrawer() {
+      const lista = document.getElementById('carrito-drawer-lista');
+      if (!lista) return;
+      if (carrito.length === 0) {
+        lista.innerHTML = '<div class="carrito-drawer-vacio">Añade productos desde la carta y pulsa Enviar pedido cuando termines.</div>';
+        return;
+      }
+      lista.innerHTML = carrito.map(function(item) {
+        const linea = item.cantidad > 1 ? item.nombreProducto + ' x' + item.cantidad : item.nombreProducto;
+        return '<div class="carrito-drawer-item"><span class="nombre">' + linea + '</span><span class="cantidad">' + item.cantidad + '</span></div>';
+      }).join('');
+    }
+    
+    function toggleCarritoDrawer() {
+      const drawer = document.getElementById('carrito-drawer');
+      const overlay = document.getElementById('carrito-drawer-overlay');
+      if (drawer.classList.contains('abierto')) {
+        cerrarCarritoDrawer();
+      } else {
+        renderCarritoEnDrawer();
+        drawer.classList.add('abierto');
+        overlay.classList.add('visible');
+      }
+    }
+    
+    function cerrarCarritoDrawer() {
+      document.getElementById('carrito-drawer').classList.remove('abierto');
+      document.getElementById('carrito-drawer-overlay').classList.remove('visible');
     }
     
     async function enviarPedido() {
@@ -1385,6 +1468,7 @@ class LocalServer {
         });
         
         if (response.ok) {
+          cerrarCarritoDrawer();
           carrito = [];
           actualizarUI();
           refrescarMisPedidos();
