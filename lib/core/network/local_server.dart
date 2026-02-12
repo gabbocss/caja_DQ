@@ -800,18 +800,38 @@ class LocalServer {
     return router;
   }
 
+  static String _escapeHtmlAttr(String s) {
+    return s
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+  }
+
+  static String _escapeHtmlContent(String s) {
+    return s
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+  }
+
   /// Genera la página HTML para clientes QR
   String _generarPaginaClienteQR(int mesa, List<Producto> productos, bool esHorarioBuffet) {
-    final productosHtml = productos.map((p) => '''
-      <div class="producto ${p.isAvailable ? '' : 'agotado'}" data-id="${p.id}" data-nombre="${p.nombre}" data-precio="${p.precio}">
+    final productosHtml = productos.map((p) {
+      final descAttr = p.descripcion != null ? _escapeHtmlAttr(p.descripcion!) : '';
+      final imgAttr = p.imagen != null && p.imagen!.isNotEmpty ? _escapeHtmlAttr(p.imagen!) : '';
+      final nombreJs = p.nombre.replaceAll("'", "\\'").replaceAll('\r', '').replaceAll('\n', ' ');
+      return '''
+      <div class="producto ${p.isAvailable ? '' : 'agotado'}" data-id="${p.id}" data-nombre="${_escapeHtmlAttr(p.nombre)}" data-precio="${p.precio}" data-descripcion="$descAttr" data-imagen="$imgAttr" role="button" tabindex="0" onclick="abrirModalPlato(this)" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); abrirModalPlato(this); }">
         <div class="producto-info">
           <span class="nombre">${p.nombre}</span>
-          ${p.descripcion != null ? '<span class="descripcion">${p.descripcion}</span>' : ''}
+          ${p.descripcion != null ? '<span class="descripcion">${_escapeHtmlContent(p.descripcion!)}</span>' : ''}
           <span class="precio">${p.isAvailable ? '${p.precio.toStringAsFixed(2)}€' : 'AGOTADO'}</span>
         </div>
-        ${p.isAvailable ? '<button class="btn-agregar" onclick="agregarAlCarrito(${p.id}, \'${p.nombre.replaceAll("'", "\\'")}\', ${p.precio}, ${p.destinoId ?? 'null'})">+</button>' : ''}
+        ${p.isAvailable ? '<button type="button" class="btn-agregar" onclick="event.stopPropagation(); agregarAlCarrito(${p.id}, \'$nombreJs\', ${p.precio}, ${p.destinoId ?? 'null'})">+</button>' : ''}
       </div>
-    ''').join('\n');
+    ''';
+    }).join('\n');
 
     return '''
 <!DOCTYPE html>
@@ -875,6 +895,8 @@ class LocalServer {
       justify-content: space-between;
       align-items: center;
       border: 1px solid #0F3460;
+      cursor: pointer;
+      min-height: 72px;
     }
     .producto.agotado {
       opacity: 0.5;
@@ -885,9 +907,18 @@ class LocalServer {
       flex-direction: column;
       gap: 4px;
       flex: 1;
+      min-width: 0;
     }
     .nombre { font-weight: bold; font-size: 16px; }
-    .descripcion { font-size: 12px; color: #888; }
+    .descripcion {
+      font-size: 12px;
+      color: #888;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.35;
+    }
     .precio { color: #00D9A5; font-weight: bold; font-size: 18px; }
     .btn-agregar {
       background: #E94560;
@@ -1003,8 +1034,40 @@ class LocalServer {
       border-radius: 12px;
       font-size: 15px;
     }
-    .carrito-drawer-item .nombre { color: #eee; flex: 1; }
-    .carrito-drawer-item .cantidad { color: #00D9A5; font-weight: bold; margin: 0 8px; }
+    .carrito-drawer-item .nombre { color: #eee; flex: 1; min-width: 0; }
+    .carrito-drawer-item .cantidad { color: #00D9A5; font-weight: bold; margin: 0 6px; min-width: 20px; text-align: center; }
+    .carrito-drawer-item .controles {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .btn-carrito-ctrl {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-carrito-ctrl:active { transform: scale(0.92); }
+    .btn-carrito-mas { background: #00D9A5; color: #1A1A2E; }
+    .btn-carrito-mas:hover { opacity: 0.9; }
+    .btn-carrito-menos {
+      background: #0F3460;
+      color: #00D9A5;
+      border: 2px solid #00D9A5;
+    }
+    .btn-carrito-menos:hover { opacity: 0.9; }
+    .btn-carrito-quitar { background: #E94560; color: #fff; font-size: 14px; }
+    .btn-carrito-quitar:hover { opacity: 0.9; }
     .carrito-drawer-vacio {
       color: #888;
       text-align: center;
@@ -1015,6 +1078,12 @@ class LocalServer {
       padding: 16px 20px;
       border-top: 2px solid #E94560;
       flex-shrink: 0;
+    }
+    .carrito-drawer-total {
+      color: #00D9A5;
+      font-size: 14px;
+      margin-bottom: 12px;
+      text-align: center;
     }
     .btn-enviar {
       background: linear-gradient(135deg, #E94560, #FF6B6B);
@@ -1067,6 +1136,80 @@ class LocalServer {
       display: none;
     }
     .overlay.visible { display: block; }
+    
+    /* Modal detalle plato */
+    .modal-plato-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 250;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      animation: fadeIn 0.25s ease-out;
+    }
+    .modal-plato-overlay.visible {
+      display: flex;
+    }
+    .modal-plato {
+      background: #16213E;
+      border-radius: 20px;
+      border: 2px solid #0F3460;
+      max-width: 400px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .modal-plato-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #0F3460;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-shrink: 0;
+    }
+    .modal-plato-header h2 {
+      margin: 0;
+      font-size: 22px;
+      color: #FFD700;
+      line-height: 1.3;
+      flex: 1;
+      padding-right: 12px;
+    }
+    .modal-plato-cerrar {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+    .modal-plato-cerrar:hover, .modal-plato-cerrar:active { color: #fff; }
+    .modal-plato-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .modal-plato-imagen {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      background: #0F3460;
+    }
+    .modal-plato-desc {
+      font-size: 15px;
+      color: #ccc;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
     
     /* Estilos para productos marcados como agotados durante el envío */
     .producto.marcado-error {
@@ -1271,6 +1414,7 @@ class LocalServer {
     </div>
     <div class="carrito-drawer-lista" id="carrito-drawer-lista"></div>
     <div class="carrito-drawer-footer">
+      <div class="carrito-drawer-total" id="carrito-drawer-total">0 productos</div>
       <button class="btn-enviar" id="btn-enviar" disabled onclick="enviarPedido()">Enviar Pedido</button>
     </div>
   </div>
@@ -1280,6 +1424,19 @@ class LocalServer {
     <h2>✅ ¡Pedido Enviado!</h2>
     <p>Tu pedido llegará pronto a tu mesa.</p>
     <button class="btn-aceptar-mensaje" onclick="cerrarMensajeYRecargar()">Aceptar</button>
+  </div>
+  
+  <div class="modal-plato-overlay" id="modal-plato-overlay" onclick="if(event.target===this) cerrarModalPlato()">
+    <div class="modal-plato" id="modal-plato" onclick="event.stopPropagation()">
+      <div class="modal-plato-header">
+        <h2 id="modal-plato-nombre"></h2>
+        <button type="button" class="modal-plato-cerrar" onclick="cerrarModalPlato()" aria-label="Cerrar">×</button>
+      </div>
+      <div class="modal-plato-body">
+        <img class="modal-plato-imagen" id="modal-plato-imagen" alt="" style="display: none;">
+        <p class="modal-plato-desc" id="modal-plato-desc"></p>
+      </div>
+    </div>
   </div>
   
   <script>
@@ -1358,16 +1515,43 @@ class LocalServer {
       renderCarritoEnDrawer();
     }
     
+    function actualizarTotalDrawer() {
+      const totalEl = document.getElementById('carrito-drawer-total');
+      if (!totalEl) return;
+      const n = carrito.reduce(function(s, item) { return s + item.cantidad; }, 0);
+      totalEl.textContent = n === 0 ? '0 productos' : (n === 1 ? '1 producto' : n + ' productos');
+    }
+    
+    function incrementarCantidad(productoId) {
+      const item = carrito.find(function(i) { return i.productoId === productoId; });
+      if (item) { item.cantidad++; actualizarUI(); }
+    }
+    
+    function decrementarCantidad(productoId) {
+      const item = carrito.find(function(i) { return i.productoId === productoId; });
+      if (!item || item.cantidad <= 1) return;
+      item.cantidad--;
+      actualizarUI();
+    }
+    
+    function quitarDelCarrito(productoId) {
+      carrito = carrito.filter(function(i) { return i.productoId !== productoId; });
+      actualizarUI();
+    }
+    
     function renderCarritoEnDrawer() {
       const lista = document.getElementById('carrito-drawer-lista');
       if (!lista) return;
+      actualizarTotalDrawer();
       if (carrito.length === 0) {
         lista.innerHTML = '<div class="carrito-drawer-vacio">Añade productos desde la carta y pulsa Enviar pedido cuando termines.</div>';
         return;
       }
       lista.innerHTML = carrito.map(function(item) {
-        const linea = item.cantidad > 1 ? item.nombreProducto + ' x' + item.cantidad : item.nombreProducto;
-        return '<div class="carrito-drawer-item"><span class="nombre">' + linea + '</span><span class="cantidad">' + item.cantidad + '</span></div>';
+        const nombre = (item.nombreProducto || 'Producto').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const linea = item.cantidad > 1 ? nombre + ' x' + item.cantidad : nombre;
+        const id = item.productoId;
+        return '<div class="carrito-drawer-item"><span class="nombre">' + linea + '</span><span class="cantidad">' + item.cantidad + '</span><div class="controles"><button type="button" class="btn-carrito-ctrl btn-carrito-mas" onclick="incrementarCantidad(' + id + ')" aria-label="Añadir">+</button><button type="button" class="btn-carrito-ctrl btn-carrito-menos" onclick="decrementarCantidad(' + id + ')" aria-label="Quitar uno">−</button><button type="button" class="btn-carrito-ctrl btn-carrito-quitar" onclick="quitarDelCarrito(' + id + ')" aria-label="Eliminar">×</button></div></div>';
       }).join('');
     }
     
@@ -1386,6 +1570,37 @@ class LocalServer {
     function cerrarCarritoDrawer() {
       document.getElementById('carrito-drawer').classList.remove('abierto');
       document.getElementById('carrito-drawer-overlay').classList.remove('visible');
+    }
+    
+    function abrirModalPlato(card) {
+      var nombre = card.getAttribute('data-nombre') || '';
+      var descripcion = card.getAttribute('data-descripcion') || '';
+      var imagen = card.getAttribute('data-imagen') || '';
+      document.getElementById('modal-plato-nombre').textContent = nombre;
+      document.getElementById('modal-plato-desc').textContent = descripcion || 'Sin descripción.';
+      var imgEl = document.getElementById('modal-plato-imagen');
+      if (imagen) {
+        imgEl.src = imagen;
+        imgEl.style.display = '';
+        imgEl.onerror = function() { imgEl.style.display = 'none'; };
+      } else {
+        imgEl.style.display = 'none';
+      }
+      document.getElementById('modal-plato-overlay').classList.add('visible');
+      document.body.style.overflow = 'hidden';
+      document.addEventListener('keydown', _cerrarModalPlatoEscape);
+    }
+    
+    function _cerrarModalPlatoEscape(e) {
+      if (e.key === 'Escape') {
+        cerrarModalPlato();
+      }
+    }
+    
+    function cerrarModalPlato() {
+      document.getElementById('modal-plato-overlay').classList.remove('visible');
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', _cerrarModalPlatoEscape);
     }
     
     async function enviarPedido() {
