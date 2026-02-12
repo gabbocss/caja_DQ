@@ -820,9 +820,10 @@ class LocalServer {
     final productosHtml = productos.map((p) {
       final descAttr = p.descripcion != null ? _escapeHtmlAttr(p.descripcion!) : '';
       final imgAttr = p.imagen != null && p.imagen!.isNotEmpty ? _escapeHtmlAttr(p.imagen!) : '';
+      final alergenosAttr = _escapeHtmlAttr(jsonEncode(p.alergenos));
       final nombreJs = p.nombre.replaceAll("'", "\\'").replaceAll('\r', '').replaceAll('\n', ' ');
       return '''
-      <div class="producto ${p.isAvailable ? '' : 'agotado'}" data-id="${p.id}" data-nombre="${_escapeHtmlAttr(p.nombre)}" data-precio="${p.precio}" data-descripcion="$descAttr" data-imagen="$imgAttr" role="button" tabindex="0" onclick="abrirModalPlato(this)" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); abrirModalPlato(this); }">
+      <div class="producto ${p.isAvailable ? '' : 'agotado'}" data-id="${p.id}" data-nombre="${_escapeHtmlAttr(p.nombre)}" data-precio="${p.precio}" data-descripcion="$descAttr" data-imagen="$imgAttr" data-alergenos="$alergenosAttr" role="button" tabindex="0" onclick="abrirModalPlato(this)" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); abrirModalPlato(this); }">
         <div class="producto-info">
           <span class="nombre">${p.nombre}</span>
           ${p.descripcion != null ? '<span class="descripcion">${_escapeHtmlContent(p.descripcion!)}</span>' : ''}
@@ -881,6 +882,42 @@ class LocalServer {
       font-size: 14px;
     }
     ''' : ''}
+    .leyenda-alergenos {
+      margin: 16px;
+      padding: 16px 20px;
+      background: #16213E;
+      border: 1px solid #0F3460;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .leyenda-alergenos-titulo {
+      font-size: 14px;
+      color: #FFD700;
+      margin-bottom: 12px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      text-align: center;
+    }
+    .leyenda-alergenos-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      justify-content: center;
+      align-items: center;
+    }
+    .leyenda-alergenos-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #0F3460;
+      border-radius: 12px;
+      color: #e0e0e0;
+      font-size: 14px;
+    }
+    .leyenda-alergenos-item .icono { font-size: 22px; }
+    .leyenda-alergenos-item.vegano { border: 1px solid #00D9A5; color: #00D9A5; }
+    .leyenda-alergenos-item.picante { border: 1px solid #E94560; color: #E94560; }
     .productos {
       padding: 16px;
       display: flex;
@@ -1204,6 +1241,30 @@ class LocalServer {
       margin-bottom: 16px;
       background: #0F3460;
     }
+    .modal-plato-alergenos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+    .modal-plato-alergeno {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #0F3460;
+      border: 1px solid #2a4a6e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #e0e0e0;
+      cursor: default;
+      position: relative;
+    }
+    .modal-plato-alergeno.vegano { color: #00D9A5; border-color: #00D9A5; background: rgba(0,217,165,0.15); }
+    .modal-plato-alergeno.picante { color: #E94560; border-color: #E94560; background: rgba(233,69,96,0.15); }
+    .modal-plato-alergeno[title] { cursor: help; }
     .modal-plato-desc {
       font-size: 15px;
       color: #ccc;
@@ -1392,6 +1453,18 @@ class LocalServer {
   
   ${esHorarioBuffet ? '<div class="buffet-banner">⭐ BUFFET ALL YOU CAN EAT ACTIVO ⭐</div>' : ''}
   
+  <div class="leyenda-alergenos">
+    <div class="leyenda-alergenos-titulo">📋 Guía de alérgenos y características</div>
+    <div class="leyenda-alergenos-grid">
+      <div class="leyenda-alergenos-item"><span class="icono">🌾</span><span>Gluten</span></div>
+      <div class="leyenda-alergenos-item"><span class="icono">🥛</span><span>Lácteos</span></div>
+      <div class="leyenda-alergenos-item"><span class="icono">🥜</span><span>Frutos secos</span></div>
+      <div class="leyenda-alergenos-item"><span class="icono">🥚</span><span>Huevo</span></div>
+      <div class="leyenda-alergenos-item picante"><span class="icono">🌶</span><span>Picante</span></div>
+      <div class="leyenda-alergenos-item vegano"><span class="icono">🌱</span><span>Vegano</span></div>
+    </div>
+  </div>
+  
   <div class="productos">
     $productosHtml
   </div>
@@ -1434,6 +1507,7 @@ class LocalServer {
       </div>
       <div class="modal-plato-body">
         <img class="modal-plato-imagen" id="modal-plato-imagen" alt="" style="display: none;">
+        <div class="modal-plato-alergenos" id="modal-plato-alergenos"></div>
         <p class="modal-plato-desc" id="modal-plato-desc"></p>
       </div>
     </div>
@@ -1572,10 +1646,22 @@ class LocalServer {
       document.getElementById('carrito-drawer-overlay').classList.remove('visible');
     }
     
+    var ALERGENOS_MAP = {
+      gluten:     { label: 'Gluten',           icon: '🌾', clase: '' },
+      lacteos:    { label: 'Lácteos',          icon: '🥛', clase: '' },
+      frutos_secos: { label: 'Frutos secos',   icon: '🥜', clase: '' },
+      huevo:      { label: 'Huevo',             icon: '🥚', clase: '' },
+      picante:    { label: 'Picante',           icon: '🌶', clase: 'picante' },
+      vegano:     { label: 'Vegano',            icon: '🌱', clase: 'vegano' }
+    };
+    
     function abrirModalPlato(card) {
       var nombre = card.getAttribute('data-nombre') || '';
       var descripcion = card.getAttribute('data-descripcion') || '';
       var imagen = card.getAttribute('data-imagen') || '';
+      var alergenosStr = card.getAttribute('data-alergenos') || '[]';
+      var alergenos = [];
+      try { alergenos = JSON.parse(alergenosStr); } catch (e) {}
       document.getElementById('modal-plato-nombre').textContent = nombre;
       document.getElementById('modal-plato-desc').textContent = descripcion || 'Sin descripción.';
       var imgEl = document.getElementById('modal-plato-imagen');
@@ -1586,6 +1672,18 @@ class LocalServer {
       } else {
         imgEl.style.display = 'none';
       }
+      var contAlergenos = document.getElementById('modal-plato-alergenos');
+      contAlergenos.innerHTML = '';
+      alergenos.forEach(function(key) {
+        var info = ALERGENOS_MAP[key];
+        if (!info) return;
+        var span = document.createElement('span');
+        span.className = 'modal-plato-alergeno' + (info.clase ? ' ' + info.clase : '');
+        span.title = info.label;
+        span.setAttribute('aria-label', info.label);
+        span.textContent = info.icon;
+        contAlergenos.appendChild(span);
+      });
       document.getElementById('modal-plato-overlay').classList.add('visible');
       document.body.style.overflow = 'hidden';
       document.addEventListener('keydown', _cerrarModalPlatoEscape);

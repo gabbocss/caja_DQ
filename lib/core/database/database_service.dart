@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:isar/isar.dart';
@@ -13,6 +14,7 @@ import '../models/models.dart';
 class DatabaseService {
   static DatabaseService? _instance;
   static Isar? _isar;
+  static String? _dbPath;
 
   DatabaseService._();
 
@@ -47,6 +49,7 @@ class DatabaseService {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final dbPath = '${dir.path}/programa_caja_db';
+      _dbPath = dbPath;
 
       // Crear el directorio si no existe
       final dbDir = Directory(dbPath);
@@ -335,9 +338,40 @@ class DatabaseService {
 
   // ==================== OPERACIONES DE PRODUCTOS ====================
 
+  /// Carga el mapa de alérgenos por id de producto (archivo externo para compatibilidad con DB existente)
+  Future<Map<int, List<String>>> _cargarAlergenosMap() async {
+    if (_dbPath == null) return {};
+    final file = File('$_dbPath/producto_alergenos.json');
+    if (!await file.exists()) return {};
+    try {
+      final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      return json.map((k, v) => MapEntry(
+        int.parse(k),
+        (v as List<dynamic>).map((e) => e as String).toList(),
+      ));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Guarda el mapa de alérgenos
+  Future<void> _guardarAlergenosMap(Map<int, List<String>> map) async {
+    if (_dbPath == null) return;
+    final file = File('$_dbPath/producto_alergenos.json');
+    final json = map.map((k, v) => MapEntry(k.toString(), v));
+    await file.writeAsString(const JsonEncoder().convert(json));
+  }
+
   /// Obtiene todos los productos
   Future<List<Producto>> obtenerProductos() async {
-    return await isar.productos.where().findAll();
+    final list = await isar.productos.where().findAll();
+    final alergenosMap = await _cargarAlergenosMap();
+    for (final p in list) {
+      if (p.id != null && alergenosMap.containsKey(p.id)) {
+        p.alergenos = List.from(alergenosMap[p.id]!);
+      }
+    }
+    return list;
   }
 
   /// Obtiene productos por categoría
@@ -350,22 +384,39 @@ class DatabaseService {
 
   /// Obtiene productos del buffet
   Future<List<Producto>> obtenerProductosBuffet() async {
-    return await isar.productos
+    final list = await isar.productos
         .filter()
         .esBuffetEqualTo(true)
         .activoEqualTo(true)
         .findAll();
+    final alergenosMap = await _cargarAlergenosMap();
+    for (final p in list) {
+      if (p.id != null && alergenosMap.containsKey(p.id)) {
+        p.alergenos = List.from(alergenosMap[p.id]!);
+      }
+    }
+    return list;
   }
 
   /// Guarda o actualiza un producto
   Future<int> guardarProducto(Producto producto) async {
     producto.fechaModificacion = DateTime.now();
-    return await isar.writeTxn(() => isar.productos.put(producto));
+    final id = await isar.writeTxn(() => isar.productos.put(producto));
+    final alergenosMap = await _cargarAlergenosMap();
+    alergenosMap[id] = List.from(producto.alergenos);
+    await _guardarAlergenosMap(alergenosMap);
+    return id;
   }
 
   /// Elimina un producto por ID
   Future<bool> eliminarProducto(int id) async {
-    return await isar.writeTxn(() => isar.productos.delete(id));
+    final ok = await isar.writeTxn(() => isar.productos.delete(id));
+    if (ok) {
+      final map = await _cargarAlergenosMap();
+      map.remove(id);
+      await _guardarAlergenosMap(map);
+    }
+    return ok;
   }
 
   // ==================== OPERACIONES DE MESAS ====================

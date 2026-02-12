@@ -552,6 +552,16 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
   bool _isAvailable = true;
   bool _usarInventario = false;
   bool _guardando = false;
+  List<String> _alergenos = [];
+
+  static const _opcionesAlergenos = [
+    ('gluten', 'Gluten'),
+    ('lacteos', 'Lácteos'),
+    ('frutos_secos', 'Frutos secos'),
+    ('huevo', 'Huevo'),
+    ('picante', 'Picante'),
+    ('vegano', 'Vegano'),
+  ];
 
   final _categoriasPredefinidas = [
     'Tacos', 'Antojitos', 'Platos Fuertes', 'Sopas', 
@@ -574,6 +584,7 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
     _esBuffet = widget.producto?.esBuffet ?? false;
     _isAvailable = widget.producto?.isAvailable ?? true;
     _usarInventario = widget.producto?.usarInventario ?? false;
+    _alergenos = List.from(widget.producto?.alergenos ?? []);
   }
 
   @override
@@ -602,6 +613,7 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
       producto.isAvailable = _isAvailable;
       producto.usarInventario = _usarInventario;
       producto.stockDisponible = int.tryParse(_stockController.text) ?? 0;
+      producto.alergenos = List.from(_alergenos);
       producto.activo = true;
       producto.destino = _destinoId != null
           ? (widget.destinos.where((d) => d.id == _destinoId).firstOrNull?.nombre == 'Barra'
@@ -717,6 +729,54 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
                         style: const TextStyle(color: Colors.white),
                         maxLines: 2,
                         decoration: _inputDecoration('Descripción (opcional)', Icons.description),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Alérgenos / Características
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Alérgenos / Características',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _opcionesAlergenos.map((entry) {
+                          final key = entry.$1;
+                          final label = entry.$2;
+                          final selected = _alergenos.contains(key);
+                          return FilterChip(
+                            label: Text(label),
+                            selected: selected,
+                            onSelected: (v) {
+                              setState(() {
+                                if (v) {
+                                  _alergenos = List.from(_alergenos)..add(key);
+                                } else {
+                                  _alergenos = List.from(_alergenos)..remove(key);
+                                }
+                              });
+                            },
+                            selectedColor: const Color(0xFF00D9A5).withValues(alpha: 0.35),
+                            checkmarkColor: const Color(0xFF00D9A5),
+                            labelStyle: TextStyle(
+                              color: selected ? const Color(0xFF00D9A5) : Colors.white70,
+                              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                            backgroundColor: const Color(0xFF0F3460),
+                            side: BorderSide(
+                              color: selected ? const Color(0xFF00D9A5) : Colors.white24,
+                              width: selected ? 2 : 1,
+                            ),
+                          );
+                        }).toList(),
                       ),
                       const SizedBox(height: 16),
                       

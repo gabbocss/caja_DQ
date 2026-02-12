@@ -28,6 +28,11 @@ class Producto {
   /// Ruta de la imagen del producto (puede ser local o URL)
   String? imagen;
 
+  /// Alérgenos o características del plato: gluten, lacteos, frutos_secos, huevo, picante, vegano
+  /// No persistido en Isar para compatibilidad con bases de datos existentes; se guarda en archivo aparte.
+  @Ignore()
+  List<String> alergenos = [];
+
   /// Indica si este producto forma parte del buffet del sábado
   @Index()
   late bool esBuffet;
@@ -81,6 +86,7 @@ class Producto {
     required this.precio,
     this.descripcion,
     this.imagen,
+    List<String>? alergenos,
     this.esBuffet = false,
     this.categoria,
     this.destinoId,
@@ -90,7 +96,8 @@ class Producto {
     this.usarInventario = false,
     this.stockDisponible = 0,
     this.stock, // Legacy - mantener por compatibilidad
-  }) : fechaCreacion = DateTime.now();
+  })  : alergenos = alergenos ?? [],
+        fechaCreacion = DateTime.now();
 
   /// Convierte el producto a un Map para serialización JSON
   Map<String, dynamic> toJson() {
@@ -100,6 +107,7 @@ class Producto {
       'precio': precio,
       'descripcion': descripcion,
       'imagen': imagen,
+      'alergenos': alergenos,
       'esBuffet': esBuffet,
       'categoria': categoria,
       'destinoId': destinoId,
@@ -121,6 +129,7 @@ class Producto {
       ..precio = (json['precio'] as num).toDouble()
       ..descripcion = json['descripcion'] as String?
       ..imagen = json['imagen'] as String?
+      ..alergenos = (json['alergenos'] as List<dynamic>?)?.map((e) => e as String).toList() ?? []
       ..esBuffet = json['esBuffet'] as bool? ?? false
       ..categoria = json['categoria'] as String?
       ..destinoId = json['destinoId'] as int?
