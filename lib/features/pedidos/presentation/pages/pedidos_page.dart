@@ -891,6 +891,16 @@ class _PedidosPageState extends State<PedidosPage> {
 
       debugPrint('✅ Pedido #$pedidoId creado para mesa $_mesaSeleccionada');
 
+      // Imprimir en cada impresora configurada por destino (fire-and-forget)
+      ImprimirPedidoService.instance.imprimirPedido(pedido).catchError((e, st) {
+        debugPrint('Error al imprimir pedido: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al imprimir: $e'), backgroundColor: Colors.orange),
+          );
+        }
+      });
+
       // Mostrar resumen del envío con destinos dinámicos
       if (mounted) {
         _mostrarResumenEnvio(itemsPorDestino);

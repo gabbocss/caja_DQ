@@ -20,6 +20,9 @@ export 'constants/app_constants.dart';
 // Utilidades
 export 'utils/platform_utils.dart';
 
+// Servicios
+export 'services/imprimir_pedido_service.dart';
+
 // Navegación
 export 'navigation/app_router.dart';
 export 'navigation/navigation_shell.dart';

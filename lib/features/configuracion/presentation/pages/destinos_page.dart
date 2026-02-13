@@ -372,7 +372,8 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
   late TextEditingController _descripcionController;
   late TextEditingController _impresoraController;
   late TextEditingController _direccionController;
-  
+  late TextEditingController _puertoController;
+
   String _iconoSeleccionado = 'restaurant';
   String _colorSeleccionado = '#E94560';
   TipoDestino _tipoSeleccionado = TipoDestino.pantalla;
@@ -404,7 +405,12 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
     _descripcionController = TextEditingController(text: widget.destino?.descripcion);
     _impresoraController = TextEditingController(text: widget.destino?.nombreImpresora);
     _direccionController = TextEditingController(text: widget.destino?.direccionImpresora);
-    
+    _puertoController = TextEditingController(
+      text: widget.destino?.puertoImpresora != null
+          ? widget.destino!.puertoImpresora.toString()
+          : '9100',
+    );
+
     if (widget.destino != null) {
       _iconoSeleccionado = widget.destino!.icono;
       _colorSeleccionado = widget.destino!.color;
@@ -418,6 +424,7 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
     _descripcionController.dispose();
     _impresoraController.dispose();
     _direccionController.dispose();
+    _puertoController.dispose();
     super.dispose();
   }
 
@@ -609,6 +616,23 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
                     ),
                     style: const TextStyle(color: Colors.white),
                   ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _puertoController,
+                    decoration: const InputDecoration(
+                      labelText: 'Puerto',
+                      hintText: '9100 (por defecto)',
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      if (v != null && v.isNotEmpty) {
+                        final n = int.tryParse(v);
+                        if (n == null || n < 1 || n > 65535) return 'Puerto inválido (1-65535)';
+                      }
+                      return null;
+                    },
+                  ),
                 ],
                 
                 const SizedBox(height: 32),
@@ -653,10 +677,14 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
       destino.nombreImpresora = _impresoraController.text.isEmpty 
           ? null 
           : _impresoraController.text;
-      destino.direccionImpresora = _direccionController.text.isEmpty 
-          ? null 
+      destino.direccionImpresora = _direccionController.text.isEmpty
+          ? null
           : _direccionController.text;
-      
+      final puertoStr = _puertoController.text.trim();
+      destino.puertoImpresora = puertoStr.isEmpty
+          ? 9100
+          : int.tryParse(puertoStr) ?? 9100;
+
       if (widget.destino == null) {
         destino.activo = true;
         destino.orden = 999;
