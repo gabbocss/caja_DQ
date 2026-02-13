@@ -1011,6 +1011,15 @@ class LocalServer {
       border: 2px solid #1A1A2E;
     }
     .btn-carrito-flotante .carrito-badge.oculto { display: none; }
+    .btn-carrito-flotante.bump {
+      animation: carrito-bump 0.4s ease;
+    }
+    @keyframes carrito-bump {
+      0%   { transform: scale(1); }
+      35%  { transform: scale(1.25); }
+      70%  { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
     /* Panel desplegable del carrito */
     .carrito-drawer-overlay {
       position: fixed;
@@ -1577,6 +1586,16 @@ class LocalServer {
         });
       }
       actualizarUI();
+      var btn = document.getElementById('btn-carrito-flotante');
+      if (btn) {
+        btn.classList.remove('bump');
+        void btn.offsetWidth;
+        btn.classList.add('bump');
+        btn.addEventListener('animationend', function once() {
+          btn.classList.remove('bump');
+          btn.removeEventListener('animationend', once);
+        });
+      }
     }
     
     function actualizarUI() {
