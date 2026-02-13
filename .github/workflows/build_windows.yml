@@ -1,0 +1,35 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: [ main ]  # Se ejecuta cada vez que subes algo a la rama 'main'
+  workflow_dispatch:     # Permite ejecutarlo manualmente desde la pestaña 'Actions'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          # flutter-version: '3.19.0' # Opcional: especifica tu versión si es necesario
+
+      - name: Enable Windows Desktop support
+        run: flutter config --enable-windows-desktop
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-executable
+          path: build/windows/x64/runner/Release/
