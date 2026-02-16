@@ -32,6 +32,7 @@ class ImprimirPedidoService {
   static const List<int> _escCutFull = [0x1D, 0x56, 0x00];
   static const List<int> _escCutPartial = [0x1D, 0x56, 0x01];
 
+  /// Agrupa ítems por nombre y suma cantidades (dentro de un mismo turno).
   Map<String, int> _agruparCantidades(List<ItemPedido> items) {
     final map = <String, int>{};
     for (final item in items) {
@@ -39,6 +40,17 @@ class ImprimirPedidoService {
       map[nombre] = (map[nombre] ?? 0) + item.cantidad;
     }
     return map;
+  }
+
+  /// Agrupa ítems por orden (1º, 2º, 3º...) y devuelve los turnos ordenados.
+  Map<int, List<ItemPedido>> _agruparPorOrden(List<ItemPedido> items) {
+    final map = <int, List<ItemPedido>>{};
+    for (final item in items) {
+      final o = item.orden;
+      map.putIfAbsent(o, () => []).add(item);
+    }
+    final ordenados = map.keys.toList()..sort();
+    return {for (final k in ordenados) k: map[k]!};
   }
 
   int _espaciosMargenIzq(ConfiguracionImpresion c) {
@@ -112,9 +124,20 @@ class ImprimirPedidoService {
     if (config.tamanioCuerpo == 'condensado') add(_escCondensedOn);
     if (config.negritaCuerpo) add(_escBoldOn);
 
-    final agrupado = _agruparCantidades(items);
-    for (final e in agrupado.entries) {
-      addStr(_aplicarMargen('${e.value}x ${e.key}\n', margenEsp));
+    final itemsPorOrden = _agruparPorOrden(items);
+    final chSep = config.caracterSeparador.isEmpty ? '=' : config.caracterSeparador.substring(0, 1);
+    final sepCorta = chSep * (config.anchoCaracteres ~/ 2).clamp(12, 24);
+
+    for (final entry in itemsPorOrden.entries) {
+      final orden = entry.key;
+      final itemsTurno = entry.value;
+      addStr(_aplicarMargen('\n', margenEsp));
+      addStr(_aplicarMargen('$ordenº\n', margenEsp));
+      addStr(_aplicarMargen('$sepCorta\n', margenEsp));
+      final agrupado = _agruparCantidades(itemsTurno);
+      for (final e in agrupado.entries) {
+        addStr(_aplicarMargen('${e.value}x ${e.key}\n', margenEsp));
+      }
     }
 
     if (config.negritaCuerpo) add(_escBoldOff);
