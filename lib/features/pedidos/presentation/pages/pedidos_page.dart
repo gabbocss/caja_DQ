@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -215,12 +212,14 @@ class _PedidosPageState extends State<PedidosPage> {
                           _carrito.add(ItemCarrito(
                             producto: Producto.crear(nombre: 'Buffet - Adulto', precio: precioA, esBuffet: true),
                             cantidad: adultos,
+                            orden: 1,
                           ));
                         }
                         if (ninos > 0) {
                           _carrito.add(ItemCarrito(
                             producto: Producto.crear(nombre: 'Buffet - Niño', precio: precioN, esBuffet: true),
                             cantidad: ninos,
+                            orden: 1,
                           ));
                         }
                       });
@@ -323,6 +322,7 @@ class _PedidosPageState extends State<PedidosPage> {
                   _carrito.add(ItemCarrito(
                     producto: Producto.crear(nombre: 'Cubiertos', precio: precio),
                     cantidad: cubiertos,
+                    orden: 1,
                   ));
                 });
                 _cargarCuentaMesa(mesa);
@@ -571,7 +571,7 @@ class _PedidosPageState extends State<PedidosPage> {
                     onMesaTap: _alSeleccionarMesa,
                     onMostrarQrMesa: _mostrarDialogoQrMesa,
                     onItemRemoved: _removerDelCarrito,
-                    onItemQuantityChanged: _cambiarCantidad,
+                    onOrdenChanged: _cambiarOrden,
                     onEnviar: _enviarPedido,
                     onLiberar: _mostrarDialogoLiberarMesa,
                     enviando: _enviando,
@@ -693,17 +693,8 @@ class _PedidosPageState extends State<PedidosPage> {
 
   void _agregarAlCarrito(Producto producto) {
     setState(() {
-      // Buscar si ya existe en el carrito
-      final existente = _carrito.indexWhere((item) => 
-        item.producto.id != null && producto.id != null 
-          ? item.producto.id == producto.id 
-          : item.producto.nombre == producto.nombre);
-      
-      if (existente >= 0) {
-        _carrito[existente].cantidad++;
-      } else {
-        _carrito.add(ItemCarrito(producto: producto));
-      }
+      // Cada pulsación añade una línea (no se apilan)
+      _carrito.add(ItemCarrito(producto: producto, cantidad: 1, orden: 1));
     });
     
     // Feedback táctil
@@ -728,13 +719,9 @@ class _PedidosPageState extends State<PedidosPage> {
     });
   }
 
-  void _cambiarCantidad(int index, int nuevaCantidad) {
+  void _cambiarOrden(int index, int orden) {
     setState(() {
-      if (nuevaCantidad <= 0) {
-        _carrito.removeAt(index);
-      } else {
-        _carrito[index].cantidad = nuevaCantidad;
-      }
+      _carrito[index].orden = orden;
     });
   }
 
@@ -753,87 +740,64 @@ class _PedidosPageState extends State<PedidosPage> {
     setState(() => _enviando = true);
 
     try {
+      final db = DatabaseService.instance;
+
       // =====================================================
-      // VALIDACIÓN PRE-VUELO - Verificar disponibilidad con cantidades (solo productos)
+      // VALIDACIÓN DE STOCK - Usar la misma BD donde se guarda el pedido
       // =====================================================
-      final itemsParaValidar = _carrito
-          .where((item) => item.producto.id != null)
-          .map((item) => {
-                'id': item.producto.id!,
-                'cantidad': item.cantidad,
-              })
-          .toList();
-      
-      // Validar stock solo si hay productos en el carrito
-      if (itemsParaValidar.isNotEmpty) {
-        final response = await http.post(
-          Uri.parse('http://localhost:8080/api/productos/validar-stock'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'items': itemsParaValidar}),
-        );
+      final cantidadPorProducto = <int, int>{};
+      for (final item in _carrito) {
+        final id = item.producto.id;
+        if (id == null) continue;
+        cantidadPorProducto[id] = (cantidadPorProducto[id] ?? 0) + item.cantidad;
+      }
 
-        if (response.statusCode != 200) {
-          throw Exception('Error al validar stock: ${response.statusCode}');
-        }
-
-        final validacionJson = jsonDecode(response.body) as Map<String, dynamic>;
-        final errores = (validacionJson['errores'] as List<dynamic>?)
-                ?.cast<Map<String, dynamic>>() ??
-            [];
-
-        if (errores.isNotEmpty) {
-        // Hay errores: ajustar cantidades o marcar como agotados
+      if (cantidadPorProducto.isNotEmpty) {
         final ajustes = <Map<String, dynamic>>[];
         final agotados = <int>{};
-        
-        for (final error in errores) {
-          final id = error['id'] as int;
-          final tipoError = error['error'] as String;
-          final solicitado = error['solicitado'] as int;
-          final disponible = error['disponible'] as int;
-          
-          if (tipoError == 'parcial' && disponible > 0) {
-            // Stock parcial: ajustar cantidad
-            ajustes.add({
-              'id': id,
-              'nombre': error['nombre'] as String,
-              'solicitado': solicitado,
-              'disponible': disponible,
-            });
-            
-            // Actualizar cantidad en el carrito
-            final itemIndex = _carrito.indexWhere(
-              (item) => item.producto.id == id,
-            );
-            if (itemIndex >= 0) {
-              _carrito[itemIndex].cantidad = disponible;
-            }
-          } else {
-            // Producto completamente agotado o no existe
+
+        for (final entry in cantidadPorProducto.entries) {
+          final id = entry.key;
+          final solicitado = entry.value;
+          final producto = await db.obtenerProductoPorId(id);
+
+          if (producto == null) {
             agotados.add(id);
+            continue;
+          }
+          if (!producto.isAvailable) {
+            agotados.add(id);
+            continue;
+          }
+          if (producto.usarInventario) {
+            final disponible = producto.stockDisponible;
+            if (disponible < solicitado) {
+              if (disponible > 0) {
+                ajustes.add({
+                  'id': id,
+                  'nombre': producto.nombre,
+                  'solicitado': solicitado,
+                  'disponible': disponible,
+                });
+              } else {
+                agotados.add(id);
+              }
+            }
           }
         }
-        
-        setState(() {
-          _productosAgotados = agotados;
-        });
-        
-        // Mostrar diálogo con información detallada
-        if (mounted) {
-          await _mostrarDialogoValidacionStock(ajustes, agotados);
-        }
-        
-        // Si hay productos completamente agotados, no continuar
-        if (agotados.isNotEmpty) {
+
+        if (ajustes.isNotEmpty || agotados.isNotEmpty) {
+          setState(() {
+            _productosAgotados = agotados;
+          });
+          if (mounted) {
+            await _mostrarDialogoValidacionStock(ajustes, agotados);
+          }
           setState(() => _enviando = false);
           return;
         }
-        
-        // Si solo hubo ajustes, continuar con el pedido ajustado (no retornar)
-        }
       }
 
-      // Limpiar marcas de agotados si todo está bien
       setState(() {
         _productosAgotados.clear();
       });
@@ -841,8 +805,6 @@ class _PedidosPageState extends State<PedidosPage> {
       // =====================================================
       // PROCESAR PEDIDO
       // =====================================================
-
-      final db = DatabaseService.instance;
 
       // Agrupar productos por destino (los de apertura - buffet/cubiertos - ya están en _carrito)
       final itemsPorDestino = <int?, List<ItemPedido>>{};
@@ -864,6 +826,7 @@ class _PedidosPageState extends State<PedidosPage> {
           cantidad: item.cantidad,
           destinoId: destinoId,
           nombreDestino: nombreDestino,
+          orden: item.orden,
         );
         
         itemsPorDestino.putIfAbsent(destinoId, () => []).add(itemPedido);
@@ -885,6 +848,15 @@ class _PedidosPageState extends State<PedidosPage> {
 
       // Guardar en la base de datos
       final pedidoId = await db.guardarPedido(pedido);
+
+      // Descontar stock de productos con inventario activado
+      for (final item in pedido.items) {
+        if (item.productoId <= 0) continue;
+        final ok = await db.decrementarStock(item.productoId, item.cantidad);
+        if (!ok) {
+          debugPrint('⚠️ No se pudo descontar stock del producto ${item.productoId} (${item.nombreProducto})');
+        }
+      }
       
       // Actualizar estado de la mesa
       await db.actualizarEstadoMesa(_mesaSeleccionada, EstadoMesa.ocupada);
@@ -979,9 +951,9 @@ class _PedidosPageState extends State<PedidosPage> {
               
               Text(
                 tieneAjustes && !tieneAgotados
-                    ? 'AJUSTE DE CANTIDADES'
+                    ? 'STOCK INSUFICIENTE'
                     : tieneAjustes && tieneAgotados
-                        ? 'PROBLEMAS CON EL PEDIDO'
+                        ? 'STOCK INSUFICIENTE Y AGOTADOS'
                         : 'PRODUCTOS AGOTADOS',
                 style: TextStyle(
                   color: (tieneAjustes && !tieneAgotados)
@@ -996,7 +968,7 @@ class _PedidosPageState extends State<PedidosPage> {
               // Mensaje principal
               if (tieneAjustes && !tieneAgotados)
                 const Text(
-                  'Hemos ajustado automáticamente las cantidades de algunos productos:',
+                  'No hay stock suficiente. Quita o cambia los platos indicados en el carrito para poder enviar el pedido.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white70,
@@ -1005,7 +977,7 @@ class _PedidosPageState extends State<PedidosPage> {
                 )
               else if (tieneAjustes && tieneAgotados)
                 const Text(
-                  'Algunos productos tienen stock limitado y otros están agotados:',
+                  'Algunos productos tienen stock limitado y otros están agotados. Quita o cambia platos del carrito para poder enviar.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white70,
@@ -1014,7 +986,7 @@ class _PedidosPageState extends State<PedidosPage> {
                 )
               else
                 const Text(
-                  'No se puede enviar el pedido.\nPor favor, revisa los artículos agotados:',
+                  'No se puede enviar el pedido. Quita los artículos agotados del carrito.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white70,
@@ -1037,6 +1009,10 @@ class _PedidosPageState extends State<PedidosPage> {
                     itemCount: ajustes.length,
                     itemBuilder: (context, index) {
                       final ajuste = ajustes[index];
+                      final solicitado = ajuste['solicitado'] as int;
+                      final disponible = ajuste['disponible'] as int;
+                      final quitar = solicitado - disponible;
+                      final textoQuitar = ' en stock. Quita $quitar plato${quitar == 1 ? '' : 's'} del carrito.';
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(
@@ -1057,20 +1033,20 @@ class _PedidosPageState extends State<PedidosPage> {
                                   ),
                                   children: [
                                     TextSpan(text: '${ajuste['nombre']}: '),
-                                    TextSpan(
-                                      text: 'Pediste ${ajuste['solicitado']}, ',
-                                      style: const TextStyle(color: Colors.white70),
-                                    ),
                                     const TextSpan(
-                                      text: 'pero solo quedan ',
+                                      text: 'solo hay ',
                                       style: TextStyle(color: Colors.white70),
                                     ),
                                     TextSpan(
-                                      text: '${ajuste['disponible']}',
+                                      text: '$disponible',
                                       style: const TextStyle(
                                         color: Color(0xFFFFA500),
                                         fontWeight: FontWeight.bold,
                                       ),
+                                    ),
+                                    TextSpan(
+                                      text: textoQuitar,
+                                      style: const TextStyle(color: Colors.white70),
                                     ),
                                   ],
                                 ),
@@ -1330,15 +1306,19 @@ class _PedidosPageState extends State<PedidosPage> {
   }
 }
 
-/// Modelo para items en el carrito local
+/// Modelo para items en el carrito local (cada línea es un plato; no se apilan)
 class ItemCarrito {
   final Producto producto;
+  /// Siempre 1: cada línea es un plato individual
   int cantidad;
+  /// Orden del plato: 1 = 1º, 2 = 2º, etc.
+  int orden;
   String? notas;
 
   ItemCarrito({
     required this.producto,
     this.cantidad = 1,
+    this.orden = 1,
     this.notas,
   });
 

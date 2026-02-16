@@ -490,12 +490,7 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
   }
 
   void _configurarImpresora() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Configuración de impresora - Próximamente'),
-        backgroundColor: Color(0xFFFFB74D),
-      ),
-    );
+    context.push(AppRoutes.configuracionImpresora);
   }
 
   void _pruebaImpresion() {

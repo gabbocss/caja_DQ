@@ -47,6 +47,9 @@ class ItemPedido {
   @Enumerated(EnumType.name)
   EstadoPedido estadoItem = EstadoPedido.pendiente;
 
+  /// Orden del plato: 1 = 1º, 2 = 2º, etc.
+  int orden = 1;
+
   /// Constructor por defecto requerido por Isar
   ItemPedido();
 
@@ -60,6 +63,7 @@ class ItemPedido {
     this.destinoId,
     this.nombreDestino,
     this.estadoItem = EstadoPedido.pendiente,
+    this.orden = 1,
   });
 
   /// Calcula el subtotal de este item
@@ -76,6 +80,7 @@ class ItemPedido {
       'destinoId': destinoId,
       'nombreDestino': nombreDestino,
       'estadoItem': estadoItem.name,
+      'orden': orden,
     };
   }
 
@@ -92,7 +97,8 @@ class ItemPedido {
       ..estadoItem = EstadoPedido.values.firstWhere(
         (e) => e.name == json['estadoItem'],
         orElse: () => EstadoPedido.pendiente,
-      );
+      )
+      ..orden = json['orden'] as int? ?? 1;
   }
 }
 

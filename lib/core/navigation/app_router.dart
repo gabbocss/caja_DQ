@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/pedidos/presentation/pages/pedidos_page.dart';
 import '../../features/cocina/presentation/pages/cocina_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_page.dart';
+import '../../features/configuracion/presentation/pages/configuracion_impresora_page.dart';
 import '../../features/configuracion/presentation/pages/destinos_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_productos_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_mesas_page.dart';
@@ -18,6 +19,7 @@ class AppRoutes {
   static const String buffetConfig = '/buffet-config';
   static const String gestionProductos = '/gestion-productos';
   static const String gestionMesas = '/gestion-mesas';
+  static const String configuracionImpresora = '/configuracion-impresora';
 }
 
 /// Configuración del router de la aplicación
@@ -66,6 +68,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.gestionMesas,
       builder: (context, state) => const GestionMesasPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.configuracionImpresora,
+      builder: (context, state) => const ConfiguracionImpresoraPage(),
     ),
   ],
 );

@@ -16,7 +16,8 @@ class CarritoPanel extends StatelessWidget {
   final Future<void> Function(int mesa)? onMesaTap;
   final ValueChanged<int>? onMostrarQrMesa;
   final ValueChanged<int> onItemRemoved;
-  final void Function(int index, int cantidad) onItemQuantityChanged;
+  /// Callback para cambiar el orden del plato (1º, 2º, etc.) por índice
+  final void Function(int index, int orden)? onOrdenChanged;
   final VoidCallback onEnviar;
   /// Se llama al pulsar LIBERAR (solo visible si la mesa tiene consumo actual)
   final VoidCallback? onLiberar;
@@ -33,7 +34,7 @@ class CarritoPanel extends StatelessWidget {
     this.onMesaTap,
     this.onMostrarQrMesa,
     required this.onItemRemoved,
-    required this.onItemQuantityChanged,
+    this.onOrdenChanged,
     required this.onEnviar,
     this.onLiberar,
     this.enviando = false,
@@ -361,12 +362,15 @@ class CarritoPanel extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        final estaAgotado = item.producto.id != null && 
+        final estaAgotado = item.producto.id != null &&
             productosAgotados.contains(item.producto.id);
         return _CarritoItemTile(
           item: item,
+          index: index,
           onRemove: () => onItemRemoved(index),
-          onQuantityChanged: (cantidad) => onItemQuantityChanged(index, cantidad),
+          onOrdenChanged: onOrdenChanged != null
+              ? (orden) => onOrdenChanged!(index, orden)
+              : null,
           estaAgotado: estaAgotado,
         );
       },
@@ -506,21 +510,73 @@ class CarritoPanel extends StatelessWidget {
 /// Tile individual de item en el carrito
 class _CarritoItemTile extends StatelessWidget {
   final ItemCarrito item;
+  final int index;
   final VoidCallback onRemove;
-  final ValueChanged<int> onQuantityChanged;
+  final ValueChanged<int>? onOrdenChanged;
   final bool estaAgotado;
 
   const _CarritoItemTile({
     required this.item,
+    required this.index,
     required this.onRemove,
-    required this.onQuantityChanged,
+    this.onOrdenChanged,
     this.estaAgotado = false,
   });
+
+  Future<void> _mostrarDialogoOrden(BuildContext context) async {
+    if (onOrdenChanged == null) return;
+    int seleccionado = item.orden;
+    final result = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          backgroundColor: const Color(0xFF16213E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            '¿Orden de los platos?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SingleChildScrollView(
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: List.generate(9, (i) {
+                final n = i + 1;
+                final isSelected = seleccionado == n;
+                return ChoiceChip(
+                  label: Text('$nº'),
+                  selected: isSelected,
+                  onSelected: (_) => setState(() => seleccionado = n),
+                  selectedColor: const Color(0xFF00D9A5),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.black87 : Colors.white,
+                    fontWeight: isSelected ? FontWeight.bold : null,
+                  ),
+                );
+              }),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(seleccionado),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00D9A5)),
+              child: const Text('Aceptar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != null) onOrdenChanged!(result);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Dismissible(
-      key: ValueKey(item.producto.id ?? item.producto.nombre),
+      key: ValueKey('$index-${item.producto.id ?? item.producto.nombre}'),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => onRemove(),
       background: Container(
@@ -533,134 +589,131 @@ class _CarritoItemTile extends StatelessWidget {
           size: 28,
         ),
       ),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: estaAgotado 
-              ? const Color(0xFF2A1A1A) // Fondo más oscuro/rojizo
-              : const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
+      child: GestureDetector(
+        onDoubleTap: onOrdenChanged != null ? () => _mostrarDialogoOrden(context) : null,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
             color: estaAgotado
-                ? const Color(0xFFE94560) // Borde rojo si está agotado
-                : item.producto.esBuffet
-                    ? const Color(0xFFFFD700).withValues(alpha: 0.3)
-                    : const Color(0xFF0F3460),
-            width: estaAgotado ? 2 : 1,
-          ),
-          boxShadow: estaAgotado
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFE94560).withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    spreadRadius: 0,
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            // Indicador de destino o estado agotado
-            Container(
-              width: 4,
-              height: 50,
-              decoration: BoxDecoration(
-                color: estaAgotado
-                    ? const Color(0xFFE94560)
-                    : item.producto.destino == DestinoProducto.cocina
-                        ? const Color(0xFFE94560)
-                        : const Color(0xFF00D9A5),
-                borderRadius: BorderRadius.circular(2),
-              ),
+                ? const Color(0xFF2A1A1A)
+                : const Color(0xFF1A1A2E),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: estaAgotado
+                  ? const Color(0xFFE94560)
+                  : item.producto.esBuffet
+                      ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                      : const Color(0xFF0F3460),
+              width: estaAgotado ? 2 : 1,
             ),
-            const SizedBox(width: 12),
-            
-            // Info del producto
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.producto.nombre,
-                          style: TextStyle(
-                            color: estaAgotado ? Colors.white60 : Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            decoration: estaAgotado ? TextDecoration.lineThrough : null,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (item.producto.esBuffet && !estaAgotado)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: Icon(
-                            Icons.star,
-                            color: Color(0xFFFFD700),
-                            size: 14,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  if (estaAgotado)
-                    // Etiqueta de agotado
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE94560),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'AGOTADO',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      '\$${item.subtotal.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Color(0xFF00D9A5),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+            boxShadow: estaAgotado
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFE94560).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      spreadRadius: 0,
                     ),
-                ],
-              ),
-            ),
-            
-            // Controles de cantidad o botón eliminar si está agotado
-            if (estaAgotado)
-              IconButton(
-                onPressed: onRemove,
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Color(0xFFE94560),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: estaAgotado
+                      ? const Color(0xFFE94560)
+                      : item.producto.destino == DestinoProducto.cocina
+                          ? const Color(0xFFE94560)
+                          : const Color(0xFF00D9A5),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                tooltip: 'Eliminar producto agotado',
-              )
-            else
-              Row(
-                children: [
-                  _QuantityButton(
-                    icon: Icons.remove,
-                    onTap: () => onQuantityChanged(item.cantidad - 1),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.producto.nombre,
+                            style: TextStyle(
+                              color: estaAgotado ? Colors.white60 : Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              decoration: estaAgotado ? TextDecoration.lineThrough : null,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (item.producto.esBuffet && !estaAgotado)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.star,
+                              color: Color(0xFFFFD700),
+                              size: 14,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    if (estaAgotado)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE94560),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'AGOTADO',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        '\$${item.subtotal.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Color(0xFF00D9A5),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (estaAgotado)
+                IconButton(
+                  onPressed: onRemove,
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Color(0xFFE94560),
                   ),
-                  Container(
+                  tooltip: 'Eliminar producto agotado',
+                )
+              else
+                Tooltip(
+                  message: 'Doble clic para cambiar orden del plato',
+                  child: Container(
                     width: 36,
+                    height: 36,
                     alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F3460),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Text(
-                      '${item.cantidad}',
+                      '${item.orden}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -668,47 +721,8 @@ class _CarritoItemTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _QuantityButton(
-                    icon: Icons.add,
-                    onTap: () => onQuantityChanged(item.cantidad + 1),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Botón de cantidad (+/-)
-class _QuantityButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _QuantityButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F3460),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white70,
-            size: 20,
+                ),
+            ],
           ),
         ),
       ),

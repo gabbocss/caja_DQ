@@ -2230,18 +2230,23 @@ const ItemPedidoSchema = Schema(
       name: r'notas',
       type: IsarType.string,
     ),
-    r'precioUnitario': PropertySchema(
+    r'orden': PropertySchema(
       id: 6,
+      name: r'orden',
+      type: IsarType.long,
+    ),
+    r'precioUnitario': PropertySchema(
+      id: 7,
       name: r'precioUnitario',
       type: IsarType.double,
     ),
     r'productoId': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'productoId',
       type: IsarType.long,
     ),
     r'subtotal': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'subtotal',
       type: IsarType.double,
     )
@@ -2287,9 +2292,10 @@ void _itemPedidoSerialize(
   writer.writeString(offsets[3], object.nombreDestino);
   writer.writeString(offsets[4], object.nombreProducto);
   writer.writeString(offsets[5], object.notas);
-  writer.writeDouble(offsets[6], object.precioUnitario);
-  writer.writeLong(offsets[7], object.productoId);
-  writer.writeDouble(offsets[8], object.subtotal);
+  writer.writeLong(offsets[6], object.orden);
+  writer.writeDouble(offsets[7], object.precioUnitario);
+  writer.writeLong(offsets[8], object.productoId);
+  writer.writeDouble(offsets[9], object.subtotal);
 }
 
 ItemPedido _itemPedidoDeserialize(
@@ -2307,8 +2313,9 @@ ItemPedido _itemPedidoDeserialize(
   object.nombreDestino = reader.readStringOrNull(offsets[3]);
   object.nombreProducto = reader.readString(offsets[4]);
   object.notas = reader.readStringOrNull(offsets[5]);
-  object.precioUnitario = reader.readDouble(offsets[6]);
-  object.productoId = reader.readLong(offsets[7]);
+  object.orden = reader.readLong(offsets[6]);
+  object.precioUnitario = reader.readDouble(offsets[7]);
+  object.productoId = reader.readLong(offsets[8]);
   return object;
 }
 
@@ -2334,10 +2341,12 @@ P _itemPedidoDeserializeProp<P>(
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readDouble(offset)) as P;
-    case 7:
       return (reader.readLong(offset)) as P;
+    case 7:
+      return (reader.readDouble(offset)) as P;
     case 8:
+      return (reader.readLong(offset)) as P;
+    case 9:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -3057,6 +3066,59 @@ extension ItemPedidoQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'notas',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition> ordenEqualTo(
+      int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'orden',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition> ordenGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'orden',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition> ordenLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'orden',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition> ordenBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'orden',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }

@@ -22,6 +22,7 @@ export 'utils/platform_utils.dart';
 
 // Servicios
 export 'services/imprimir_pedido_service.dart';
+export 'services/configuracion_impresion_service.dart';
 
 // Navegación
 export 'navigation/app_router.dart';
