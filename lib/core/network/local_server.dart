@@ -578,12 +578,25 @@ class LocalServer {
       }
     });
 
-    // POST /api/qr/pedido - Crear pedido desde cliente QR
+    // POST /api/qr/pedido - Crear pedido desde cliente QR (solo en horario de buffet)
     router.post('/api/qr/pedido', (Request request) async {
       try {
         final body = await request.readAsString();
         final json = jsonDecode(body) as Map<String, dynamic>;
-        
+
+        // Solo permitir pedidos desde la web si estamos en horario de buffet
+        final enHorarioBuffet = await _db.esHorarioBuffet();
+        if (!enHorarioBuffet) {
+          return Response(
+            403,
+            body: jsonEncode({
+              'error': 'Fuera de horario',
+              'mensaje': 'Solo se pueden enviar pedidos en horario de buffet. Consulta los horarios en el restaurante.',
+            }),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
+
         // Crear pedido con origen QR
         final pedido = Pedido()
           ..mesaNumero = json['mesaNumero'] as int
@@ -1812,7 +1825,7 @@ class LocalServer {
           if (errorData.productos_agotados) {
             mostrarDialogoAgotados(errorData.productos_agotados);
           } else {
-            alert('Error al enviar el pedido. Inténtalo de nuevo.');
+            alert(errorData.mensaje || 'Error al enviar el pedido. Inténtalo de nuevo.');
           }
         }
       } catch (e) {
