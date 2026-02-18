@@ -1,11 +1,26 @@
 /// Configuración de impresión para tickets térmicos 80mm.
 /// Se persiste en JSON; no es una colección Isar.
 class ConfiguracionImpresion {
-  /// Tamaño de la cabecera (MESA X, Ticket #N): normal, doble altura, doble ancho, doble ambos
+  /// Modo de tamaño: 'presets' (ESC !, compatible) o 'numerico' (GS !, escala 1-8)
+  String modoTamanio;
+
+  /// Tamaño de la cabecera (MESA X, Ticket #N): normal, doble altura, doble ancho, doble ambos (solo si modoTamanio == presets)
   String tamanioCabecera;
 
-  /// Tamaño del cuerpo (líneas de ítems): normal (12 cpi), condensado (15 cpi)
+  /// Tamaño del cuerpo (solo si modoTamanio == presets): pequeno, normal, grande
   String tamanioCuerpo;
+
+  /// Escala ancho cabecera 1-8 (solo si modoTamanio == numerico)
+  int escalaAnchoCabecera;
+
+  /// Escala alto cabecera 1-8
+  int escalaAltoCabecera;
+
+  /// Escala ancho cuerpo 1-8
+  int escalaAnchoCuerpo;
+
+  /// Escala alto cuerpo 1-8
+  int escalaAltoCuerpo;
 
   bool negritaCabecera;
   bool negritaCuerpo;
@@ -37,8 +52,13 @@ class ConfiguracionImpresion {
   String tipoCorte;
 
   ConfiguracionImpresion({
+    this.modoTamanio = 'presets',
     this.tamanioCabecera = 'normal',
     this.tamanioCuerpo = 'normal',
+    this.escalaAnchoCabecera = 2,
+    this.escalaAltoCabecera = 2,
+    this.escalaAnchoCuerpo = 1,
+    this.escalaAltoCuerpo = 1,
     this.negritaCabecera = true,
     this.negritaCuerpo = false,
     this.margenIzquierdoMm = 2,
@@ -54,8 +74,13 @@ class ConfiguracionImpresion {
 
   factory ConfiguracionImpresion.fromJson(Map<String, dynamic> json) {
     return ConfiguracionImpresion(
+      modoTamanio: json['modoTamanio'] as String? ?? 'presets',
       tamanioCabecera: json['tamanioCabecera'] as String? ?? 'normal',
       tamanioCuerpo: _normalizarTamanioCuerpo(json['tamanioCuerpo'] as String?),
+      escalaAnchoCabecera: _clampEscala((json['escalaAnchoCabecera'] as num?)?.toInt()),
+      escalaAltoCabecera: _clampEscala((json['escalaAltoCabecera'] as num?)?.toInt()),
+      escalaAnchoCuerpo: _clampEscala((json['escalaAnchoCuerpo'] as num?)?.toInt()),
+      escalaAltoCuerpo: _clampEscala((json['escalaAltoCuerpo'] as num?)?.toInt()),
       negritaCabecera: json['negritaCabecera'] as bool? ?? true,
       negritaCuerpo: json['negritaCuerpo'] as bool? ?? false,
       margenIzquierdoMm: (json['margenIzquierdoMm'] as num?)?.toInt() ?? 2,
@@ -70,10 +95,20 @@ class ConfiguracionImpresion {
     );
   }
 
+  static int _clampEscala(int? v) {
+    if (v == null) return 1;
+    return v.clamp(1, 8);
+  }
+
   Map<String, dynamic> toJson() {
     return {
+      'modoTamanio': modoTamanio,
       'tamanioCabecera': tamanioCabecera,
       'tamanioCuerpo': tamanioCuerpo,
+      'escalaAnchoCabecera': escalaAnchoCabecera,
+      'escalaAltoCabecera': escalaAltoCabecera,
+      'escalaAnchoCuerpo': escalaAnchoCuerpo,
+      'escalaAltoCuerpo': escalaAltoCuerpo,
       'negritaCabecera': negritaCabecera,
       'negritaCuerpo': negritaCuerpo,
       'margenIzquierdoMm': margenIzquierdoMm,
@@ -109,4 +144,6 @@ class ConfiguracionImpresion {
   static const List<int> opcionesAnchoCaracteres = [32, 42, 48];
 
   static const List<String> opcionesTipoCorte = ['completo', 'parcial', 'ninguno'];
+
+  static const List<String> opcionesModoTamanio = ['presets', 'numerico'];
 }

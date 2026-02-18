@@ -32,6 +32,13 @@ class ImprimirPedidoService {
   static const List<int> _escCutFull = [0x1D, 0x56, 0x00];
   static const List<int> _escCutPartial = [0x1D, 0x56, 0x01];
 
+  /// GS ! n - Tamaño por escala numérica (1-8 ancho, 1-8 alto). No todas las impresoras lo soportan.
+  static List<int> _gsSize(int widthScale, int heightScale) {
+    final w = (widthScale.clamp(1, 8) - 1) & 7;
+    final h = (heightScale.clamp(1, 8) - 1) & 7;
+    return [0x1D, 0x21, (w << 4) | h];
+  }
+
   /// Agrupa ítems por nombre y suma cantidades (dentro de un mismo turno).
   Map<String, int> _agruparCantidades(List<ItemPedido> items) {
     final map = <String, int>{};
@@ -124,27 +131,45 @@ class ImprimirPedidoService {
 
     for (var i = 0; i < config.margenSuperiorLineas; i++) addStr('\n');
 
+    final usarNumerico = config.modoTamanio == 'numerico';
+
     if (config.textoCabecera != null && config.textoCabecera!.isNotEmpty) {
       if (config.negritaCabecera) add(_escBoldOn);
-      add(_escTamanioCabecera(config));
+      if (usarNumerico) {
+        add(_gsSize(config.escalaAnchoCabecera, config.escalaAltoCabecera));
+      } else {
+        add(_escTamanioCabecera(config));
+      }
       addStr(_aplicarMargen('${config.textoCabecera!.trim()}\n', margenEsp));
-      add(_escSizeNormal);
+      if (!usarNumerico) add(_escSizeNormal);
       add(_escBoldOff);
     }
 
     addStr(_aplicarMargen('$sep\n', margenEsp));
 
     if (config.negritaCabecera) add(_escBoldOn);
-    add(_escTamanioCabecera(config));
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCabecera, config.escalaAltoCabecera));
+    } else {
+      add(_escTamanioCabecera(config));
+    }
     addStr(_aplicarMargen('      MESA $mesaNumero\n', margenEsp));
     addStr(_aplicarMargen('   Ticket #$numeroTicket\n', margenEsp));
-    add(_escSizeNormal);
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      add(_escSizeNormal);
+    }
     add(_escBoldOff);
 
     addStr(_aplicarMargen('$sep\n', margenEsp));
     addStr(_aplicarMargen('\n', margenEsp));
 
-    _aplicarTamanioCuerpo(config, add);
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCuerpo, config.escalaAltoCuerpo));
+    } else {
+      _aplicarTamanioCuerpo(config, add);
+    }
     if (config.negritaCuerpo) add(_escBoldOn);
 
     final itemsPorOrden = _agruparPorOrden(items);
@@ -164,7 +189,11 @@ class ImprimirPedidoService {
     }
 
     if (config.negritaCuerpo) add(_escBoldOff);
-    _resetTamanioCuerpo(add);
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      _resetTamanioCuerpo(add);
+    }
 
     addStr(_aplicarMargen('\n', margenEsp));
     addStr(_aplicarMargen('$sep\n', margenEsp));

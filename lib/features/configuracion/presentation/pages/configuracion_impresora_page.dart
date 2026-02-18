@@ -21,7 +21,12 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
   late TextEditingController _margenIzqController;
   late TextEditingController _margenSupController;
   late TextEditingController _margenInfController;
+  late TextEditingController _escalaAnchoCabeceraController;
+  late TextEditingController _escalaAltoCabeceraController;
+  late TextEditingController _escalaAnchoCuerpoController;
+  late TextEditingController _escalaAltoCuerpoController;
 
+  String _modoTamanio = 'presets';
   String _tamanioCabecera = 'normal';
   String _tamanioCuerpo = 'normal';
   bool _negritaCabecera = true;
@@ -39,6 +44,10 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
     _margenIzqController = TextEditingController(text: '2');
     _margenSupController = TextEditingController(text: '0');
     _margenInfController = TextEditingController(text: '1');
+    _escalaAnchoCabeceraController = TextEditingController(text: '2');
+    _escalaAltoCabeceraController = TextEditingController(text: '2');
+    _escalaAnchoCuerpoController = TextEditingController(text: '1');
+    _escalaAltoCuerpoController = TextEditingController(text: '1');
     _cargar();
   }
 
@@ -50,6 +59,10 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
     _margenIzqController.dispose();
     _margenSupController.dispose();
     _margenInfController.dispose();
+    _escalaAnchoCabeceraController.dispose();
+    _escalaAltoCabeceraController.dispose();
+    _escalaAnchoCuerpoController.dispose();
+    _escalaAltoCuerpoController.dispose();
     super.dispose();
   }
 
@@ -57,8 +70,13 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
     setState(() => _cargando = true);
     try {
       final config = await ConfiguracionImpresionService.instance.cargar();
+      _modoTamanio = config.modoTamanio;
       _tamanioCabecera = config.tamanioCabecera;
       _tamanioCuerpo = config.tamanioCuerpo;
+      _escalaAnchoCabeceraController.text = config.escalaAnchoCabecera.toString();
+      _escalaAltoCabeceraController.text = config.escalaAltoCabecera.toString();
+      _escalaAnchoCuerpoController.text = config.escalaAnchoCuerpo.toString();
+      _escalaAltoCuerpoController.text = config.escalaAltoCuerpo.toString();
       _negritaCabecera = config.negritaCabecera;
       _negritaCuerpo = config.negritaCuerpo;
       _anchoCaracteres = config.anchoCaracteres;
@@ -75,13 +93,24 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
     }
   }
 
+  int _parseEscala(String s, int def) {
+    final n = int.tryParse(s.trim());
+    if (n == null || n < 1 || n > 8) return def;
+    return n;
+  }
+
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _guardando = true);
     try {
       final config = ConfiguracionImpresion(
+        modoTamanio: _modoTamanio,
         tamanioCabecera: _tamanioCabecera,
         tamanioCuerpo: _tamanioCuerpo,
+        escalaAnchoCabecera: _parseEscala(_escalaAnchoCabeceraController.text, 2),
+        escalaAltoCabecera: _parseEscala(_escalaAltoCabeceraController.text, 2),
+        escalaAnchoCuerpo: _parseEscala(_escalaAnchoCuerpoController.text, 1),
+        escalaAltoCuerpo: _parseEscala(_escalaAltoCuerpoController.text, 1),
         negritaCabecera: _negritaCabecera,
         negritaCuerpo: _negritaCuerpo,
         margenIzquierdoMm: int.tryParse(_margenIzqController.text) ?? 2,
@@ -128,9 +157,56 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
                 padding: const EdgeInsets.all(20),
                 children: [
                   _buildSeccion('Tipografía', Icons.text_fields, [
-                    _dropdown('Tamaño cabecera (MESA, Ticket #)', _tamanioCabecera, ConfiguracionImpresion.opcionesTamanioCabecera, (v) => setState(() => _tamanioCabecera = v!), const ['Normal', 'Doble altura', 'Doble ancho', 'Doble ambos']),
+                    _dropdown('Método de tamaño', _modoTamanio, ConfiguracionImpresion.opcionesModoTamanio, (v) => setState(() => _modoTamanio = v!), const ['Presets (ESC !, compatible)', 'Numérico 1-8 (GS !)']),
                     const SizedBox(height: 12),
-                    _dropdown('Tamaño cuerpo (ítems)', _tamanioCuerpo, ConfiguracionImpresion.opcionesTamanioCuerpo, (v) => setState(() => _tamanioCuerpo = v!), const ['Pequeño (condensado)', 'Normal', 'Grande (doble altura)']),
+                    if (_modoTamanio == 'presets') ...[
+                      _dropdown('Tamaño cabecera (MESA, Ticket #)', _tamanioCabecera, ConfiguracionImpresion.opcionesTamanioCabecera, (v) => setState(() => _tamanioCabecera = v!), const ['Normal', 'Doble altura', 'Doble ancho', 'Doble ambos']),
+                      const SizedBox(height: 12),
+                      _dropdown('Tamaño cuerpo (ítems)', _tamanioCuerpo, ConfiguracionImpresion.opcionesTamanioCuerpo, (v) => setState(() => _tamanioCuerpo = v!), const ['Pequeño (condensado)', 'Normal', 'Grande (doble altura)']),
+                    ] else ...[
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: Text('Escala 1-8 (ancho × alto). Usa solo si tu impresora soporta GS !', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Cabecera', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(child: _campoEscala(_escalaAnchoCabeceraController, 'Ancho')),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: _campoEscala(_escalaAltoCabeceraController, 'Alto')),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Cuerpo', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(child: _campoEscala(_escalaAnchoCuerpoController, 'Ancho')),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: _campoEscala(_escalaAltoCuerpoController, 'Alto')),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     SwitchListTile(
                       title: const Text('Negrita cabecera', style: TextStyle(color: Colors.white)),
@@ -258,6 +334,24 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _campoEscala(TextEditingController controller, String label) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: '1-8',
+        isDense: true,
+      ),
+      style: const TextStyle(color: Colors.white),
+      keyboardType: TextInputType.number,
+      validator: (v) {
+        final n = int.tryParse(v ?? '');
+        if (n == null || n < 1 || n > 8) return '1-8';
+        return null;
+      },
     );
   }
 
