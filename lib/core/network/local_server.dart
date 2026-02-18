@@ -9,6 +9,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../database/database_service.dart';
 import '../models/models.dart';
+import '../services/imprimir_pedido_service.dart';
 
 /// Servidor HTTP local para comunicación entre dispositivos
 /// 
@@ -658,10 +659,15 @@ class LocalServer {
         
         pedido.calcularTotal();
         final id = await _db.guardarPedido(pedido);
-        
+
         // Actualizar estado de la mesa a ocupada
         await _db.actualizarEstadoMesa(pedido.mesaNumero, EstadoMesa.ocupada);
-        
+
+        // Imprimir en las impresoras configuradas por destino (mismo flujo que pedidos de camarero)
+        ImprimirPedidoService.instance.imprimirPedido(pedido).catchError((e, st) {
+          debugPrint('Error al imprimir pedido QR: $e');
+        });
+
         debugPrint('📱 Pedido QR #$id recibido para mesa ${pedido.mesaNumero}');
         
         return Response.ok(

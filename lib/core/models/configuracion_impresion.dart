@@ -55,7 +55,7 @@ class ConfiguracionImpresion {
   factory ConfiguracionImpresion.fromJson(Map<String, dynamic> json) {
     return ConfiguracionImpresion(
       tamanioCabecera: json['tamanioCabecera'] as String? ?? 'normal',
-      tamanioCuerpo: json['tamanioCuerpo'] as String? ?? 'normal',
+      tamanioCuerpo: _normalizarTamanioCuerpo(json['tamanioCuerpo'] as String?),
       negritaCabecera: json['negritaCabecera'] as bool? ?? true,
       negritaCuerpo: json['negritaCuerpo'] as bool? ?? false,
       margenIzquierdoMm: (json['margenIzquierdoMm'] as num?)?.toInt() ?? 2,
@@ -96,7 +96,15 @@ class ConfiguracionImpresion {
     'doble_ambos',
   ];
 
-  static const List<String> opcionesTamanioCuerpo = ['normal', 'condensado'];
+  /// Pequeño = condensado (más caracteres por línea), Normal = estándar, Grande = doble altura
+  static const List<String> opcionesTamanioCuerpo = ['pequeno', 'normal', 'grande'];
+
+  static String _normalizarTamanioCuerpo(String? v) {
+    if (v == null || v.isEmpty) return 'normal';
+    if (v == 'condensado') return 'pequeno'; // compatibilidad
+    if (opcionesTamanioCuerpo.contains(v)) return v;
+    return 'normal';
+  }
 
   static const List<int> opcionesAnchoCaracteres = [32, 42, 48];
 

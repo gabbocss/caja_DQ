@@ -130,7 +130,7 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
                   _buildSeccion('Tipografía', Icons.text_fields, [
                     _dropdown('Tamaño cabecera (MESA, Ticket #)', _tamanioCabecera, ConfiguracionImpresion.opcionesTamanioCabecera, (v) => setState(() => _tamanioCabecera = v!), const ['Normal', 'Doble altura', 'Doble ancho', 'Doble ambos']),
                     const SizedBox(height: 12),
-                    _dropdown('Tamaño cuerpo (ítems)', _tamanioCuerpo, ConfiguracionImpresion.opcionesTamanioCuerpo, (v) => setState(() => _tamanioCuerpo = v!), const ['Normal (12 cpi)', 'Condensado (15 cpi)']),
+                    _dropdown('Tamaño cuerpo (ítems)', _tamanioCuerpo, ConfiguracionImpresion.opcionesTamanioCuerpo, (v) => setState(() => _tamanioCuerpo = v!), const ['Pequeño (condensado)', 'Normal', 'Grande (doble altura)']),
                     const SizedBox(height: 12),
                     SwitchListTile(
                       title: const Text('Negrita cabecera', style: TextStyle(color: Colors.white)),

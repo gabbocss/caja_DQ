@@ -83,6 +83,29 @@ class ImprimirPedidoService {
     }
   }
 
+  /// Aplica el tamaño del cuerpo (ítems) y devuelve los bytes ESC/POS a enviar antes del texto.
+  void _aplicarTamanioCuerpo(ConfiguracionImpresion c, void Function(List<int>) add) {
+    switch (c.tamanioCuerpo) {
+      case 'pequeno':
+        add(_escCondensedOn);
+        add(_escSizeNormal);
+        break;
+      case 'grande':
+        add(_escCondensedOff);
+        add(_escSizeDoubleHeight);
+        break;
+      default:
+        add(_escCondensedOff);
+        add(_escSizeNormal);
+    }
+  }
+
+  /// Restablece tamaño y condensado después del cuerpo.
+  void _resetTamanioCuerpo(void Function(List<int>) add) {
+    add(_escSizeNormal);
+    add(_escCondensedOff);
+  }
+
   /// Genera el payload completo del ticket (ESC/POS + texto) según la configuración.
   Future<List<int>> _generarPayloadTicket(
     ConfiguracionImpresion config,
@@ -121,7 +144,7 @@ class ImprimirPedidoService {
     addStr(_aplicarMargen('$sep\n', margenEsp));
     addStr(_aplicarMargen('\n', margenEsp));
 
-    if (config.tamanioCuerpo == 'condensado') add(_escCondensedOn);
+    _aplicarTamanioCuerpo(config, add);
     if (config.negritaCuerpo) add(_escBoldOn);
 
     final itemsPorOrden = _agruparPorOrden(items);
@@ -141,7 +164,7 @@ class ImprimirPedidoService {
     }
 
     if (config.negritaCuerpo) add(_escBoldOff);
-    if (config.tamanioCuerpo == 'condensado') add(_escCondensedOff);
+    _resetTamanioCuerpo(add);
 
     addStr(_aplicarMargen('\n', margenEsp));
     addStr(_aplicarMargen('$sep\n', margenEsp));

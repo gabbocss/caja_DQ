@@ -408,7 +408,7 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
     _puertoController = TextEditingController(
       text: widget.destino?.puertoImpresora != null
           ? widget.destino!.puertoImpresora.toString()
-          : '9100',
+          : '',
     );
 
     if (widget.destino != null) {
@@ -620,8 +620,8 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
                   TextFormField(
                     controller: _puertoController,
                     decoration: const InputDecoration(
-                      labelText: 'Puerto',
-                      hintText: '9100 (por defecto)',
+                      labelText: 'Puerto (opcional)',
+                      hintText: 'Vacío = por defecto. Ej: 9100',
                     ),
                     style: const TextStyle(color: Colors.white),
                     keyboardType: TextInputType.number,
@@ -682,8 +682,8 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
           : _direccionController.text;
       final puertoStr = _puertoController.text.trim();
       destino.puertoImpresora = puertoStr.isEmpty
-          ? 9100
-          : int.tryParse(puertoStr) ?? 9100;
+          ? null
+          : int.tryParse(puertoStr);
 
       if (widget.destino == null) {
         destino.activo = true;
