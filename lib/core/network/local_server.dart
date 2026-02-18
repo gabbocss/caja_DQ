@@ -383,15 +383,16 @@ class LocalServer {
         final json = jsonDecode(body) as Map<String, dynamic>;
         final pedido = Pedido.fromJson(json);
         
-        // Validar disponibilidad de productos antes de guardar
+        // Validar disponibilidad de productos antes de guardar (omitir ítems especiales: Cubiertos, Buffet con productoId <= 0)
         final productosNoDisponibles = <String>[];
         for (final item in pedido.items) {
+          if (item.productoId <= 0) continue;
           final producto = await _db.obtenerProductoPorId(item.productoId);
           if (producto == null || !producto.isAvailable) {
             productosNoDisponibles.add(item.nombreProducto);
           }
           // Si el producto usa inventario, verificar stock suficiente
-          if (producto != null && producto.usarInventario) {
+          else if (producto.usarInventario) {
             if (producto.stockDisponible < item.cantidad) {
               productosNoDisponibles.add('${item.nombreProducto} (stock insuficiente)');
             }
@@ -413,6 +414,7 @@ class LocalServer {
         
         // ========== DESCONTAR STOCK AUTOMÁTICAMENTE ==========
         for (final item in pedido.items) {
+          if (item.productoId <= 0) continue;
           final producto = await _db.obtenerProductoPorId(item.productoId);
           if (producto != null && producto.usarInventario) {
             final nuevoStock = producto.stockDisponible - item.cantidad;
@@ -579,6 +581,25 @@ class LocalServer {
       }
     });
 
+    // GET /api/configuracion-buffet - Configuración de buffet activa (precio cubierto, horarios, etc.)
+    router.get('/api/configuracion-buffet', (Request request) async {
+      try {
+        final config = await _db.obtenerConfiguracionBuffetActiva();
+        if (config == null) {
+          return Response.notFound(
+            jsonEncode({'error': 'No hay configuración de buffet activa'}),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
+        return Response.ok(
+          jsonEncode(config.toJson()),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al obtener configuración buffet: $e');
+      }
+    });
+
     // POST /api/qr/pedido - Crear pedido desde cliente QR (solo en horario de buffet)
     router.post('/api/qr/pedido', (Request request) async {
       try {
@@ -617,22 +638,21 @@ class LocalServer {
           pedido.items.add(item);
         }
         
-        // Validar disponibilidad de productos antes de guardar
+        // Validar disponibilidad de productos antes de guardar (omitir ítems especiales con productoId <= 0)
         final productosNoDisponibles = <String>[];
         for (final item in pedido.items) {
+          if (item.productoId <= 0) continue;
           final producto = await _db.obtenerProductoPorId(item.productoId);
           if (producto == null || !producto.isAvailable) {
             productosNoDisponibles.add(item.nombreProducto);
           }
-          // Si el producto usa inventario, verificar stock suficiente
-          if (producto != null && producto.usarInventario) {
+          else if (producto.usarInventario) {
             if (producto.stockDisponible < item.cantidad) {
               productosNoDisponibles.add('${item.nombreProducto} (stock insuficiente)');
             }
           }
         }
         
-        // Si hay productos no disponibles, rechazar el pedido
         if (productosNoDisponibles.isNotEmpty) {
           return Response(
             400,
@@ -647,6 +667,7 @@ class LocalServer {
         
         // ========== DESCONTAR STOCK AUTOMÁTICAMENTE ==========
         for (final item in pedido.items) {
+          if (item.productoId <= 0) continue;
           final producto = await _db.obtenerProductoPorId(item.productoId);
           if (producto != null && producto.usarInventario) {
             final nuevoStock = producto.stockDisponible - item.cantidad;

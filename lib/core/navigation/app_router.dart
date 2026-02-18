@@ -1,8 +1,14 @@
 import 'package:go_router/go_router.dart';
 
+import '../di/injection_container.dart';
+import '../utils/platform_utils.dart';
 import '../../features/pedidos/presentation/pages/pedidos_page.dart';
+import '../../features/pedidos/presentation/pages/mesas_page.dart';
+import '../../features/pedidos/presentation/pages/mesa_categorias_page.dart';
+import '../../features/pedidos/presentation/pages/mesa_platos_page.dart';
 import '../../features/cocina/presentation/pages/cocina_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_page.dart';
+import '../../features/configuracion/presentation/pages/configurar_conexion_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_impresora_page.dart';
 import '../../features/configuracion/presentation/pages/destinos_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_productos_page.dart';
@@ -13,6 +19,8 @@ import 'navigation_shell.dart';
 /// Rutas de la aplicación
 class AppRoutes {
   static const String pedidos = '/pedidos';
+  static const String mesas = '/mesas';
+  static const String configurarConexion = '/configurar-conexion';
   static const String cocina = '/cocina';
   static const String configuracion = '/configuracion';
   static const String destinos = '/destinos';
@@ -24,19 +32,50 @@ class AppRoutes {
 
 /// Configuración del router de la aplicación
 final appRouter = GoRouter(
-  initialLocation: AppRoutes.pedidos,
+  initialLocation: PlatformUtils.isMobile ? AppRoutes.mesas : AppRoutes.pedidos,
+  redirect: (context, state) {
+    if (PlatformUtils.isMobile && needConfigurarConexion) {
+      final loc = state.matchedLocation;
+      if (loc != AppRoutes.configurarConexion) return AppRoutes.configurarConexion;
+    }
+    return null;
+  },
   routes: [
-    // Shell de navegación con bottom navigation
     ShellRoute(
-      builder: (context, state, child) {
-        return NavigationShell(child: child);
-      },
+      builder: (context, state, child) => NavigationShell(child: child),
       routes: [
         GoRoute(
           path: AppRoutes.pedidos,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: PedidosPage(),
           ),
+        ),
+        GoRoute(
+          path: AppRoutes.mesas,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: MesasPage(),
+          ),
+          routes: [
+            GoRoute(
+              path: 'categorias/:numero',
+              pageBuilder: (context, state) {
+                final numero = int.tryParse(state.pathParameters['numero'] ?? '1') ?? 1;
+                return NoTransitionPage(
+                  child: MesaCategoriasPage(numeroMesa: numero),
+                );
+              },
+            ),
+            GoRoute(
+              path: ':numero/platos/:categoriaSlug',
+              pageBuilder: (context, state) {
+                final numero = int.tryParse(state.pathParameters['numero'] ?? '1') ?? 1;
+                final slug = state.pathParameters['categoriaSlug'] ?? '';
+                return NoTransitionPage(
+                  child: MesaPlatosPage(numeroMesa: numero, categoriaSlug: slug),
+                );
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: AppRoutes.cocina,
@@ -51,6 +90,11 @@ final appRouter = GoRouter(
           ),
         ),
       ],
+    ),
+    // Configurar conexión (móvil, primera vez) — sin shell
+    GoRoute(
+      path: AppRoutes.configurarConexion,
+      builder: (context, state) => const ConfigurarConexionPage(),
     ),
     // Rutas independientes (sin shell de navegación)
     GoRoute(

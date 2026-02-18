@@ -55,9 +55,10 @@ class PedidosProvider extends ChangeNotifier {
   }
 
   /// Inicia la escucha de cambios en los productos (tiempo real)
+  /// En Web y en móvil cliente (ApiClient registrado) se cargan desde la API para tener isAvailable actualizado.
   void _iniciarEscuchaProductos() {
     _productosSubscription?.cancel();
-    if (kIsWeb && sl.isRegistered<ApiClient>()) {
+    if (sl.isRegistered<ApiClient>()) {
       _cargarProductos();
       return;
     }
@@ -82,15 +83,15 @@ class PedidosProvider extends ChangeNotifier {
     }
   }
 
-  /// Carga los productos disponibles (fallback o Web desde API)
+  /// Carga los productos disponibles (API cuando hay ApiClient, si no DB local)
   Future<void> _cargarProductos() async {
-    if (kIsWeb && sl.isRegistered<ApiClient>()) {
+    if (sl.isRegistered<ApiClient>()) {
       try {
         _productos = await sl<ApiClient>().obtenerProductos();
         _error = null;
         notifyListeners();
       } catch (e) {
-        debugPrint('Error cargando productos (Web): $e');
+        debugPrint('Error cargando productos (API): $e');
         _error = e.toString();
         notifyListeners();
       }

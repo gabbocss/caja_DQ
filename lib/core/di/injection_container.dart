@@ -52,6 +52,21 @@ Future<void> initializeDependencies({
   }
 }
 
+/// En móvil: true si el usuario aún no ha configurado la URL del servidor (primera vez o solo localhost).
+bool needConfigurarConexion = false;
+
+/// Registra de nuevo el ApiClient con la nueva URL (tras guardar en ConfigurarConexion).
+/// Cierra el cliente anterior si existe.
+Future<void> registerApiClientWithUrl(String url) async {
+  if (sl.isRegistered<ApiClient>()) {
+    sl<ApiClient>().dispose();
+    sl.unregister<ApiClient>();
+  }
+  _serverUrl = url;
+  sl.registerLazySingleton<ApiClient>(() => ApiClient(url));
+  needConfigurarConexion = false;
+}
+
 /// Inicializa los servicios asíncronos
 /// 
 /// Debe llamarse después de initializeDependencies()

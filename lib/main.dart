@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:provider/provider.dart';
 
 import 'core/core.dart';
+import 'features/pedidos/presentation/providers/pedidos_mobile_provider.dart';
 
 void main() async {
-  // Asegurar que los bindings de Flutter estén inicializados
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Determinar si actuamos como servidor basándonos en la plataforma
-  // En Web siempre somos cliente
   final bool actAsServer = kIsWeb ? false : PlatformUtils.shouldActAsServer;
+
+  // En móvil: leer URL guardada; si no hay o es localhost, pedir configurar al abrir
+  String? remoteUrl = 'http://localhost:8080';
+  if (PlatformUtils.isMobile) {
+    final saved = await getSavedServerUrl();
+    if (saved != null && saved.isNotEmpty && saved != 'http://localhost:8080') {
+      remoteUrl = saved;
+    } else {
+      needConfigurarConexion = true;
+    }
+  }
 
   debugPrint('═══════════════════════════════════════════════════════════════');
   debugPrint('  🍽️  Sistema de Restaurante - ${AppConstants.appVersion}');
@@ -19,15 +29,11 @@ void main() async {
   debugPrint('═══════════════════════════════════════════════════════════════');
 
   try {
-    // Inicializar inyección de dependencias
     await initializeDependencies(
       asServer: actAsServer,
-      // URL del servidor para clientes (Web/Android)
-      // Cambiar esta URL a la IP de tu servidor
-      remoteServerUrl: 'http://localhost:8080',
+      remoteServerUrl: remoteUrl,
     );
 
-    // Inicializar servicios asíncronos (DB, servidor)
     await initializeAsyncServices();
 
     debugPrint('✅ Servicios inicializados correctamente');
@@ -35,7 +41,14 @@ void main() async {
     debugPrint('❌ Error inicializando servicios: $e');
   }
 
-  runApp(const RestauranteApp());
+  runApp(
+    PlatformUtils.isMobile
+        ? ChangeNotifierProvider(
+            create: (_) => PedidosMobileProvider(),
+            child: const RestauranteApp(),
+          )
+        : const RestauranteApp(),
+  );
 }
 
 /// Aplicación principal del sistema de restaurante

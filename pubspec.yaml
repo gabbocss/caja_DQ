@@ -41,6 +41,9 @@ dependencies:
   # Acceso al sistema de archivos
   path_provider: ^2.1.5
 
+  # Preferencias guardadas (URL del servidor en móvil)
+  shared_preferences: ^2.3.3
+
   # Código QR para enlace de pedidos desde móvil
   qr_flutter: ^4.1.0
 

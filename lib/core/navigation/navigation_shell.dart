@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../utils/platform_utils.dart';
+import '../network/local_server.dart';
 import 'app_router.dart';
 
 /// Shell de navegación con barra lateral/inferior
 /// 
-/// Usa NavigationRail en pantallas grandes y BottomNavigation en móviles
+/// En móvil: 2 tabs (Mesas, Cocina). En escritorio: 3 tabs (Pedidos, Cocina, Config).
+/// Usa NavigationRail en pantallas grandes y BottomNavigation en móviles.
 class NavigationShell extends StatelessWidget {
   final Widget child;
 
@@ -14,40 +17,95 @@ class NavigationShell extends StatelessWidget {
     required this.child,
   });
 
+  bool get _isMobileFlow => PlatformUtils.isMobile;
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
     final selectedIndex = _getSelectedIndex(location);
     final isWideScreen = MediaQuery.of(context).size.width > 800;
+    final showServerUrl = !PlatformUtils.isMobile &&
+        LocalServer.instance.isRunning &&
+        LocalServer.instance.serverUrl != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
-      body: isWideScreen
-          ? Row(
-              children: [
-                // Navigation Rail para pantallas grandes
-                _buildNavigationRail(context, selectedIndex),
-                
-                // Contenido principal
-                Expanded(child: child),
-              ],
-            )
-          : child,
-      
-      // Bottom Navigation para móviles
+      body: Stack(
+        children: [
+          isWideScreen
+              ? Row(
+                  children: [
+                    _buildNavigationRail(context, selectedIndex),
+                    Expanded(child: child),
+                  ],
+                )
+              : child,
+          if (showServerUrl) _buildServerUrlBadge(),
+        ],
+      ),
       bottomNavigationBar: isWideScreen
           ? null
           : _buildBottomNavigation(context, selectedIndex),
     );
   }
 
+  /// Badge abajo a la izquierda con la URL para conectar la app móvil
+  Widget _buildServerUrlBadge() {
+    final url = LocalServer.instance.serverUrl!;
+    return Positioned(
+      left: 12,
+      bottom: 12,
+      child: Material(
+        color: const Color(0xFF0F3460),
+        borderRadius: BorderRadius.circular(8),
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Conectar la app a:',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 11,
+                ),
+              ),
+              SelectableText(
+                url,
+                style: const TextStyle(
+                  color: Color(0xFF00D9A5),
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   int _getSelectedIndex(String location) {
     if (location.startsWith(AppRoutes.cocina)) return 1;
+    if (_isMobileFlow) return 0; // móvil: solo Mesas (0) y Cocina (1)
     if (location.startsWith(AppRoutes.configuracion)) return 2;
-    return 0; // pedidos por defecto
+    return 0; // pedidos o mesas
   }
 
   void _onDestinationSelected(BuildContext context, int index) {
+    if (_isMobileFlow) {
+      switch (index) {
+        case 0:
+          context.go(AppRoutes.mesas);
+          break;
+        case 1:
+          context.go(AppRoutes.cocina);
+          break;
+      }
+      return;
+    }
     switch (index) {
       case 0:
         context.go(AppRoutes.pedidos);
@@ -62,6 +120,42 @@ class NavigationShell extends StatelessWidget {
   }
 
   Widget _buildNavigationRail(BuildContext context, int selectedIndex) {
+    final destinations = _isMobileFlow
+        ? const [
+            NavigationRailDestination(
+              icon: Icon(Icons.table_restaurant_outlined),
+              selectedIcon: Icon(Icons.table_restaurant),
+              label: Text('Mesas'),
+              padding: EdgeInsets.symmetric(vertical: 8),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.restaurant_outlined),
+              selectedIcon: Icon(Icons.restaurant),
+              label: Text('Cocina'),
+              padding: EdgeInsets.symmetric(vertical: 8),
+            ),
+          ]
+        : const [
+            NavigationRailDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: Text('Pedidos'),
+              padding: EdgeInsets.symmetric(vertical: 8),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.restaurant_outlined),
+              selectedIcon: Icon(Icons.restaurant),
+              label: Text('Cocina'),
+              padding: EdgeInsets.symmetric(vertical: 8),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings),
+              label: Text('Config'),
+              padding: EdgeInsets.symmetric(vertical: 8),
+            ),
+          ];
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF16213E),
@@ -74,7 +168,7 @@ class NavigationShell extends StatelessWidget {
         ],
       ),
       child: NavigationRail(
-        selectedIndex: selectedIndex,
+        selectedIndex: selectedIndex.clamp(0, destinations.length - 1),
         onDestinationSelected: (index) => _onDestinationSelected(context, index),
         backgroundColor: Colors.transparent,
         extended: MediaQuery.of(context).size.width > 1200,
@@ -105,31 +199,16 @@ class NavigationShell extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 20),
           child: _buildLogo(MediaQuery.of(context).size.width > 1200),
         ),
-        destinations: const [
-          NavigationRailDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: Text('Pedidos'),
-            padding: EdgeInsets.symmetric(vertical: 8),
-          ),
-          NavigationRailDestination(
-            icon: Icon(Icons.restaurant_outlined),
-            selectedIcon: Icon(Icons.restaurant),
-            label: Text('Cocina'),
-            padding: EdgeInsets.symmetric(vertical: 8),
-          ),
-          NavigationRailDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: Text('Config'),
-            padding: EdgeInsets.symmetric(vertical: 8),
-          ),
-        ],
+        destinations: destinations,
       ),
     );
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
+    final safeIndex = _isMobileFlow
+        ? selectedIndex.clamp(0, 1)
+        : selectedIndex.clamp(0, 2);
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF16213E),
@@ -146,32 +225,16 @@ class NavigationShell extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(
-                context,
-                index: 0,
-                selectedIndex: selectedIndex,
-                icon: Icons.receipt_long_outlined,
-                selectedIcon: Icons.receipt_long,
-                label: 'Pedidos',
-              ),
-              _buildNavItem(
-                context,
-                index: 1,
-                selectedIndex: selectedIndex,
-                icon: Icons.restaurant_outlined,
-                selectedIcon: Icons.restaurant,
-                label: 'Cocina',
-              ),
-              _buildNavItem(
-                context,
-                index: 2,
-                selectedIndex: selectedIndex,
-                icon: Icons.settings_outlined,
-                selectedIcon: Icons.settings,
-                label: 'Config',
-              ),
-            ],
+            children: _isMobileFlow
+                ? [
+                    _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.table_restaurant_outlined, selectedIcon: Icons.table_restaurant, label: 'Mesas'),
+                    _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
+                  ]
+                : [
+                    _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Pedidos'),
+                    _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
+                    _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
+                  ],
           ),
         ),
       ),

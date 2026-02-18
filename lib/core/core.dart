@@ -20,6 +20,9 @@ export 'constants/app_constants.dart';
 // Utilidades
 export 'utils/platform_utils.dart';
 
+// Preferencias (URL del servidor en móvil)
+export 'prefs/server_url_prefs.dart';
+
 // Servicios
 export 'services/imprimir_pedido_service.dart';
 export 'services/configuracion_impresion_service.dart';

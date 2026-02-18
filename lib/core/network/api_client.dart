@@ -212,6 +212,24 @@ class ApiClient {
     }
   }
 
+  /// Obtiene la configuración de buffet activa del servidor (precio cubierto, horarios, etc.)
+  Future<ConfiguracionBuffet?> obtenerConfiguracionBuffetActiva() async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/configuracion-buffet'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        return ConfiguracionBuffet.fromJson(data);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error en obtenerConfiguracionBuffetActiva: $e');
+      return null;
+    }
+  }
+
   // ==================== PEDIDOS ====================
 
   /// Obtiene todos los pedidos activos
