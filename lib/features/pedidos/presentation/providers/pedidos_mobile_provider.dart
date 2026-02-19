@@ -185,6 +185,7 @@ class PedidosMobileProvider extends ChangeNotifier {
 
       if (sl.isRegistered<ApiClient>()) {
         await sl<ApiClient>().guardarPedido(pedido);
+        await loadMesasConCuentaAbierta();
       } else {
         await DatabaseService.instance.guardarPedido(pedido);
         for (final item in pedido.items) {
@@ -192,6 +193,7 @@ class PedidosMobileProvider extends ChangeNotifier {
           await DatabaseService.instance.decrementarStock(item.productoId, item.cantidad);
         }
         await DatabaseService.instance.actualizarEstadoMesa(numeroMesa, EstadoMesa.ocupada);
+        await loadMesasConCuentaAbierta();
       }
 
       _carritoByMesa[numeroMesa] = [];

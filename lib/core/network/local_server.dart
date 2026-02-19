@@ -429,6 +429,12 @@ class LocalServer {
         
         // Actualizar estado de la mesa a ocupada
         await _db.actualizarEstadoMesa(pedido.mesaNumero, EstadoMesa.ocupada);
+
+        // Imprimir en impresoras por destino (igual que pedidos desde UI servidor / QR)
+        pedido.id = id;
+        ImprimirPedidoService.instance.imprimirPedido(pedido).catchError((e, st) {
+          debugPrint('Error al imprimir pedido (app): $e');
+        });
         
         return Response.ok(
           jsonEncode({'id': id, 'mensaje': 'Pedido guardado correctamente'}),
