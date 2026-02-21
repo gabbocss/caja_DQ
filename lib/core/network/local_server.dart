@@ -254,6 +254,20 @@ class LocalServer {
       }
     });
 
+    // GET /api/mesas/cuentas-abiertas - Mesas con al menos un pedido no pagado
+    // DEBE ir ANTES de /api/mesas/<numero> para que no capture "cuentas-abiertas" como numero
+    router.get('/api/mesas/cuentas-abiertas', (Request request) async {
+      try {
+        final mesas = await _db.obtenerMesasConCuentaAbierta();
+        return Response.ok(
+          jsonEncode(mesas),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al obtener mesas con cuenta abierta: $e');
+      }
+    });
+
     // GET /api/mesas/<numero> - Obtener mesa por número
     router.get('/api/mesas/<numero>', (Request request, String numero) async {
       try {
@@ -287,19 +301,6 @@ class LocalServer {
         );
       } catch (e) {
         return _errorResponse('Error al actualizar estado de mesa: $e');
-      }
-    });
-
-    // GET /api/mesas/cuentas-abiertas - Mesas con al menos un pedido no pagado
-    router.get('/api/mesas/cuentas-abiertas', (Request request) async {
-      try {
-        final mesas = await _db.obtenerMesasConCuentaAbierta();
-        return Response.ok(
-          jsonEncode(mesas),
-          headers: {'Content-Type': 'application/json'},
-        );
-      } catch (e) {
-        return _errorResponse('Error al obtener mesas con cuenta abierta: $e');
       }
     });
 
