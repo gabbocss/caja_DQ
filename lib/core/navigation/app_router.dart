@@ -84,17 +84,18 @@ final appRouter = GoRouter(
           ),
         ),
         GoRoute(
+          path: AppRoutes.configurarConexion,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: ConfigurarConexionPage(),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.configuracion,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: ConfiguracionPage(),
           ),
         ),
       ],
-    ),
-    // Configurar conexión (móvil, primera vez) — sin shell
-    GoRoute(
-      path: AppRoutes.configurarConexion,
-      builder: (context, state) => const ConfigurarConexionPage(),
     ),
     // Rutas independientes (sin shell de navegación)
     GoRoute(

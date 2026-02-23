@@ -89,7 +89,10 @@ class NavigationShell extends StatelessWidget {
 
   int _getSelectedIndex(String location) {
     if (location.startsWith(AppRoutes.cocina)) return 1;
-    if (_isMobileFlow) return 0; // móvil: solo Mesas (0) y Cocina (1)
+    if (_isMobileFlow) {
+      if (location.startsWith(AppRoutes.configurarConexion)) return 2;
+      return 0; // Mesas (0), Cocina (1), Servidor (2)
+    }
     if (location.startsWith(AppRoutes.configuracion)) return 2;
     return 0; // pedidos o mesas
   }
@@ -102,6 +105,9 @@ class NavigationShell extends StatelessWidget {
           break;
         case 1:
           context.go(AppRoutes.cocina);
+          break;
+        case 2:
+          context.go(AppRoutes.configurarConexion);
           break;
       }
       return;
@@ -132,6 +138,12 @@ class NavigationShell extends StatelessWidget {
               icon: Icon(Icons.restaurant_outlined),
               selectedIcon: Icon(Icons.restaurant),
               label: Text('Cocina'),
+              padding: EdgeInsets.symmetric(vertical: 8),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.dns_outlined),
+              selectedIcon: Icon(Icons.dns),
+              label: Text('Servidor'),
               padding: EdgeInsets.symmetric(vertical: 8),
             ),
           ]
@@ -206,7 +218,7 @@ class NavigationShell extends StatelessWidget {
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
     final safeIndex = _isMobileFlow
-        ? selectedIndex.clamp(0, 1)
+        ? selectedIndex.clamp(0, 2)
         : selectedIndex.clamp(0, 2);
 
     return Container(
@@ -229,6 +241,7 @@ class NavigationShell extends StatelessWidget {
                 ? [
                     _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.table_restaurant_outlined, selectedIcon: Icons.table_restaurant, label: 'Mesas'),
                     _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
+                    _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.dns_outlined, selectedIcon: Icons.dns, label: 'Servidor'),
                   ]
                 : [
                     _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Pedidos'),
