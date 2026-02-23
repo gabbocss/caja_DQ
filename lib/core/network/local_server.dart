@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
+import 'package:shelf_static/shelf_static.dart';
 
 import '../database/database_service.dart';
 import '../models/models.dart';
@@ -25,6 +29,15 @@ class LocalServer {
 
   /// IP del servidor (se detecta automáticamente)
   String? _serverIp;
+
+  /// Ruta a build/web para servir la app Flutter web (cocina, etc.)
+  String _webRoot = '';
+
+  /// Sesiones activas: sessionId -> fecha de expiración
+  final Map<String, DateTime> _sessions = {};
+
+  static const String _cookieSessionName = 'cocina_session';
+  static const int _sessionHours = 24;
 
   LocalServer._();
 
@@ -58,14 +71,78 @@ class LocalServer {
         throw Exception('No se pudo obtener la IP local');
       }
 
-      // Crear el router con las rutas API
+      // Ruta a la app web (flutter build web)
+      _webRoot = p.join(Directory.current.path, 'build', 'web');
+      final webDir = Directory(_webRoot);
+      final bool webDirExists = await webDir.exists();
+
+      // Crear el router con las rutas API y login
       final router = _createRouter();
+
+      // Handler principal: intentar servir app web si build/web existe; si no, solo API (para que el servidor arranque y se vea la URL)
+      Handler mainHandler;
+      try {
+        if (!webDirExists) {
+          debugPrint('⚠️ Carpeta build/web no encontrada. Ejecuta "flutter build web" para servir la app desde el servidor.');
+          mainHandler = (Request request) async {
+            final response = await router.call(request);
+            if (response.statusCode == 404 && _isAppPath(request.url.path)) {
+              final sessionId = _getSessionFromRequest(request);
+              if (!_isValidSession(sessionId)) {
+                final redirect = request.url.path.isEmpty ? '/' : request.url.path;
+                return Response.ok(
+                  _loginPageHtml(redirect),
+                  headers: {'Content-Type': 'text/html; charset=utf-8'},
+                );
+              }
+              return Response.notFound('App web no disponible. Ejecuta "flutter build web".');
+            }
+            return response;
+          };
+        } else {
+          final staticHandler = createStaticHandler(_webRoot, defaultDocument: 'index.html');
+          final staticOrIndexHandler = (Request request) async {
+            var response = await staticHandler(request);
+            if (response.statusCode == 404) {
+              final path = request.url.path;
+              if (!path.contains('.') && !path.startsWith('/api')) {
+                final indexFile = File(p.join(_webRoot, 'index.html'));
+                if (await indexFile.exists()) {
+                  return Response.ok(
+                    await indexFile.readAsString(),
+                    headers: {'Content-Type': 'text/html; charset=utf-8'},
+                  );
+                }
+              }
+            }
+            return response;
+          };
+          mainHandler = (Request request) async {
+            final response = await router.call(request);
+            if (response.statusCode == 404 && _isAppPath(request.url.path)) {
+              final sessionId = _getSessionFromRequest(request);
+              if (!_isValidSession(sessionId)) {
+                final redirect = request.url.path.isEmpty ? '/' : request.url.path;
+                return Response.ok(
+                  _loginPageHtml(redirect),
+                  headers: {'Content-Type': 'text/html; charset=utf-8'},
+                );
+              }
+              return await staticOrIndexHandler(request);
+            }
+            return response;
+          };
+        }
+      } catch (e) {
+        debugPrint('⚠️ No se pudo configurar la app web: $e. Servidor solo API.');
+        mainHandler = router.call;
+      }
 
       // Middleware para logging y CORS
       final handler = const Pipeline()
           .addMiddleware(_logRequests())
           .addMiddleware(_corsHeaders())
-          .addHandler(router.call);
+          .addHandler(mainHandler);
 
       // Escuchar en 0.0.0.0 para aceptar conexiones desde otros dispositivos (ej. móvil por WiFi)
       const host = '0.0.0.0';
@@ -82,6 +159,7 @@ class LocalServer {
       debugPrint('╚════════════════════════════════════════════════════════════╝');
       debugPrint('');
       debugPrint('Servidor listo en http://$_serverIp:$port');
+      debugPrint('App web (cocina): http://$_serverIp:$port/cocina (protegida con contraseña)');
       debugPrint('En el móvil escribe esta URL en el navegador: http://$_serverIp:$port');
       debugPrint('');
 
@@ -154,8 +232,9 @@ class LocalServer {
     });
 
     // ==================== RUTAS DE INFORMACIÓN ====================
-    
-    router.get('/', (Request request) {
+    // GET /api devuelve la info de la API (la app web se sirve en /, /cocina, etc. con protección)
+
+    router.get('/api', (Request request) {
       return Response.ok(
         jsonEncode({
           'mensaje': 'API del Sistema de Restaurante',
@@ -177,6 +256,43 @@ class LocalServer {
         jsonEncode({'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
         headers: {'Content-Type': 'application/json'},
       );
+    });
+
+    // ==================== LOGIN APP WEB (cocina, etc.) ====================
+    router.get('/login', (Request request) {
+      final redirect = request.url.queryParameters['redirect'] ?? '/cocina';
+      return Response.ok(
+        _loginPageHtml(redirect),
+        headers: {'Content-Type': 'text/html; charset=utf-8'},
+      );
+    });
+
+    router.post('/login', (Request request) async {
+      try {
+        final body = await request.readAsString();
+        final params = Uri.splitQueryString(body);
+        final password = (params['password'] ?? '').toString().trim();
+        final redirect = (params['redirect'] ?? '/cocina').toString().trim();
+        final expected = await _getCocinaPassword();
+        if (expected.isEmpty || password != expected) {
+          return Response(
+            401,
+            body: _loginPageHtml(redirect, error: 'Contraseña incorrecta'),
+            headers: {'Content-Type': 'text/html; charset=utf-8'},
+          );
+        }
+        final sessionId = _generateSessionId();
+        _sessions[sessionId] = DateTime.now().add(Duration(hours: _sessionHours));
+        final path = redirect.startsWith('/') ? redirect : '/$redirect';
+        return Response.found(
+          request.url.replace(path: path).toString(),
+          headers: {
+            'Set-Cookie': '$_cookieSessionName=$sessionId; Path=/; HttpOnly; Max-Age=${_sessionHours * 3600}; SameSite=Lax',
+          },
+        );
+      } catch (e) {
+        return _errorResponse('Error en login: $e');
+      }
     });
 
     // ==================== RUTAS DE PRODUCTOS ====================
@@ -1953,6 +2069,162 @@ class LocalServer {
 </body>
 </html>
 ''';
+  }
+
+  /// Indica si la ruta es de la app web (SPA) y debe protegerse / servir index.html
+  bool _isAppPath(String path) {
+    if (path.startsWith('/api') || path.startsWith('/qr') || path == '/health' || path == '/login') return false;
+    return true;
+  }
+
+  /// Extrae el ID de sesión de la cookie de la petición
+  String? _getSessionFromRequest(Request request) {
+    final cookie = request.headers['cookie'];
+    if (cookie == null || cookie.isEmpty) return null;
+    for (final part in cookie.split(';')) {
+      final t = part.trim().split('=');
+      if (t.length == 2 && t[0].trim() == _cookieSessionName) {
+        return t[1].trim();
+      }
+    }
+    return null;
+  }
+
+  /// Comprueba si la sesión es válida y no ha expirado
+  bool _isValidSession(String? sessionId) {
+    if (sessionId == null || sessionId.isEmpty) return false;
+    final expiry = _sessions[sessionId];
+    if (expiry == null) return false;
+    if (expiry.isBefore(DateTime.now())) {
+      _sessions.remove(sessionId);
+      return false;
+    }
+    return true;
+  }
+
+  /// Genera un ID de sesión aleatorio
+  String _generateSessionId() {
+    final r = Random.secure();
+    final bytes = List<int>.generate(32, (_) => r.nextInt(256));
+    return base64UrlEncode(bytes).replaceAll('=', '');
+  }
+
+  /// Obtiene la contraseña de acceso a la app web (cocina). Por defecto "cocina" si no existe fichero.
+  Future<String> _getCocinaPassword() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(p.join(dir.path, 'programa_caja', 'cocina_password.txt'));
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        return content.trim();
+      }
+      await file.parent.create(recursive: true);
+      await file.writeAsString('cocina');
+      debugPrint('Contraseña de cocina por defecto creada en: ${file.path} (cambia el fichero para usar otra).');
+      return 'cocina';
+    } catch (e) {
+      debugPrint('Error leyendo contraseña de cocina: $e');
+      return 'cocina';
+    }
+  }
+
+  /// Genera la página HTML de login para la app web
+  String _loginPageHtml(String redirect, {String? error}) {
+    final redirectAttr = _escapeHtmlAttr(redirect);
+    final errorHtml = error != null
+        ? '<p class="login-error">${_escapeHtmlContent(error)}</p>'
+        : '';
+    return '''
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceso - Cocina</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-box {
+      background: #16213E;
+      border: 2px solid #0F3460;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 360px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .login-box h1 {
+      color: #FFD700;
+      margin-bottom: 8px;
+      font-size: 22px;
+    }
+    .login-box p.sub {
+      color: #888;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+    .login-error {
+      color: #E94560;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .login-box label {
+      display: block;
+      margin-bottom: 8px;
+      color: #ccc;
+      font-size: 14px;
+    }
+    .login-box input[type="password"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #0F3460;
+      border-radius: 12px;
+      background: #0F3460;
+      color: white;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    .login-box input:focus {
+      outline: none;
+      border-color: #E94560;
+    }
+    .login-box button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #E94560, #FF6B6B);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .login-box button:active { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h1>Acceso al panel</h1>
+    <p class="sub">Introduce la contraseña para continuar</p>
+    $errorHtml
+    <form method="post" action="/login">
+      <input type="hidden" name="redirect" value="$redirectAttr">
+      <label for="password">Contraseña</label>
+      <input type="password" id="password" name="password" required autofocus placeholder="Contraseña">
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>''';
   }
 
   /// Middleware para logging de requests

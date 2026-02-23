@@ -17,6 +17,20 @@ class CocinaProvider extends ChangeNotifier {
   bool _cargando = false;
   String? _error;
   StreamSubscription? _pedidosSubscription;
+  /// true = Modo Buffet, false = Modo Carta
+  bool _modoBuffet = false;
+
+  /// Modo actual del KDS: Buffet o Carta
+  bool get modoBuffet => _modoBuffet;
+  void setModoKds(bool modoBuffet) {
+    if (_modoBuffet == modoBuffet) return;
+    _modoBuffet = modoBuffet;
+    notifyListeners();
+  }
+  void toggleModoKds() {
+    _modoBuffet = !_modoBuffet;
+    notifyListeners();
+  }
 
   /// Lista de pedidos para la cocina
   List<Pedido> get pedidos => _pedidosFiltrados;

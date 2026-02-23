@@ -31,29 +31,134 @@ class _CocinaPageContent extends StatelessWidget {
           body: SafeArea(
             child: Column(
               children: [
-                // Header
-                _buildHeader(context, provider),
-                
-                // Selector de destino
-                _DestinoSelector(provider: provider),
-                
-                // Contenido principal
-                Expanded(
-                  child: provider.cargando
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFFE94560),
-                          ),
-                        )
-                      : provider.pedidos.isEmpty
-                          ? _buildSinPedidos(provider)
-                          : _buildPedidosGrid(context, provider),
-                ),
+                // Cabecera: título + reloj grande
+                _buildCabeceraKds(),
+                // Cuerpo principal (vacío por ahora; aquí irán las líneas de platos)
+                Expanded(child: _buildCuerpoVacio()),
+                // Pie: cambio Modo Buffet / Modo Carta
+                _buildPieModoKds(provider),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  /// Cabecera KDS: "PANEL DE COCINA" y reloj grande
+  Widget _buildCabeceraKds() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Text(
+            'PANEL DE COCINA',
+            style: TextStyle(
+              color: Color(0xFFE94560),
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 4,
+            ),
+          ),
+          const Spacer(),
+          _RelojGrandeWidget(),
+        ],
+      ),
+    );
+  }
+
+  /// Reloj que se actualiza cada segundo (tamaño grande para cabecera KDS)
+  Widget _RelojGrandeWidget() {
+    return StreamBuilder<int>(
+      stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now().millisecondsSinceEpoch),
+      builder: (context, snapshot) {
+        final now = DateTime.now();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF16213E),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE94560).withValues(alpha: 0.3)),
+          ),
+          child: Text(
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 56,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Cuerpo vacío; aquí irán las líneas de platos
+  Widget _buildCuerpoVacio() {
+    return const Center(
+      child: Text(
+        'Las líneas de platos irán aquí',
+        style: TextStyle(color: Colors.white38, fontSize: 18),
+      ),
+    );
+  }
+
+  /// Pie: botón para cambiar entre Modo Buffet y Modo Carta
+  Widget _buildPieModoKds(CocinaProvider provider) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            'Modo:',
+            style: TextStyle(color: Colors.white70, fontSize: 16),
+          ),
+          const SizedBox(width: 16),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Modo Carta'), icon: Icon(Icons.menu_book)),
+              ButtonSegment(value: true, label: Text('Modo Buffet'), icon: Icon(Icons.restaurant)),
+            ],
+            selected: {provider.modoBuffet},
+            onSelectionChanged: (Set<bool> selected) {
+              provider.setModoKds(selected.first);
+            },
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return const Color(0xFFE94560);
+                }
+                return const Color(0xFF16213E);
+              }),
+              foregroundColor: const WidgetStatePropertyAll(Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -77,7 +182,6 @@ class _CocinaPageContent extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Icono y título
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -112,10 +216,7 @@ class _CocinaPageContent extends StatelessWidget {
               ),
             ],
           ),
-          
           const Spacer(),
-          
-          // Estadísticas
           _buildEstadistica(
             'Pendientes',
             provider.pedidosPendientes.length,
@@ -129,15 +230,9 @@ class _CocinaPageContent extends StatelessWidget {
             const Color(0xFF4FC3F7),
             Icons.local_fire_department,
           ),
-          
           const SizedBox(width: 24),
-          
-          // Hora con actualización en tiempo real
           _RelojWidget(),
-          
           const SizedBox(width: 16),
-          
-          // Botón refrescar
           IconButton(
             onPressed: provider.recargar,
             icon: const Icon(Icons.refresh, color: Colors.white54, size: 28),

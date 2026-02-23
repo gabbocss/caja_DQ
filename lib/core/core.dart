@@ -1,14 +1,14 @@
 /// Exportaciones centralizadas del módulo core
 library;
 
-// Modelos
+// Modelos (en Web: versiones sin Isar para evitar enteros 64-bit en JS)
 export 'models/models.dart';
 
-// Base de datos
-export 'database/database_service.dart';
+// Base de datos (en Web: stub; en VM: Isar). Si hay dart.library.io → real.
+export 'database/database_service_web.dart' if (dart.library.io) 'database/database_service.dart';
 
-// Network
-export 'network/local_server.dart';
+// Network (en Web: stub; en VM: servidor Shelf)
+export 'network/local_server_web.dart' if (dart.library.io) 'network/local_server.dart';
 export 'network/api_client.dart';
 
 // Inyección de dependencias

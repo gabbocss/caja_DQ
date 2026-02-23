@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../utils/platform_utils.dart';
-import '../network/local_server.dart';
+import '../network/local_server_web.dart' if (dart.library.io) '../network/local_server.dart';
 import 'app_router.dart';
 
 /// Shell de navegación con barra lateral/inferior
@@ -40,7 +40,7 @@ class NavigationShell extends StatelessWidget {
                   ],
                 )
               : child,
-          if (showServerUrl) _buildServerUrlBadge(),
+          if (showServerUrl) _buildServerUrlBadge(context),
         ],
       ),
       bottomNavigationBar: isWideScreen
@@ -50,11 +50,14 @@ class NavigationShell extends StatelessWidget {
   }
 
   /// Badge abajo a la izquierda con la URL para conectar la app móvil
-  Widget _buildServerUrlBadge() {
+  Widget _buildServerUrlBadge(BuildContext context) {
     final url = LocalServer.instance.serverUrl!;
+    final isWideScreen = MediaQuery.of(context).size.width > 800;
+    // Si hay barra inferior, dejar margen para que el badge no quede tapado
+    final bottom = isWideScreen ? 12.0 : 72.0;
     return Positioned(
       left: 12,
-      bottom: 12,
+      bottom: bottom,
       child: Material(
         color: const Color(0xFF0F3460),
         borderRadius: BorderRadius.circular(8),

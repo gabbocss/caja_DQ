@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get_it/get_it.dart';
 
-import '../database/database_service.dart';
-import '../network/local_server.dart';
+// Stub por defecto; implementación real cuando hay dart.library.io
+import '../database/database_service_web.dart' if (dart.library.io) '../database/database_service.dart';
+import '../network/local_server_web.dart' if (dart.library.io) '../network/local_server.dart';
 import '../network/api_client.dart';
 
 /// Contenedor de inyección de dependencias usando GetIt
@@ -34,8 +36,10 @@ Future<void> initializeDependencies({
 
   // ==================== SERVICIOS CORE ====================
 
-  // Registrar DatabaseService como singleton lazy
-  sl.registerLazySingleton<DatabaseService>(() => DatabaseService.instance);
+  // Registrar DatabaseService solo en VM (en Web no hay base de datos local)
+  if (!kIsWeb) {
+    sl.registerLazySingleton<DatabaseService>(() => DatabaseService.instance);
+  }
 
   // ==================== SERVIDOR LOCAL ====================
 
@@ -71,9 +75,11 @@ Future<void> registerApiClientWithUrl(String url) async {
 /// 
 /// Debe llamarse después de initializeDependencies()
 Future<void> initializeAsyncServices() async {
-  // Inicializar base de datos
-  final db = sl<DatabaseService>();
-  await db.initialize();
+  // Inicializar base de datos (solo en VM; en Web no está registrado)
+  if (sl.isRegistered<DatabaseService>()) {
+    final db = sl<DatabaseService>();
+    await db.initialize();
+  }
 
   // Si somos servidor, iniciar el servidor HTTP
   if (_isServer) {
