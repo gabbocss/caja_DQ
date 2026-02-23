@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -91,14 +92,17 @@ class NavigationShell extends StatelessWidget {
   }
 
   int _getSelectedIndex(String location) {
-    if (location.startsWith(AppRoutes.cocina)) return 1;
+    if (location.startsWith(AppRoutes.cocina)) return _isWebFlow ? 0 : 1;
     if (_isMobileFlow) {
       if (location.startsWith(AppRoutes.configurarConexion)) return 2;
       return 0; // Mesas (0), Cocina (1), Servidor (2)
     }
-    if (location.startsWith(AppRoutes.configuracion)) return 2;
-    return 0; // pedidos o mesas
+    if (location.startsWith(AppRoutes.configuracion)) return _isWebFlow ? 1 : 2;
+    return _isWebFlow ? 0 : 0; // web: cocina=0; desktop: pedidos=0
   }
+
+  /// En web solo mostramos Cocina y Config (no hay Pedidos ni DB local).
+  bool get _isWebFlow => kIsWeb;
 
   void _onDestinationSelected(BuildContext context, int index) {
     if (_isMobileFlow) {
@@ -111,6 +115,17 @@ class NavigationShell extends StatelessWidget {
           break;
         case 2:
           context.go(AppRoutes.configurarConexion);
+          break;
+      }
+      return;
+    }
+    if (_isWebFlow) {
+      switch (index) {
+        case 0:
+          context.go(AppRoutes.cocina);
+          break;
+        case 1:
+          context.go(AppRoutes.configuracion);
           break;
       }
       return;
@@ -150,26 +165,41 @@ class NavigationShell extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 8),
             ),
           ]
-        : const [
-            NavigationRailDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long),
-              label: Text('Pedidos'),
-              padding: EdgeInsets.symmetric(vertical: 8),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.restaurant_outlined),
-              selectedIcon: Icon(Icons.restaurant),
-              label: Text('Cocina'),
-              padding: EdgeInsets.symmetric(vertical: 8),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: Text('Config'),
-              padding: EdgeInsets.symmetric(vertical: 8),
-            ),
-          ];
+        : _isWebFlow
+            ? const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.restaurant_outlined),
+                  selectedIcon: Icon(Icons.restaurant),
+                  label: Text('Cocina'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('Config'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ]
+            : const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  selectedIcon: Icon(Icons.receipt_long),
+                  label: Text('Pedidos'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.restaurant_outlined),
+                  selectedIcon: Icon(Icons.restaurant),
+                  label: Text('Cocina'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('Config'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ];
 
     return Container(
       decoration: BoxDecoration(
@@ -220,9 +250,8 @@ class NavigationShell extends StatelessWidget {
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
-    final safeIndex = _isMobileFlow
-        ? selectedIndex.clamp(0, 2)
-        : selectedIndex.clamp(0, 2);
+    final maxIndex = _isWebFlow ? 1 : 2;
+    final safeIndex = selectedIndex.clamp(0, maxIndex);
 
     return Container(
       decoration: BoxDecoration(
@@ -246,11 +275,16 @@ class NavigationShell extends StatelessWidget {
                     _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
                     _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.dns_outlined, selectedIcon: Icons.dns, label: 'Servidor'),
                   ]
-                : [
-                    _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Pedidos'),
-                    _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
-                    _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
-                  ],
+                : _isWebFlow
+                    ? [
+                        _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
+                        _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
+                      ]
+                    : [
+                        _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Pedidos'),
+                        _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
+                        _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
+                      ],
           ),
         ),
       ),

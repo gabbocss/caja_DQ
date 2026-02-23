@@ -272,6 +272,26 @@ class ApiClient {
     }
   }
 
+  /// Obtiene pedidos para la cocina (pendientes + preparando)
+  Future<List<Pedido>> obtenerPedidosCocina() async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/pedidos/cocina'),
+        headers: {'Accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) => Pedido.fromJson(item)).toList();
+      } else {
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Error en obtenerPedidosCocina: $e');
+      rethrow;
+    }
+  }
+
   /// Guarda un nuevo pedido
   Future<int> guardarPedido(Pedido pedido) async {
     try {
@@ -309,6 +329,27 @@ class ApiClient {
       );
     } catch (e) {
       debugPrint('Error en actualizarEstadoPedido: $e');
+      rethrow;
+    }
+  }
+
+  /// Actualiza el estado de un ítem de un pedido
+  Future<void> actualizarEstadoItem(
+    int pedidoId,
+    int itemIndex,
+    EstadoPedido estado,
+  ) async {
+    try {
+      await _client.put(
+        Uri.parse('$baseUrl/api/pedidos/$pedidoId/item/$itemIndex/estado'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({'estado': estado.name}),
+      );
+    } catch (e) {
+      debugPrint('Error en actualizarEstadoItem: $e');
       rethrow;
     }
   }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/core.dart';
+import '../../domain/entities/linea_buffet.dart';
+import '../../domain/repositories/cocina_repository.dart';
 import '../providers/cocina_provider.dart';
 
 /// Pantalla de Cocina para visualización en tiempo real
@@ -13,7 +15,9 @@ class CocinaPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => CocinaProvider(),
+      create: (_) => CocinaProvider(
+        repository: sl.isRegistered<CocinaRepository>() ? sl<CocinaRepository>() : null,
+      ),
       child: const _CocinaPageContent(),
     );
   }
@@ -33,8 +37,12 @@ class _CocinaPageContent extends StatelessWidget {
               children: [
                 // Cabecera: título + reloj grande
                 _buildCabeceraKds(),
-                // Cuerpo principal (vacío por ahora; aquí irán las líneas de platos)
-                Expanded(child: _buildCuerpoVacio()),
+                // Cuerpo: Modo Buffet = líneas agregadas; Modo Carta = tarjetas por mesa
+                Expanded(
+                  child: provider.modoBuffet
+                      ? _buildVistaBuffet(context, provider)
+                      : _buildVistaCarta(context, provider),
+                ),
                 // Pie: cambio Modo Buffet / Modo Carta
                 _buildPieModoKds(provider),
               ],
@@ -105,13 +113,65 @@ class _CocinaPageContent extends StatelessWidget {
     );
   }
 
-  /// Cuerpo vacío; aquí irán las líneas de platos
-  Widget _buildCuerpoVacio() {
-    return const Center(
-      child: Text(
-        'Las líneas de platos irán aquí',
-        style: TextStyle(color: Colors.white38, fontSize: 18),
-      ),
+  /// Vista modo carta: selector de destino + grid de tarjetas por pedido/mesa
+  Widget _buildVistaCarta(BuildContext context, CocinaProvider provider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildHeader(context, provider),
+        _DestinoSelector(provider: provider),
+        Expanded(
+          child: provider.pedidos.isEmpty
+              ? _buildSinPedidos(provider)
+              : _buildPedidosGrid(context, provider),
+        ),
+      ],
+    );
+  }
+
+  /// Vista modo buffet: líneas de platos únicos (acumulación global)
+  Widget _buildVistaBuffet(BuildContext context, CocinaProvider provider) {
+    final abiertas = provider.lineasAbiertas;
+    final cerradas = provider.lineasCerradas;
+    if (abiertas.isEmpty && cerradas.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.restaurant_menu,
+              size: 80,
+              color: Colors.white24,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Sin líneas de producción',
+              style: TextStyle(color: Colors.white38, fontSize: 20),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Los pedidos de buffet aparecerán aquí agrupados por plato',
+              style: TextStyle(color: Colors.white24, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        // Líneas cerradas (en preparación) primero
+        ...cerradas.map((l) => _LineaBuffetCerradaCard(
+              linea: l,
+              provider: provider,
+            )),
+        // Líneas abiertas (se siguen acumulando)
+        ...abiertas.map((l) => _LineaBuffetAbiertaCard(
+              linea: l,
+              provider: provider,
+            )),
+      ],
     );
   }
 
@@ -930,6 +990,255 @@ class _ActionButton extends StatelessWidget {
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tarjeta de línea abierta (modo buffet): plato con cantidad total y botón Empezar
+class _LineaBuffetAbiertaCard extends StatelessWidget {
+  final LineaBuffetAbierta linea;
+  final CocinaProvider provider;
+
+  const _LineaBuffetAbiertaCard({
+    required this.linea,
+    required this.provider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final detalleMesas = linea.contribuciones
+        .map((c) => 'Mesa ${c.mesaNumero}: ${c.cantidad}')
+        .join(' · ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: const Color(0xFF1A1A2E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFFFB74D), width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFB74D).withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${linea.cantidadTotal}',
+                    style: const TextStyle(
+                      color: Color(0xFFFFB74D),
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        linea.nombreProducto,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (detalleMesas.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            detalleMesas,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => provider.empezarLinea(linea),
+                  icon: const Icon(Icons.play_arrow, size: 22),
+                  label: const Text('Empezar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFB74D),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tarjeta de línea cerrada (modo buffet): plato congelado + Hecho (Todo) / Hecho (Parcial)
+class _LineaBuffetCerradaCard extends StatelessWidget {
+  final LineaBuffetCerrada linea;
+  final CocinaProvider provider;
+
+  const _LineaBuffetCerradaCard({
+    required this.linea,
+    required this.provider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final detalleMesas = linea.contribuciones
+        .map((c) => 'Mesa ${c.mesaNumero}: ${c.cantidad}')
+        .join(' · ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: const Color(0xFF1A1A2E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFF4FC3F7), width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4FC3F7).withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${linea.cantidadTotal}',
+                    style: const TextStyle(
+                      color: Color(0xFF4FC3F7),
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        linea.nombreProducto,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (detalleMesas.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            detalleMesas,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pedirCantidadParcial(context),
+                    icon: const Icon(Icons.done_all, size: 20),
+                    label: const Text('Hecho (Parcial)'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF4FC3F7),
+                      side: const BorderSide(color: Color(0xFF4FC3F7)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => provider.hechoTodoLinea(linea.id),
+                    icon: const Icon(Icons.check_circle, size: 20),
+                    label: const Text('Hecho (Todo)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D9A5),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _pedirCantidadParcial(BuildContext context) {
+    final controller = TextEditingController(text: '${linea.cantidadTotal}');
+    showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Hecho (Parcial)', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: 'Cantidad terminada',
+            labelStyle: TextStyle(color: Colors.white54),
+          ),
+          onSubmitted: (v) {
+            final n = int.tryParse(v);
+            if (n != null && n > 0) {
+              provider.hechoParcialLinea(linea.id, n);
+              Navigator.of(ctx).pop(n);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final n = int.tryParse(controller.text);
+              if (n != null && n > 0) {
+                provider.hechoParcialLinea(linea.id, n);
+                Navigator.of(ctx).pop(n);
+              }
+            },
+            child: const Text('Imprimir'),
           ),
         ],
       ),

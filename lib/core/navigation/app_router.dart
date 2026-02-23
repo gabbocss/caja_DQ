@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 
 import '../di/injection_container.dart';
@@ -32,7 +33,9 @@ class AppRoutes {
 
 /// Configuración del router de la aplicación
 final appRouter = GoRouter(
-  initialLocation: PlatformUtils.isMobile ? AppRoutes.mesas : AppRoutes.pedidos,
+  initialLocation: kIsWeb
+      ? AppRoutes.cocina
+      : (PlatformUtils.isMobile ? AppRoutes.mesas : AppRoutes.pedidos),
   redirect: (context, state) {
     if (PlatformUtils.isMobile && needConfigurarConexion) {
       final loc = state.matchedLocation;

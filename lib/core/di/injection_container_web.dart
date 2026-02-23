@@ -1,9 +1,9 @@
-/// Inyección de dependencias para Web (sin DatabaseService ni LocalServer reales).
+// Inyección de dependencias para Web (sin DatabaseService ni LocalServer reales).
 import 'package:get_it/get_it.dart';
 
-import '../database/database_service_web.dart';
-import '../network/local_server_web.dart';
 import '../network/api_client.dart';
+import '../../features/cocina/domain/repositories/cocina_repository.dart';
+import '../../features/cocina/data/repositories/cocina_repository_api.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -22,6 +22,7 @@ Future<void> initializeDependencies({
 
   if (!asServer && remoteServerUrl != null) {
     sl.registerLazySingleton<ApiClient>(() => ApiClient(remoteServerUrl));
+    sl.registerLazySingleton<CocinaRepository>(() => CocinaRepositoryApi(sl<ApiClient>()));
   }
 }
 

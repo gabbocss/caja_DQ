@@ -5,6 +5,9 @@ import 'package:get_it/get_it.dart';
 import '../database/database_service_web.dart' if (dart.library.io) '../database/database_service.dart';
 import '../network/local_server_web.dart' if (dart.library.io) '../network/local_server.dart';
 import '../network/api_client.dart';
+import '../../features/cocina/domain/repositories/cocina_repository.dart';
+import '../../features/cocina/data/repositories/cocina_repository_impl.dart';
+import '../../features/cocina/data/repositories/cocina_repository_api.dart';
 
 /// Contenedor de inyección de dependencias usando GetIt
 /// 
@@ -53,6 +56,13 @@ Future<void> initializeDependencies({
   if (!asServer && remoteServerUrl != null) {
     // Si somos cliente, registrar el ApiClient
     sl.registerLazySingleton<ApiClient>(() => ApiClient(remoteServerUrl));
+  }
+
+  // ==================== COCINA (repositorio según plataforma) ====================
+  if (kIsWeb && sl.isRegistered<ApiClient>()) {
+    sl.registerLazySingleton<CocinaRepository>(() => CocinaRepositoryApi(sl<ApiClient>()));
+  } else if (sl.isRegistered<DatabaseService>()) {
+    sl.registerLazySingleton<CocinaRepository>(() => CocinaRepositoryImpl(sl<DatabaseService>()));
   }
 }
 
