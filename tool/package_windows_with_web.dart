@@ -63,8 +63,9 @@ void _copyDir(Directory source, Directory target) {
     if (entity is File) {
       entity.copySync(dest.path);
     } else {
-      dest.createSync(recursive: true);
-      _copyDir(entity as Directory, dest);
+      final destDir = dest as Directory;
+      destDir.createSync(recursive: true);
+      _copyDir(entity as Directory, destDir);
     }
   }
 }
