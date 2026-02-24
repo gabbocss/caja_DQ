@@ -71,10 +71,23 @@ class LocalServer {
         throw Exception('No se pudo obtener la IP local');
       }
 
-      // Ruta a la app web (flutter build web)
-      _webRoot = p.join(Directory.current.path, 'build', 'web');
+      // Ruta a la app web: primero junto al ejecutable (distribución), luego build/web (desarrollo)
+      final executableDir = p.dirname(Platform.resolvedExecutable);
+      final webJuntoAlExe = p.join(executableDir, 'web');
+      final webEnBuild = p.join(Directory.current.path, 'build', 'web');
+      final dirJuntoAlExe = Directory(webJuntoAlExe);
+      final dirBuildWeb = Directory(webEnBuild);
+      if (await dirJuntoAlExe.exists()) {
+        _webRoot = webJuntoAlExe;
+        debugPrint('App web: sirviendo desde carpeta junto al ejecutable ($_webRoot)');
+      } else if (await dirBuildWeb.exists()) {
+        _webRoot = webEnBuild;
+        debugPrint('App web: sirviendo desde build/web (desarrollo)');
+      } else {
+        _webRoot = '';
+      }
       final webDir = Directory(_webRoot);
-      final bool webDirExists = await webDir.exists();
+      final bool webDirExists = _webRoot.isNotEmpty && await webDir.exists();
 
       // Crear el router con las rutas API y login
       final router = _createRouter();
@@ -83,7 +96,7 @@ class LocalServer {
       Handler mainHandler;
       try {
         if (!webDirExists) {
-          debugPrint('⚠️ Carpeta build/web no encontrada. Ejecuta "flutter build web" para servir la app desde el servidor.');
+          debugPrint('⚠️ No se encontró la app web. En desarrollo: ejecuta "flutter build web". En el .exe: copia la carpeta "web" (contenido de build/web) junto al ejecutable.');
           mainHandler = (Request request) async {
             final response = await router.call(request);
             if (response.statusCode == 404 && _isAppPath(request.url.path)) {
@@ -95,7 +108,9 @@ class LocalServer {
                   headers: {'Content-Type': 'text/html; charset=utf-8'},
                 );
               }
-              return Response.notFound('App web no disponible. Ejecuta "flutter build web".');
+              return Response.notFound(
+                'App web no disponible. Copia la carpeta "web" (contenido de build/web del proyecto) en la misma carpeta que el ejecutable.',
+              );
             }
             return response;
           };
