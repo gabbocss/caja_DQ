@@ -10,14 +10,18 @@ import 'features/pedidos/presentation/providers/pedidos_mobile_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  String? remoteUrl = 'http://localhost:8080';
+  String? remoteUrl;
   if (PlatformUtils.isMobile) {
     final saved = await getSavedServerUrl();
     if (saved != null && saved.isNotEmpty && saved != 'http://localhost:8080') {
       remoteUrl = saved;
     } else {
       needConfigurarConexion = true;
+      remoteUrl = 'http://localhost:8080';
     }
+  } else {
+    // En navegador (cocina): usar el mismo origen que la página (PC, tablet, etc.)
+    remoteUrl = Uri.base.origin;
   }
 
   debugPrint('═══════════════════════════════════════════════════════════════');
