@@ -25,14 +25,14 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Build Windows
+        run: flutter build windows --release
+
       - name: Patch Isar for web build
         run: dart run tool/patch_g_for_web.dart
 
       - name: Build Web
         run: flutter build web
-
-      - name: Build Windows
-        run: flutter build windows --release
 
       - name: Package web with Windows release
         run: dart run tool/package_windows_with_web.dart
