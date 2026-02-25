@@ -52,4 +52,23 @@ class CocinaRepositoryApi implements CocinaRepository {
       });
     });
   }
+
+  @override
+  Future<void> imprimirTicketCocina(
+    int mesaNumero,
+    String nombreProducto,
+    int productoId,
+    int cantidad,
+    int? destinoId,
+    double precioUnitario,
+  ) async {
+    await _api.imprimirTicketCocina(
+      mesaNumero,
+      nombreProducto,
+      productoId,
+      cantidad,
+      destinoId,
+      precioUnitario,
+    );
+  }
 }

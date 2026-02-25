@@ -354,6 +354,38 @@ class ApiClient {
     }
   }
 
+  /// Envía al servidor la solicitud de imprimir un ticket de cocina (plato + mesa).
+  /// El servidor imprime en la impresora configurada para el destino.
+  Future<void> imprimirTicketCocina(
+    int mesaNumero,
+    String nombreProducto,
+    int productoId,
+    int cantidad,
+    int? destinoId,
+    double precioUnitario,
+  ) async {
+    try {
+      await _client.post(
+        Uri.parse('$baseUrl/api/cocina/imprimir-ticket'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({
+          'mesaNumero': mesaNumero,
+          'nombreProducto': nombreProducto,
+          'productoId': productoId,
+          'cantidad': cantidad,
+          'destinoId': destinoId,
+          'precioUnitario': precioUnitario,
+        }),
+      );
+    } catch (e) {
+      debugPrint('Error en imprimirTicketCocina: $e');
+      rethrow;
+    }
+  }
+
   /// Verifica la conexión con el servidor
   Future<bool> verificarConexion() async {
     try {

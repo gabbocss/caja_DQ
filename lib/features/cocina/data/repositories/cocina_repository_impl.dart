@@ -60,4 +60,30 @@ class CocinaRepositoryImpl implements CocinaRepository {
   Stream<List<Pedido>> watchPedidosCocina() {
     return _db.watchPedidosCocina();
   }
+
+  @override
+  Future<void> imprimirTicketCocina(
+    int mesaNumero,
+    String nombreProducto,
+    int productoId,
+    int cantidad,
+    int? destinoId,
+    double precioUnitario,
+  ) async {
+    final item = ItemPedido.crear(
+      productoId: productoId,
+      nombreProducto: nombreProducto,
+      precioUnitario: precioUnitario,
+      cantidad: cantidad,
+      destinoId: destinoId,
+    );
+    final pedido = Pedido.crear(
+      mesaNumero: mesaNumero,
+      usuarioCamarero: 'Buffet',
+      items: [item],
+    );
+    pedido.fechaCreacion = DateTime.now();
+    pedido.fechaActualizacion = DateTime.now();
+    await ImprimirPedidoService.instance.imprimirPedido(pedido);
+  }
 }

@@ -292,7 +292,8 @@ class CocinaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Genera e imprime un ticket sintético para una mesa (plato y cantidad).
+  /// Genera e imprime un ticket para una mesa (plato y cantidad).
+  /// En web llama al servidor (API); en desktop imprime en la impresora local.
   Future<void> _imprimirTicketMesa(
     int mesaNumero,
     String nombreProducto,
@@ -301,21 +302,14 @@ class CocinaProvider extends ChangeNotifier {
     int? destinoId,
     double precioUnitario,
   ) async {
-    final item = ItemPedido.crear(
-      productoId: productoId,
-      nombreProducto: nombreProducto,
-      precioUnitario: precioUnitario,
-      cantidad: cantidad,
-      destinoId: destinoId,
+    await _repository.imprimirTicketCocina(
+      mesaNumero,
+      nombreProducto,
+      productoId,
+      cantidad,
+      destinoId,
+      precioUnitario,
     );
-    final pedido = Pedido.crear(
-      mesaNumero: mesaNumero,
-      usuarioCamarero: 'Buffet',
-      items: [item],
-    );
-    pedido.fechaCreacion = DateTime.now();
-    pedido.fechaActualizacion = DateTime.now();
-    await ImprimirPedidoService.instance.imprimirPedido(pedido);
   }
 
   /// Inicia la escucha de cambios en los pedidos

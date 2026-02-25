@@ -495,6 +495,42 @@ class LocalServer {
       }
     });
 
+    // POST /api/cocina/imprimir-ticket - Imprime ticket desde UI cocina (web); el servidor envía a la impresora configurada
+    router.post('/api/cocina/imprimir-ticket', (Request request) async {
+      try {
+        final body = await request.readAsString();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        final mesaNumero = data['mesaNumero'] as int;
+        final nombreProducto = data['nombreProducto'] as String;
+        final productoId = data['productoId'] as int;
+        final cantidad = data['cantidad'] as int;
+        final destinoId = data['destinoId'] as int?;
+        final precioUnitario = (data['precioUnitario'] as num).toDouble();
+        final item = ItemPedido.crear(
+          productoId: productoId,
+          nombreProducto: nombreProducto,
+          precioUnitario: precioUnitario,
+          cantidad: cantidad,
+          destinoId: destinoId,
+        );
+        final pedido = Pedido.crear(
+          mesaNumero: mesaNumero,
+          usuarioCamarero: 'Buffet',
+          items: [item],
+        );
+        pedido.fechaCreacion = DateTime.now();
+        pedido.fechaActualizacion = DateTime.now();
+        await ImprimirPedidoService.instance.imprimirPedido(pedido);
+        return Response.ok(
+          jsonEncode({'ok': true}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        debugPrint('Error al imprimir ticket cocina: $e');
+        return _errorResponse('Error al imprimir ticket: $e');
+      }
+    });
+
     // GET /api/pedidos/mesa/<numero> - Pedidos de una mesa
     router.get('/api/pedidos/mesa/<numero>', (Request request, String numero) async {
       try {
