@@ -1203,26 +1203,60 @@ class _LineaBuffetCerradaCard extends StatelessWidget {
   }
 
   void _pedirCantidadParcial(BuildContext context) {
-    final controller = TextEditingController(text: '${linea.cantidadTotal}');
+    int cantidad = linea.cantidadTotal;
+    final maxCant = linea.cantidadTotal;
     showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text('Hecho (Parcial)', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'Cantidad terminada',
-            labelStyle: TextStyle(color: Colors.white54),
-          ),
-          onSubmitted: (v) {
-            final n = int.tryParse(v);
-            if (n != null && n > 0) {
-              provider.hechoParcialLinea(linea.id, n);
-              Navigator.of(ctx).pop(n);
-            }
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  'Cantidad terminada',
+                  style: TextStyle(color: Colors.white54, fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      onPressed: cantidad > 1
+                          ? () => setState(() => cantidad--)
+                          : null,
+                      icon: const Icon(Icons.remove, color: Colors.white, size: 28),
+                      style: IconButton.styleFrom(
+                        backgroundColor: cantidad > 1 ? const Color(0xFF0F3460) : null,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        '$cantidad',
+                        style: const TextStyle(
+                          fontSize: 32,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: cantidad < maxCant
+                          ? () => setState(() => cantidad++)
+                          : null,
+                      icon: const Icon(Icons.add, color: Colors.white, size: 28),
+                      style: IconButton.styleFrom(
+                        backgroundColor: cantidad < maxCant ? const Color(0xFF0F3460) : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
           },
         ),
         actions: [
@@ -1232,11 +1266,8 @@ class _LineaBuffetCerradaCard extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () {
-              final n = int.tryParse(controller.text);
-              if (n != null && n > 0) {
-                provider.hechoParcialLinea(linea.id, n);
-                Navigator.of(ctx).pop(n);
-              }
+              provider.hechoParcialLinea(linea.id, cantidad);
+              Navigator.of(ctx).pop(cantidad);
             },
             child: const Text('Imprimir'),
           ),
