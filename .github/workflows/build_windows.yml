@@ -32,7 +32,7 @@ jobs:
         run: dart run tool/patch_g_for_web.dart
 
       - name: Build Web
-        run: flutter build web
+        run: flutter build web -t lib/main_web.dart
 
       - name: Package web with Windows release
         run: dart run tool/package_windows_with_web.dart
