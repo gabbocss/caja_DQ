@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -553,6 +556,8 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
   bool _usarInventario = false;
   bool _guardando = false;
   List<String> _alergenos = [];
+  /// Imagen del producto: data URL (base64) o URL existente
+  String? _imagen;
 
   static const _opcionesAlergenos = [
     ('gluten', 'Gluten'),
@@ -585,6 +590,7 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
     _isAvailable = widget.producto?.isAvailable ?? true;
     _usarInventario = widget.producto?.usarInventario ?? false;
     _alergenos = List.from(widget.producto?.alergenos ?? []);
+    _imagen = widget.producto?.imagen;
   }
 
   @override
@@ -595,6 +601,37 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
     _categoriaController.dispose();
     _stockController.dispose();
     super.dispose();
+  }
+
+  Future<void> _elegirFoto() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final bytes = result.files.single.bytes;
+    if (bytes == null || bytes.isEmpty) return;
+    try {
+      final base64 = base64Encode(bytes);
+      final ext = (result.files.single.extension ?? '').toLowerCase();
+      final mime = ext == 'png' ? 'png' : 'jpeg';
+      if (!mounted) return;
+      setState(() => _imagen = 'data:image/$mime;base64,$base64');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar la imagen: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _quitarFoto() {
+    setState(() => _imagen = null);
   }
 
   Future<void> _guardar() async {
@@ -614,6 +651,7 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
       producto.usarInventario = _usarInventario;
       producto.stockDisponible = int.tryParse(_stockController.text) ?? 0;
       producto.alergenos = List.from(_alergenos);
+      producto.imagen = _imagen;
       producto.activo = true;
       producto.destino = _destinoId != null
           ? (widget.destinos.where((d) => d.id == _destinoId).firstOrNull?.nombre == 'Barra'
@@ -729,6 +767,81 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
                         style: const TextStyle(color: Colors.white),
                         maxLines: 2,
                         decoration: _inputDecoration('Descripción (opcional)', Icons.description),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Foto del producto
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Foto del producto',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (_imagen != null) ...[
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: _imagen!.startsWith('data:')
+                                  ? Image.memory(
+                                      base64Decode(_imagen!.split(',').last),
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.network(
+                                      _imagen!,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.broken_image,
+                                        size: 80,
+                                        color: Colors.white54,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: _elegirFoto,
+                                  icon: const Icon(Icons.add_photo_alternate, size: 20),
+                                  label: Text(_imagen == null ? 'Añadir foto' : 'Cambiar foto'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white70,
+                                    side: const BorderSide(color: Colors.white38),
+                                  ),
+                                ),
+                                if (_imagen != null) ...[
+                                  const SizedBox(height: 8),
+                                  TextButton.icon(
+                                    onPressed: _quitarFoto,
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: Colors.redAccent,
+                                    ),
+                                    label: const Text(
+                                      'Quitar foto',
+                                      style: TextStyle(color: Colors.redAccent),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       

@@ -35,8 +35,6 @@ class _CocinaPageContent extends StatelessWidget {
           body: SafeArea(
             child: Column(
               children: [
-                // Cabecera: título + reloj grande
-                _buildCabeceraKds(),
                 // Cuerpo: Modo Buffet = líneas agregadas; Modo Carta = tarjetas por mesa
                 Expanded(
                   child: provider.modoBuffet
@@ -46,66 +44,6 @@ class _CocinaPageContent extends StatelessWidget {
                 // Pie: cambio Modo Buffet / Modo Carta
                 _buildPieModoKds(provider),
               ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Cabecera KDS: "PANEL DE COCINA" y reloj grande
-  Widget _buildCabeceraKds() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Text(
-            'PANEL DE COCINA',
-            style: TextStyle(
-              color: Color(0xFFE94560),
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 4,
-            ),
-          ),
-          const Spacer(),
-          _RelojGrandeWidget(),
-        ],
-      ),
-    );
-  }
-
-  /// Reloj que se actualiza cada segundo (tamaño grande para cabecera KDS)
-  Widget _RelojGrandeWidget() {
-    return StreamBuilder<int>(
-      stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now().millisecondsSinceEpoch),
-      builder: (context, snapshot) {
-        final now = DateTime.now();
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF16213E),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE94560).withValues(alpha: 0.3)),
-          ),
-          child: Text(
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 56,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.bold,
             ),
           ),
         );
@@ -175,7 +113,7 @@ class _CocinaPageContent extends StatelessWidget {
     );
   }
 
-  /// Pie: botón para cambiar entre Modo Buffet y Modo Carta
+  /// Pie: botón para cambiar entre Modo Buffet y Modo Carta + reloj a la derecha
   Widget _buildPieModoKds(CocinaProvider provider) {
     return Container(
       width: double.infinity,
@@ -191,7 +129,6 @@ class _CocinaPageContent extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
             'Modo:',
@@ -217,8 +154,37 @@ class _CocinaPageContent extends StatelessWidget {
               foregroundColor: const WidgetStatePropertyAll(Colors.white),
             ),
           ),
+          const Spacer(),
+          _RelojPieWidget(),
         ],
       ),
+    );
+  }
+
+  /// Reloj compacto para el pie (a la derecha de Modo Buffet)
+  Widget _RelojPieWidget() {
+    return StreamBuilder<int>(
+      stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now().millisecondsSinceEpoch),
+      builder: (context, snapshot) {
+        final now = DateTime.now();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF16213E),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE94560).withValues(alpha: 0.3)),
+          ),
+          child: Text(
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 22,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      },
     );
   }
 

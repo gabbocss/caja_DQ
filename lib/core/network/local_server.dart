@@ -237,8 +237,9 @@ class LocalServer {
         }
         final productos = await _db.obtenerProductosBuffet();
         final esHorarioBuffet = await _db.esHorarioBuffet();
+        final html = await _generarPaginaClienteQR(mesaNumero, productos, esHorarioBuffet);
         return Response.ok(
-          _generarPaginaClienteQR(mesaNumero, productos, esHorarioBuffet),
+          html,
           headers: {'Content-Type': 'text/html; charset=utf-8'},
         );
       } catch (e) {
@@ -1030,8 +1031,21 @@ class LocalServer {
         .replaceAll('>', '&gt;');
   }
 
+  /// CSS de respaldo cuando no existe la imagen de azulejos (patrón SVG)
+  String _fallbackAzulejoCss() {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">'
+        '<rect width="80" height="80" fill="#FAF8F5" fill-opacity="0.12"/>'
+        '<rect x="3" y="3" width="74" height="74" fill="none" stroke="#0047AB" stroke-width="1.2" stroke-opacity="0.1"/>'
+        '<circle cx="40" cy="40" r="6" fill="#F4A460" fill-opacity="0.08"/>'
+        '<path d="M40 30 L43 40 L40 50 L37 40 Z" fill="#0047AB" fill-opacity="0.08"/>'
+        '<path d="M28 40 L40 37 L52 40 L40 44 Z" fill="#0047AB" fill-opacity="0.08"/>'
+        '</svg>';
+    final dataUrl = 'data:image/svg+xml,${Uri.encodeComponent(svg)}';
+    return 'body { font-family: \'Poppins\', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #FAFAF8; background-image: url("$dataUrl"); background-repeat: repeat; background-size: 80px 80px; color: #212121; min-height: 100vh; padding-bottom: 120px; }';
+  }
+
   /// Genera la página HTML para clientes QR
-  String _generarPaginaClienteQR(int mesa, List<Producto> productos, bool esHorarioBuffet) {
+  Future<String> _generarPaginaClienteQR(int mesa, List<Producto> productos, bool esHorarioBuffet) async {
     final productosHtml = productos.map((p) {
       final descAttr = p.descripcion != null ? _escapeHtmlAttr(p.descripcion!) : '';
       final imgAttr = p.imagen != null && p.imagen!.isNotEmpty ? _escapeHtmlAttr(p.imagen!) : '';
@@ -1039,15 +1053,62 @@ class LocalServer {
       final nombreJs = p.nombre.replaceAll("'", "\\'").replaceAll('\r', '').replaceAll('\n', ' ');
       return '''
       <div class="producto ${p.isAvailable ? '' : 'agotado'}" data-id="${p.id}" data-nombre="${_escapeHtmlAttr(p.nombre)}" data-precio="${p.precio}" data-descripcion="$descAttr" data-imagen="$imgAttr" data-alergenos="$alergenosAttr" role="button" tabindex="0" onclick="abrirModalPlato(this)" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); abrirModalPlato(this); }">
-        <div class="producto-info">
-          <span class="nombre">${p.nombre}</span>
-          ${p.descripcion != null ? '<span class="descripcion">${_escapeHtmlContent(p.descripcion!)}</span>' : ''}
-          <span class="precio">${p.isAvailable ? '${p.precio.toStringAsFixed(2)}€' : 'AGOTADO'}</span>
+        ${p.imagen != null && p.imagen!.isNotEmpty ? '<img class="producto-foto" src="$imgAttr" alt="">' : ''}
+        <div class="producto-fila">
+          <div class="producto-info">
+            <span class="nombre">${p.nombre}</span>
+            ${p.descripcion != null ? '<span class="descripcion">${_escapeHtmlContent(p.descripcion!)}</span>' : ''}
+            <span class="precio">${p.isAvailable ? '${p.precio.toStringAsFixed(2)}€' : 'AGOTADO'}</span>
+          </div>
+          ${p.isAvailable ? '<button type="button" class="btn-agregar" onclick="event.stopPropagation(); agregarAlCarrito(${p.id}, \'$nombreJs\', ${p.precio}, ${p.destinoId ?? 'null'})">+</button>' : ''}
         </div>
-        ${p.isAvailable ? '<button type="button" class="btn-agregar" onclick="event.stopPropagation(); agregarAlCarrito(${p.id}, \'$nombreJs\', ${p.precio}, ${p.destinoId ?? 'null'})">+</button>' : ''}
       </div>
     ''';
     }).join('\n');
+
+    // Fondo: imagen de azulejos (PNG) si existe; si no, patrón SVG de respaldo
+    String backgroundCss;
+    final exeDir = p.dirname(Platform.resolvedExecutable);
+    final candidates = [
+      p.join(exeDir, 'fondo_azulejos.png'),
+      p.join(exeDir, 'web', 'fondo_azulejos.png'),
+      p.join(Directory.current.path, 'web', 'fondo_azulejos.png'),
+      p.join(Directory.current.path, 'build', 'web', 'fondo_azulejos.png'),
+    ];
+    File? imageFile;
+    for (final path in candidates) {
+      final f = File(path);
+      if (f.existsSync()) {
+        imageFile = f;
+        break;
+      }
+    }
+    if (imageFile != null) {
+      try {
+        final bytes = await imageFile.readAsBytes();
+        final base64 = base64Encode(bytes);
+        final dataUrl = 'data:image/png;base64,$base64';
+        backgroundCss = '''
+    body { position: relative; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #FAFAF8; color: #212121; min-height: 100vh; padding-bottom: 120px; }
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("$dataUrl");
+      background-repeat: repeat;
+      background-size: 300px auto;
+      opacity: 0.13;
+      z-index: 0;
+      pointer-events: none;
+    }
+    body > * { position: relative; z-index: 1; }
+''';
+      } catch (_) {
+        backgroundCss = _fallbackAzulejoCss();
+      }
+    } else {
+      backgroundCss = _fallbackAzulejoCss();
+    }
 
     return '''
 <!DOCTYPE html>
@@ -1056,32 +1117,28 @@ class LocalServer {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Pedir - Mesa $mesa</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%);
-      color: white;
-      min-height: 100vh;
-      padding-bottom: 120px;
-    }
+    $backgroundCss
     .header {
-      background: #16213E;
+      background: #FFFFFF;
       padding: 16px 20px;
       position: sticky;
       top: 0;
       z-index: 100;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     }
     .header h1 {
       font-size: 18px;
-      color: #FFD700;
+      font-weight: 700;
+      color: #212121;
       display: flex;
       align-items: center;
       gap: 8px;
     }
     .header .mesa {
-      background: #E94560;
+      background: #C41E3A;
       padding: 4px 12px;
       border-radius: 20px;
       font-size: 14px;
@@ -1089,50 +1146,53 @@ class LocalServer {
     }
     ${esHorarioBuffet ? '''
     .buffet-banner {
-      background: linear-gradient(90deg, #FFD700, #FFA500);
-      color: #1A1A2E;
+      background: #C41E3A;
+      color: #FFFFFF;
       text-align: center;
-      padding: 12px;
-      font-weight: bold;
+      padding: 14px 20px;
+      font-weight: 700;
       font-size: 14px;
+      border-radius: 12px;
+      margin: 12px 16px;
+      box-shadow: 0 4px 16px rgba(196, 30, 58, 0.25);
     }
     ''' : ''}
     .leyenda-alergenos {
       margin: 16px;
-      padding: 16px 20px;
-      background: #16213E;
-      border: 1px solid #0F3460;
+      padding: 14px 18px;
+      background: #FFFFFF;
       border-radius: 16px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     }
     .leyenda-alergenos-titulo {
-      font-size: 14px;
-      color: #FFD700;
-      margin-bottom: 12px;
-      font-weight: bold;
-      letter-spacing: 0.5px;
+      font-size: 13px;
+      color: #616161;
+      margin-bottom: 10px;
+      font-weight: 600;
       text-align: center;
     }
     .leyenda-alergenos-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px 20px;
+      gap: 8px 14px;
       justify-content: center;
       align-items: center;
     }
     .leyenda-alergenos-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: #0F3460;
-      border-radius: 12px;
-      color: #e0e0e0;
-      font-size: 14px;
+      gap: 6px;
+      padding: 6px 10px;
+      background: #FAFAFA;
+      border-radius: 20px;
+      color: #616161;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid #EEEEEE;
     }
-    .leyenda-alergenos-item .icono { font-size: 22px; }
-    .leyenda-alergenos-item.vegano { border: 1px solid #00D9A5; color: #00D9A5; }
-    .leyenda-alergenos-item.picante { border: 1px solid #E94560; color: #E94560; }
+    .leyenda-alergenos-item .icono { font-size: 16px; }
+    .leyenda-alergenos-item.vegano { color: #2E7D32; border-color: #E8F5E9; background: #E8F5E9; }
+    .leyenda-alergenos-item.picante { color: #C62828; border-color: #FFEBEE; background: #FFEBEE; }
     .productos {
       padding: 16px;
       display: flex;
@@ -1140,19 +1200,36 @@ class LocalServer {
       gap: 12px;
     }
     .producto {
-      background: #16213E;
-      border-radius: 12px;
-      padding: 16px;
+      background: #FFFFFF;
+      border-radius: 16px;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border: 1px solid #0F3460;
+      flex-direction: column;
+      align-items: stretch;
+      border: none;
       cursor: pointer;
-      min-height: 72px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      transition: box-shadow 0.2s ease;
+      overflow: hidden;
     }
+    .producto:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
     .producto.agotado {
       opacity: 0.5;
-      background: #2A2A2A;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .producto.agotado:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+    .producto-foto {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      display: block;
+      border-radius: 12px 12px 0 0;
+      background: #eee;
+    }
+    .producto-fila {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      min-height: 72px;
     }
     .producto-info {
       display: flex;
@@ -1161,29 +1238,36 @@ class LocalServer {
       flex: 1;
       min-width: 0;
     }
-    .nombre { font-weight: bold; font-size: 16px; }
+    .nombre { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 16px; color: #212121; }
     .descripcion {
       font-size: 12px;
-      color: #888;
+      color: #616161;
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
       line-height: 1.35;
     }
-    .precio { color: #00D9A5; font-weight: bold; font-size: 18px; }
+    .precio { color: #2E7D32; font-weight: 700; font-size: 18px; }
+    .producto.agotado .precio { color: #9E9E9E; font-weight: 600; }
+    .producto.agotado .descripcion { color: #424242; }
     .btn-agregar {
-      background: #E94560;
+      background: #E65100;
       border: none;
       color: white;
       width: 44px;
       height: 44px;
-      border-radius: 12px;
+      border-radius: 50%;
       font-size: 24px;
       font-weight: bold;
       cursor: pointer;
       flex-shrink: 0;
       margin-left: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      box-shadow: 0 2px 10px rgba(230, 81, 0, 0.35);
     }
     .btn-agregar:active { transform: scale(0.95); }
     /* Botón flotante del carrito (móvil) */
@@ -1194,10 +1278,10 @@ class LocalServer {
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #E94560, #FF6B6B);
+      background: #E65100;
       border: none;
       color: white;
-      box-shadow: 0 4px 20px rgba(233, 69, 96, 0.5);
+      box-shadow: 0 4px 20px rgba(230, 81, 0, 0.4);
       cursor: pointer;
       z-index: 100;
       display: flex;
@@ -1214,7 +1298,7 @@ class LocalServer {
       min-width: 20px;
       height: 20px;
       border-radius: 10px;
-      background: #E94560;
+      background: #C41E3A;
       color: white;
       font-size: 12px;
       font-weight: bold;
@@ -1222,7 +1306,7 @@ class LocalServer {
       align-items: center;
       justify-content: center;
       padding: 0 5px;
-      border: 2px solid #1A1A2E;
+      border: 2px solid #FFFFFF;
     }
     .btn-carrito-flotante .carrito-badge.oculto { display: none; }
     .btn-carrito-flotante.bump {
@@ -1251,8 +1335,8 @@ class LocalServer {
       width: 100%;
       max-width: 320px;
       height: 100%;
-      background: #16213E;
-      box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+      background: #FFFFFF;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.12);
       z-index: 160;
       display: flex;
       flex-direction: column;
@@ -1262,23 +1346,23 @@ class LocalServer {
     .carrito-drawer.abierto { transform: translateX(0); }
     .carrito-drawer-header {
       padding: 20px;
-      border-bottom: 1px solid #0F3460;
+      border-bottom: 1px solid #EEEEEE;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
     }
-    .carrito-drawer-header h2 { margin: 0; font-size: 20px; color: #eee; }
+    .carrito-drawer-header h2 { margin: 0; font-size: 20px; font-weight: 700; color: #212121; }
     .btn-cerrar-drawer {
       background: transparent;
       border: none;
-      color: #888;
+      color: #757575;
       font-size: 24px;
       cursor: pointer;
       padding: 0 8px;
       line-height: 1;
     }
-    .btn-cerrar-drawer:active { color: #fff; }
+    .btn-cerrar-drawer:active { color: #212121; }
     .carrito-drawer-lista {
       flex: 1;
       overflow: auto;
@@ -1291,12 +1375,13 @@ class LocalServer {
       align-items: center;
       padding: 12px;
       margin-bottom: 8px;
-      background: #0F3460;
+      background: #FAFAFA;
       border-radius: 12px;
       font-size: 15px;
+      border: 1px solid #EEEEEE;
     }
-    .carrito-drawer-item .nombre { color: #eee; flex: 1; min-width: 0; }
-    .carrito-drawer-item .cantidad { color: #00D9A5; font-weight: bold; margin: 0 6px; min-width: 20px; text-align: center; }
+    .carrito-drawer-item .nombre { color: #212121; flex: 1; min-width: 0; font-weight: 500; }
+    .carrito-drawer-item .cantidad { color: #2E7D32; font-weight: 700; margin: 0 6px; min-width: 20px; text-align: center; }
     .carrito-drawer-item .controles {
       display: flex;
       align-items: center;
@@ -1319,35 +1404,36 @@ class LocalServer {
       transition: opacity 0.15s, transform 0.1s;
     }
     .btn-carrito-ctrl:active { transform: scale(0.92); }
-    .btn-carrito-mas { background: #00D9A5; color: #1A1A2E; }
+    .btn-carrito-mas { background: #E65100; color: #fff; }
     .btn-carrito-mas:hover { opacity: 0.9; }
     .btn-carrito-menos {
-      background: #0F3460;
-      color: #00D9A5;
-      border: 2px solid #00D9A5;
+      background: #FFFFFF;
+      color: #616161;
+      border: 1px solid #E0E0E0;
     }
     .btn-carrito-menos:hover { opacity: 0.9; }
-    .btn-carrito-quitar { background: #E94560; color: #fff; font-size: 14px; }
+    .btn-carrito-quitar { background: #F5F5F5; color: #C62828; font-size: 14px; border: 1px solid #FFCDD2; }
     .btn-carrito-quitar:hover { opacity: 0.9; }
     .carrito-drawer-vacio {
-      color: #888;
+      color: #757575;
       text-align: center;
       padding: 24px 16px;
       font-size: 15px;
     }
     .carrito-drawer-footer {
       padding: 16px 20px;
-      border-top: 2px solid #E94560;
+      border-top: 1px solid #EEEEEE;
       flex-shrink: 0;
     }
     .carrito-drawer-total {
-      color: #00D9A5;
+      color: #2E7D32;
       font-size: 14px;
+      font-weight: 600;
       margin-bottom: 12px;
       text-align: center;
     }
     .btn-enviar {
-      background: linear-gradient(135deg, #E94560, #FF6B6B);
+      background: #C41E3A;
       border: none;
       color: white;
       padding: 14px 28px;
@@ -1358,29 +1444,30 @@ class LocalServer {
       text-transform: uppercase;
       letter-spacing: 1px;
       width: 100%;
+      box-shadow: 0 2px 10px rgba(196, 30, 58, 0.3);
     }
-    .btn-enviar:disabled { background: #333; cursor: not-allowed; }
+    .btn-enviar:disabled { background: #BDBDBD; cursor: not-allowed; box-shadow: none; }
     .btn-enviar:active:not(:disabled) { transform: scale(0.98); }
     .mensaje {
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: #16213E;
+      background: #FFFFFF;
       padding: 32px;
       border-radius: 20px;
       text-align: center;
       z-index: 200;
       display: none;
-      border: 2px solid #00D9A5;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
       max-width: 300px;
     }
     .mensaje.visible { display: block; }
-    .mensaje h2 { color: #00D9A5; margin-bottom: 16px; }
-    .mensaje p { margin-bottom: 20px; }
+    .mensaje h2 { color: #2E7D32; margin-bottom: 16px; font-weight: 700; }
+    .mensaje p { margin-bottom: 20px; color: #616161; }
     .btn-aceptar-mensaje {
-      background: #00D9A5;
-      color: #1A1A2E;
+      background: #C41E3A;
+      color: #FFFFFF;
       border: none;
       padding: 12px 28px;
       border-radius: 12px;
@@ -1414,20 +1501,20 @@ class LocalServer {
       display: flex;
     }
     .modal-plato {
-      background: #16213E;
+      background: #FFFFFF;
       border-radius: 20px;
-      border: 2px solid #0F3460;
+      border: none;
       max-width: 400px;
       width: 100%;
       max-height: 90vh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.15);
     }
     .modal-plato-header {
       padding: 16px 20px;
-      border-bottom: 1px solid #0F3460;
+      border-bottom: 1px solid #EEEEEE;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
@@ -1436,7 +1523,8 @@ class LocalServer {
     .modal-plato-header h2 {
       margin: 0;
       font-size: 22px;
-      color: #FFD700;
+      font-weight: 700;
+      color: #212121;
       line-height: 1.3;
       flex: 1;
       padding-right: 12px;
@@ -1444,14 +1532,14 @@ class LocalServer {
     .modal-plato-cerrar {
       background: transparent;
       border: none;
-      color: #888;
+      color: #757575;
       font-size: 28px;
       line-height: 1;
       cursor: pointer;
       padding: 0 4px;
       flex-shrink: 0;
     }
-    .modal-plato-cerrar:hover, .modal-plato-cerrar:active { color: #fff; }
+    .modal-plato-cerrar:hover, .modal-plato-cerrar:active { color: #212121; }
     .modal-plato-body {
       padding: 16px 20px;
       overflow-y: auto;
@@ -1463,42 +1551,43 @@ class LocalServer {
       object-fit: cover;
       border-radius: 12px;
       margin-bottom: 16px;
-      background: #0F3460;
+      background: #F5F5F5;
     }
     .modal-plato-alergenos {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 16px;
       align-items: center;
     }
     .modal-plato-alergeno {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: #0F3460;
-      border: 1px solid #2a4a6e;
-      display: flex;
+      padding: 6px 10px;
+      border-radius: 20px;
+      background: #FAFAFA;
+      border: 1px solid #EEEEEE;
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      color: #e0e0e0;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #616161;
       cursor: default;
-      position: relative;
     }
-    .modal-plato-alergeno.vegano { color: #00D9A5; border-color: #00D9A5; background: rgba(0,217,165,0.15); }
-    .modal-plato-alergeno.picante { color: #E94560; border-color: #E94560; background: rgba(233,69,96,0.15); }
+    .modal-plato-alergeno.vegano { color: #2E7D32; border-color: #E8F5E9; background: #E8F5E9; }
+    .modal-plato-alergeno.picante { color: #C62828; border-color: #FFEBEE; background: #FFEBEE; }
     .modal-plato-alergeno[title] { cursor: help; }
+    .modal-plato-alergeno .alergeno-icon { font-size: 14px; }
+    .modal-plato-alergeno .alergeno-nombre { font-size: 12px; }
     .modal-plato-desc {
       font-size: 15px;
-      color: #ccc;
+      color: #616161;
       line-height: 1.5;
       white-space: pre-wrap;
     }
     
     /* Estilos para productos marcados como agotados durante el envío */
     .producto.marcado-error {
-      border: 2px solid #E94560 !important;
+      border: 2px solid #FFCDD2 !important;
       animation: shake 0.5s ease-in-out;
     }
     @keyframes shake {
@@ -1523,33 +1612,33 @@ class LocalServer {
       to { opacity: 1; }
     }
     .dialog-error {
-      background: #16213E;
+      background: #FFFFFF;
       padding: 28px;
       border-radius: 20px;
       text-align: center;
       max-width: 350px;
       margin: 16px;
-      border: 2px solid #E94560;
-      box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.15);
     }
     .dialog-icon {
       font-size: 48px;
       margin-bottom: 16px;
     }
     .dialog-error h2 {
-      color: #E94560;
+      color: #C41E3A;
       margin-bottom: 12px;
       font-size: 22px;
+      font-weight: 700;
     }
     .dialog-error p {
-      color: #aaa;
+      color: #616161;
       font-size: 14px;
       margin-bottom: 16px;
     }
     .lista-agotados {
       list-style: none;
       padding: 12px;
-      background: #0F3460;
+      background: #FFEBEE;
       border-radius: 10px;
       margin-bottom: 16px;
       text-align: left;
@@ -1557,9 +1646,9 @@ class LocalServer {
       overflow-y: auto;
     }
     .lista-agotados li {
-      color: #E94560;
+      color: #C62828;
       padding: 8px 0;
-      border-bottom: 1px solid #1a1a2e;
+      border-bottom: 1px solid #FFCDD2;
       font-weight: 500;
     }
     .lista-agotados li:last-child {
@@ -1568,7 +1657,7 @@ class LocalServer {
     .lista-ajustes {
       list-style: none;
       padding: 12px;
-      background: #0F3460;
+      background: #FFF8E1;
       border-radius: 10px;
       margin-bottom: 16px;
       text-align: left;
@@ -1576,9 +1665,9 @@ class LocalServer {
       overflow-y: auto;
     }
     .lista-ajustes li {
-      color: #FFA500;
+      color: #E65100;
       padding: 8px 0;
-      border-bottom: 1px solid #1a1a2e;
+      border-bottom: 1px solid #FFECB3;
       font-weight: 500;
       line-height: 1.5;
     }
@@ -1589,12 +1678,12 @@ class LocalServer {
       margin-bottom: 12px;
     }
     .dialog-hint {
-      color: #888;
+      color: #757575;
       font-size: 12px;
       font-style: italic;
     }
     .btn-dialog {
-      background: #E94560;
+      background: #C41E3A;
       color: white;
       border: none;
       padding: 14px 32px;
@@ -1606,19 +1695,20 @@ class LocalServer {
       width: 100%;
     }
     .btn-dialog:active {
-      background: #c73850;
+      opacity: 0.9;
     }
     /* Mis Pedidos realizados */
     .mis-pedidos-section {
       padding: 16px;
-      background: #0F3460;
+      background: #FFFFFF;
       margin: 0 16px 16px;
-      border-radius: 12px;
-      border: 1px solid #16213E;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     }
     .mis-pedidos-section h2 {
-      color: #00D9A5;
+      color: #212121;
       font-size: 16px;
+      font-weight: 700;
       margin-bottom: 12px;
       display: flex;
       align-items: center;
@@ -1630,24 +1720,25 @@ class LocalServer {
       gap: 8px;
     }
     .mis-pedidos-vacio {
-      color: #888;
+      color: #757575;
       font-size: 14px;
       padding: 12px 0;
       text-align: center;
     }
     .item-pedido-realizado {
-      background: #16213E;
+      background: #FAFAFA;
       padding: 12px 14px;
-      border-radius: 10px;
+      border-radius: 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      border-left: 4px solid #00D9A5;
+      border: 1px solid #EEEEEE;
+      border-left: 4px solid #2E7D32;
     }
     .item-pedido-realizado .nombre-cantidad {
-      color: white;
+      color: #212121;
       font-weight: 500;
       font-size: 14px;
     }
@@ -1658,12 +1749,12 @@ class LocalServer {
       border-radius: 20px;
     }
     .item-pedido-realizado .estado-preparacion {
-      background: #FFA500;
-      color: #1A1A2E;
+      background: #FFF3E0;
+      color: #E65100;
     }
     .item-pedido-realizado .estado-servido {
-      background: #00D9A5;
-      color: #1A1A2E;
+      background: #E8F5E9;
+      color: #2E7D32;
     }
   </style>
 </head>
@@ -1915,7 +2006,7 @@ class LocalServer {
         span.className = 'modal-plato-alergeno' + (info.clase ? ' ' + info.clase : '');
         span.title = info.label;
         span.setAttribute('aria-label', info.label);
-        span.textContent = info.icon;
+        span.innerHTML = '<span class="alergeno-icon">' + info.icon + '</span><span class="alergeno-nombre">' + info.label + '</span>';
         contAlergenos.appendChild(span);
       });
       document.getElementById('modal-plato-overlay').classList.add('visible');
