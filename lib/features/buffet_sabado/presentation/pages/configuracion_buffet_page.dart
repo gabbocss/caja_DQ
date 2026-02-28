@@ -103,7 +103,7 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
         _mensajeController.text = config.mensajePromocion ?? '';
         _impresoraBuffetIpController.text = config.impresoraBuffetIp ?? '';
         _impresoraBuffetPuertoController.text =
-            config.impresoraBuffetPuerto?.toString() ?? '9100';
+            config.impresoraBuffetPuerto?.toString() ?? '';
         _diaSemana = config.diaSemana ?? DateTime.saturday;
         _activo = config.activo;
         
@@ -130,7 +130,7 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
         _edadMaximaController.text = '10';
         _mensajeController.text = '¡Buffet All You Can Eat!';
         _impresoraBuffetIpController.text = '';
-        _impresoraBuffetPuertoController.text = '9100';
+        _impresoraBuffetPuertoController.text = '';
       }
     } catch (e) {
       debugPrint('Error al cargar configuración: $e');
@@ -165,8 +165,9 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
       config.colorTema = '#FFD700';
       final ipBuf = _impresoraBuffetIpController.text.trim();
       config.impresoraBuffetIp = ipBuf.isEmpty ? null : ipBuf;
+      final puertoStr = _impresoraBuffetPuertoController.text.trim();
       config.impresoraBuffetPuerto =
-          int.tryParse(_impresoraBuffetPuertoController.text.trim()) ?? 9100;
+          puertoStr.isEmpty ? null : int.tryParse(puertoStr);
       config.fechaCreacion = _config?.fechaCreacion ?? DateTime.now();
 
       await DatabaseService.instance.guardarConfiguracionBuffet(config);
@@ -403,8 +404,8 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
                       Expanded(
                         child: _buildCampoTexto(
                           controller: _impresoraBuffetPuertoController,
-                          label: 'Puerto',
-                          hint: '9100',
+                          label: 'Puerto (opcional)',
+                          hint: 'Vacío = por defecto. Ej: 9100',
                           icono: Icons.numbers,
                           keyboardType: TextInputType.number,
                           inputFormatters: [

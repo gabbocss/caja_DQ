@@ -714,7 +714,7 @@ class DatabaseService {
         .estadoEqualTo(EstadoPedido.pendiente)
         .or()
         .estadoEqualTo(EstadoPedido.preparando)
-        .sortByFechaCreacionDesc()
+        .sortByFechaCreacion()
         .watch(fireImmediately: true);
   }
 
