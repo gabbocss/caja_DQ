@@ -390,15 +390,16 @@ class ApiClient {
   }
 
   /// Envía al servidor la solicitud de imprimir un ticket de cocina (plato + mesa).
-  /// El servidor imprime en la impresora configurada para el destino.
+  /// El servidor imprime en la impresora configurada para el destino o en la impresora buffet si [useBuffetPrinter].
   Future<void> imprimirTicketCocina(
     int mesaNumero,
     String nombreProducto,
     int productoId,
     int cantidad,
     int? destinoId,
-    double precioUnitario,
-  ) async {
+    double precioUnitario, {
+    bool useBuffetPrinter = false,
+  }) async {
     try {
       await _client.post(
         Uri.parse('$baseUrl/api/cocina/imprimir-ticket'),
@@ -413,6 +414,7 @@ class ApiClient {
           'cantidad': cantidad,
           'destinoId': destinoId,
           'precioUnitario': precioUnitario,
+          'useBuffetPrinter': useBuffetPrinter,
         }),
       );
     } catch (e) {

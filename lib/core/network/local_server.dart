@@ -526,7 +526,7 @@ class LocalServer {
       }
     });
 
-    // POST /api/cocina/imprimir-ticket - Imprime ticket desde UI cocina (web); el servidor envía a la impresora configurada
+    // POST /api/cocina/imprimir-ticket - Imprime ticket desde UI cocina (web); el servidor envía a la impresora configurada o impresora buffet
     router.post('/api/cocina/imprimir-ticket', (Request request) async {
       try {
         final body = await request.readAsString();
@@ -537,6 +537,7 @@ class LocalServer {
         final cantidad = data['cantidad'] as int;
         final destinoId = data['destinoId'] as int?;
         final precioUnitario = (data['precioUnitario'] as num).toDouble();
+        final useBuffetPrinter = data['useBuffetPrinter'] as bool? ?? false;
         final item = ItemPedido.crear(
           productoId: productoId,
           nombreProducto: nombreProducto,
@@ -551,6 +552,22 @@ class LocalServer {
         );
         pedido.fechaCreacion = DateTime.now();
         pedido.fechaActualizacion = DateTime.now();
+        if (useBuffetPrinter) {
+          final configBuffet = await _db.obtenerConfiguracionBuffetActiva();
+          if (configBuffet != null && configBuffet.tieneImpresoraBuffet) {
+            final host = configBuffet.impresoraBuffetIp!.trim();
+            final port = configBuffet.impresoraBuffetPuerto ?? 9100;
+            await ImprimirPedidoService.instance.imprimirPedidoEnImpresora(
+              pedido,
+              host,
+              port,
+            );
+            return Response.ok(
+              jsonEncode({'ok': true}),
+              headers: {'Content-Type': 'application/json'},
+            );
+          }
+        }
         await ImprimirPedidoService.instance.imprimirPedido(pedido);
         return Response.ok(
           jsonEncode({'ok': true}),

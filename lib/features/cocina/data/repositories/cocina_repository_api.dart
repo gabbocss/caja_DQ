@@ -70,6 +70,7 @@ class CocinaRepositoryApi implements CocinaRepository {
       cantidad,
       destinoId,
       precioUnitario,
+      useBuffetPrinter: useBuffetPrinter,
     );
   }
 }
