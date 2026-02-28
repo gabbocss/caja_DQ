@@ -68,35 +68,50 @@ const ConfiguracionBuffetSchema = CollectionSchema(
       name: r'horaInicio',
       type: IsarType.string,
     ),
-    r'mensajePromocion': PropertySchema(
+    r'impresoraBuffetIp': PropertySchema(
       id: 10,
+      name: r'impresoraBuffetIp',
+      type: IsarType.string,
+    ),
+    r'impresoraBuffetPuerto': PropertySchema(
+      id: 11,
+      name: r'impresoraBuffetPuerto',
+      type: IsarType.long,
+    ),
+    r'mensajePromocion': PropertySchema(
+      id: 12,
       name: r'mensajePromocion',
       type: IsarType.string,
     ),
     r'nombre': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'nombre',
       type: IsarType.string,
     ),
     r'precioAdulto': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'precioAdulto',
       type: IsarType.double,
     ),
     r'precioCubierto': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'precioCubierto',
       type: IsarType.double,
     ),
     r'precioMenor': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'precioMenor',
       type: IsarType.double,
     ),
     r'precioNino': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'precioNino',
       type: IsarType.double,
+    ),
+    r'tieneImpresoraBuffet': PropertySchema(
+      id: 18,
+      name: r'tieneImpresoraBuffet',
+      type: IsarType.bool,
     )
   },
   estimateSize: _configuracionBuffetEstimateSize,
@@ -148,6 +163,12 @@ int _configuracionBuffetEstimateSize(
   bytesCount += 3 + object.horaFin.length * 3;
   bytesCount += 3 + object.horaInicio.length * 3;
   {
+    final value = object.impresoraBuffetIp;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.mensajePromocion;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -173,12 +194,15 @@ void _configuracionBuffetSerialize(
   writer.writeDateTime(offsets[7], object.fechaModificacion);
   writer.writeString(offsets[8], object.horaFin);
   writer.writeString(offsets[9], object.horaInicio);
-  writer.writeString(offsets[10], object.mensajePromocion);
-  writer.writeString(offsets[11], object.nombre);
-  writer.writeDouble(offsets[12], object.precioAdulto);
-  writer.writeDouble(offsets[13], object.precioCubierto);
-  writer.writeDouble(offsets[14], object.precioMenor);
-  writer.writeDouble(offsets[15], object.precioNino);
+  writer.writeString(offsets[10], object.impresoraBuffetIp);
+  writer.writeLong(offsets[11], object.impresoraBuffetPuerto);
+  writer.writeString(offsets[12], object.mensajePromocion);
+  writer.writeString(offsets[13], object.nombre);
+  writer.writeDouble(offsets[14], object.precioAdulto);
+  writer.writeDouble(offsets[15], object.precioCubierto);
+  writer.writeDouble(offsets[16], object.precioMenor);
+  writer.writeDouble(offsets[17], object.precioNino);
+  writer.writeBool(offsets[18], object.tieneImpresoraBuffet);
 }
 
 ConfiguracionBuffet _configuracionBuffetDeserialize(
@@ -199,12 +223,14 @@ ConfiguracionBuffet _configuracionBuffetDeserialize(
   object.horaFin = reader.readString(offsets[8]);
   object.horaInicio = reader.readString(offsets[9]);
   object.id = id;
-  object.mensajePromocion = reader.readStringOrNull(offsets[10]);
-  object.nombre = reader.readString(offsets[11]);
-  object.precioAdulto = reader.readDouble(offsets[12]);
-  object.precioCubierto = reader.readDouble(offsets[13]);
-  object.precioMenor = reader.readDouble(offsets[14]);
-  object.precioNino = reader.readDouble(offsets[15]);
+  object.impresoraBuffetIp = reader.readStringOrNull(offsets[10]);
+  object.impresoraBuffetPuerto = reader.readLongOrNull(offsets[11]);
+  object.mensajePromocion = reader.readStringOrNull(offsets[12]);
+  object.nombre = reader.readString(offsets[13]);
+  object.precioAdulto = reader.readDouble(offsets[14]);
+  object.precioCubierto = reader.readDouble(offsets[15]);
+  object.precioMenor = reader.readDouble(offsets[16]);
+  object.precioNino = reader.readDouble(offsets[17]);
   return object;
 }
 
@@ -238,15 +264,21 @@ P _configuracionBuffetDeserializeProp<P>(
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 12:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 13:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 14:
       return (reader.readDouble(offset)) as P;
     case 15:
       return (reader.readDouble(offset)) as P;
+    case 16:
+      return (reader.readDouble(offset)) as P;
+    case 17:
+      return (reader.readDouble(offset)) as P;
+    case 18:
+      return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -1429,6 +1461,234 @@ extension ConfiguracionBuffetQueryFilter on QueryBuilder<ConfiguracionBuffet,
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'impresoraBuffetIp',
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'impresoraBuffetIp',
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'impresoraBuffetIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'impresoraBuffetIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'impresoraBuffetIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'impresoraBuffetIp',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'impresoraBuffetIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'impresoraBuffetIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'impresoraBuffetIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'impresoraBuffetIp',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'impresoraBuffetIp',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetIpIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'impresoraBuffetIp',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetPuertoIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'impresoraBuffetPuerto',
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetPuertoIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'impresoraBuffetPuerto',
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetPuertoEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'impresoraBuffetPuerto',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetPuertoGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'impresoraBuffetPuerto',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetPuertoLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'impresoraBuffetPuerto',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      impresoraBuffetPuertoBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'impresoraBuffetPuerto',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
       mensajePromocionIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1981,6 +2241,16 @@ extension ConfiguracionBuffetQueryFilter on QueryBuilder<ConfiguracionBuffet,
       ));
     });
   }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      tieneImpresoraBuffetEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tieneImpresoraBuffet',
+        value: value,
+      ));
+    });
+  }
 }
 
 extension ConfiguracionBuffetQueryObject on QueryBuilder<ConfiguracionBuffet,
@@ -2132,6 +2402,34 @@ extension ConfiguracionBuffetQuerySortBy
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByImpresoraBuffetIp() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'impresoraBuffetIp', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByImpresoraBuffetIpDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'impresoraBuffetIp', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByImpresoraBuffetPuerto() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'impresoraBuffetPuerto', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByImpresoraBuffetPuertoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'impresoraBuffetPuerto', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
       sortByMensajePromocion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mensajePromocion', Sort.asc);
@@ -2212,6 +2510,20 @@ extension ConfiguracionBuffetQuerySortBy
       sortByPrecioNinoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'precioNino', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByTieneImpresoraBuffet() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tieneImpresoraBuffet', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByTieneImpresoraBuffetDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tieneImpresoraBuffet', Sort.desc);
     });
   }
 }
@@ -2373,6 +2685,34 @@ extension ConfiguracionBuffetQuerySortThenBy
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByImpresoraBuffetIp() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'impresoraBuffetIp', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByImpresoraBuffetIpDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'impresoraBuffetIp', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByImpresoraBuffetPuerto() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'impresoraBuffetPuerto', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByImpresoraBuffetPuertoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'impresoraBuffetPuerto', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
       thenByMensajePromocion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mensajePromocion', Sort.asc);
@@ -2455,6 +2795,20 @@ extension ConfiguracionBuffetQuerySortThenBy
       return query.addSortBy(r'precioNino', Sort.desc);
     });
   }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByTieneImpresoraBuffet() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tieneImpresoraBuffet', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByTieneImpresoraBuffetDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tieneImpresoraBuffet', Sort.desc);
+    });
+  }
 }
 
 extension ConfiguracionBuffetQueryWhereDistinct
@@ -2530,6 +2884,21 @@ extension ConfiguracionBuffetQueryWhereDistinct
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
+      distinctByImpresoraBuffetIp({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'impresoraBuffetIp',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
+      distinctByImpresoraBuffetPuerto() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'impresoraBuffetPuerto');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
       distinctByMensajePromocion({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'mensajePromocion',
@@ -2569,6 +2938,13 @@ extension ConfiguracionBuffetQueryWhereDistinct
       distinctByPrecioNino() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'precioNino');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
+      distinctByTieneImpresoraBuffet() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'tieneImpresoraBuffet');
     });
   }
 }
@@ -2651,6 +3027,20 @@ extension ConfiguracionBuffetQueryProperty
   }
 
   QueryBuilder<ConfiguracionBuffet, String?, QQueryOperations>
+      impresoraBuffetIpProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'impresoraBuffetIp');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, int?, QQueryOperations>
+      impresoraBuffetPuertoProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'impresoraBuffetPuerto');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, String?, QQueryOperations>
       mensajePromocionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'mensajePromocion');
@@ -2688,6 +3078,13 @@ extension ConfiguracionBuffetQueryProperty
       precioNinoProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'precioNino');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, bool, QQueryOperations>
+      tieneImpresoraBuffetProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'tieneImpresoraBuffet');
     });
   }
 }

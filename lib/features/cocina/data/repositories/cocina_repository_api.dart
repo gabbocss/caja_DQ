@@ -60,8 +60,9 @@ class CocinaRepositoryApi implements CocinaRepository {
     int productoId,
     int cantidad,
     int? destinoId,
-    double precioUnitario,
-  ) async {
+    double precioUnitario, {
+    bool useBuffetPrinter = false,
+  }) async {
     await _api.imprimirTicketCocina(
       mesaNumero,
       nombreProducto,

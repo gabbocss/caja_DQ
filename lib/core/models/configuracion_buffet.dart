@@ -60,6 +60,13 @@ class ConfiguracionBuffet {
   /// Color del tema para el buffet (hex)
   String? colorTema;
 
+  /// IP de la impresora usada al marcar Hecho (Todo/Parcial) en modo buffet
+  /// Si está configurada, los tickets se envían aquí en lugar del destino.
+  String? impresoraBuffetIp;
+
+  /// Puerto de la impresora buffet (por defecto 9100)
+  int? impresoraBuffetPuerto;
+
   /// Fecha de creación
   late DateTime fechaCreacion;
 
@@ -147,6 +154,10 @@ class ConfiguracionBuffet {
     }
   }
 
+  /// Indica si la impresora buffet está configurada
+  bool get tieneImpresoraBuffet =>
+      impresoraBuffetIp != null && impresoraBuffetIp!.trim().isNotEmpty;
+
   /// Convierte a JSON para serialización
   Map<String, dynamic> toJson() {
     return {
@@ -165,6 +176,8 @@ class ConfiguracionBuffet {
       'activo': activo,
       'mensajePromocion': mensajePromocion,
       'colorTema': colorTema,
+      'impresoraBuffetIp': impresoraBuffetIp,
+      'impresoraBuffetPuerto': impresoraBuffetPuerto,
       'fechaCreacion': fechaCreacion.toIso8601String(),
       'fechaModificacion': fechaModificacion?.toIso8601String(),
     };
@@ -187,6 +200,8 @@ class ConfiguracionBuffet {
       ..activo = json['activo'] as bool? ?? true
       ..mensajePromocion = json['mensajePromocion'] as String?
       ..colorTema = json['colorTema'] as String?
+      ..impresoraBuffetIp = json['impresoraBuffetIp'] as String?
+      ..impresoraBuffetPuerto = json['impresoraBuffetPuerto'] as int?
       ..fechaCreacion = json['fechaCreacion'] != null
           ? DateTime.parse(json['fechaCreacion'] as String)
           : DateTime.now()

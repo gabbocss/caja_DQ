@@ -309,6 +309,7 @@ class CocinaProvider extends ChangeNotifier {
       cantidad,
       destinoId,
       precioUnitario,
+      useBuffetPrinter: _modoBuffet,
     );
   }
 

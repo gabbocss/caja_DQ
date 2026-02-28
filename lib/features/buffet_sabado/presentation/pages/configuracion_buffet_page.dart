@@ -29,6 +29,8 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
   late TextEditingController _edadMinimaController;
   late TextEditingController _edadMaximaController;
   late TextEditingController _mensajeController;
+  late TextEditingController _impresoraBuffetIpController;
+  late TextEditingController _impresoraBuffetPuertoController;
 
   // Estado
   int _diaSemana = DateTime.saturday;
@@ -53,6 +55,8 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
     _edadMinimaController = TextEditingController();
     _edadMaximaController = TextEditingController();
     _mensajeController = TextEditingController();
+    _impresoraBuffetIpController = TextEditingController();
+    _impresoraBuffetPuertoController = TextEditingController();
   }
 
   @override
@@ -66,6 +70,8 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
     _edadMinimaController.dispose();
     _edadMaximaController.dispose();
     _mensajeController.dispose();
+    _impresoraBuffetIpController.dispose();
+    _impresoraBuffetPuertoController.dispose();
     super.dispose();
   }
 
@@ -95,6 +101,9 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
         _edadMinimaController.text = config.edadMinimaInfantil.toString();
         _edadMaximaController.text = config.edadMaximaInfantil.toString();
         _mensajeController.text = config.mensajePromocion ?? '';
+        _impresoraBuffetIpController.text = config.impresoraBuffetIp ?? '';
+        _impresoraBuffetPuertoController.text =
+            config.impresoraBuffetPuerto?.toString() ?? '9100';
         _diaSemana = config.diaSemana ?? DateTime.saturday;
         _activo = config.activo;
         
@@ -120,6 +129,8 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
         _edadMinimaController.text = '6';
         _edadMaximaController.text = '10';
         _mensajeController.text = '¡Buffet All You Can Eat!';
+        _impresoraBuffetIpController.text = '';
+        _impresoraBuffetPuertoController.text = '9100';
       }
     } catch (e) {
       debugPrint('Error al cargar configuración: $e');
@@ -152,6 +163,10 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
       config.horaFin = '${_horaFin.hour.toString().padLeft(2, '0')}:${_horaFin.minute.toString().padLeft(2, '0')}';
       config.activo = _activo;
       config.colorTema = '#FFD700';
+      final ipBuf = _impresoraBuffetIpController.text.trim();
+      config.impresoraBuffetIp = ipBuf.isEmpty ? null : ipBuf;
+      config.impresoraBuffetPuerto =
+          int.tryParse(_impresoraBuffetPuertoController.text.trim()) ?? 9100;
       config.fechaCreacion = _config?.fechaCreacion ?? DateTime.now();
 
       await DatabaseService.instance.guardarConfiguracionBuffet(config);
@@ -354,6 +369,55 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
                   const SizedBox(height: 8),
                   Text(
                     'Se usará cuando el cliente abra mesa fuera del horario de buffet.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Sección: Impresora Buffet
+              _buildSeccion(
+                titulo: 'Impresora Buffet (Hecho Todo / Hecho Parcial)',
+                icono: Icons.print,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildCampoTexto(
+                          controller: _impresoraBuffetIpController,
+                          label: 'IP impresora',
+                          hint: 'Ej: 192.168.1.100',
+                          icono: Icons.computer,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'[^\d.]')),
+                          ],
+                          validator: (_) => null, // opcional
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildCampoTexto(
+                          controller: _impresoraBuffetPuertoController,
+                          label: 'Puerto',
+                          hint: '9100',
+                          icono: Icons.numbers,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          validator: (_) => null, // opcional
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Opcional. Impresora usada al marcar Hecho (Todo) o Hecho (Parcial) en modo Buffet. Si está vacía, se usa la impresora del destino.',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,
@@ -588,10 +652,16 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
     String? hint,
     IconData? icono,
     int maxLines = 1,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      validator: validator ?? ((value) => value?.isEmpty ?? true ? 'Campo requerido' : null),
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
@@ -610,7 +680,6 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
           borderSide: const BorderSide(color: Color(0xFFFFD700), width: 2),
         ),
       ),
-      validator: (value) => value?.isEmpty ?? true ? 'Campo requerido' : null,
     );
   }
 

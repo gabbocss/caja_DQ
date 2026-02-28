@@ -24,12 +24,14 @@ abstract class CocinaRepository {
   Stream<List<Pedido>> watchPedidosCocina();
 
   /// Imprime un ticket de cocina (plato + mesa). En web llama al servidor; en desktop imprime local.
+  /// [useBuffetPrinter] Si true y la configuración buffet tiene impresora buffet, imprime allí.
   Future<void> imprimirTicketCocina(
     int mesaNumero,
     String nombreProducto,
     int productoId,
     int cantidad,
     int? destinoId,
-    double precioUnitario,
-  );
+    double precioUnitario, {
+    bool useBuffetPrinter = false,
+  });
 }

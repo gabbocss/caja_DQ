@@ -68,8 +68,9 @@ class CocinaRepositoryImpl implements CocinaRepository {
     int productoId,
     int cantidad,
     int? destinoId,
-    double precioUnitario,
-  ) async {
+    double precioUnitario, {
+    bool useBuffetPrinter = false,
+  }) async {
     final item = ItemPedido.crear(
       productoId: productoId,
       nombreProducto: nombreProducto,
@@ -84,6 +85,21 @@ class CocinaRepositoryImpl implements CocinaRepository {
     );
     pedido.fechaCreacion = DateTime.now();
     pedido.fechaActualizacion = DateTime.now();
+
+    if (useBuffetPrinter) {
+      final configBuffet =
+          await _db.obtenerConfiguracionBuffetActiva();
+      if (configBuffet != null && configBuffet.tieneImpresoraBuffet) {
+        final host = configBuffet.impresoraBuffetIp!.trim();
+        final port = configBuffet.impresoraBuffetPuerto ?? 9100;
+        await ImprimirPedidoService.instance.imprimirPedidoEnImpresora(
+          pedido,
+          host,
+          port,
+        );
+        return;
+      }
+    }
     await ImprimirPedidoService.instance.imprimirPedido(pedido);
   }
 }

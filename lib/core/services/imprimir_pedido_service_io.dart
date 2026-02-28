@@ -238,6 +238,26 @@ class ImprimirPedidoService {
     }
   }
 
+  /// Imprime un pedido en una impresora específica (IP:puerto).
+  /// Usado en modo buffet cuando está configurada la impresora buffet.
+  Future<void> imprimirPedidoEnImpresora(
+    Pedido pedido,
+    String host,
+    int port,
+  ) async {
+    if (pedido.items.isEmpty) return;
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    final numeroTicket =
+        await TicketNumeroService.instance.obtenerSiguienteNumero();
+    final payload = await _generarPayloadTicket(
+      config,
+      pedido.mesaNumero,
+      numeroTicket,
+      pedido.items,
+    );
+    await _enviarAImpresora(host, port, payload);
+  }
+
   Future<void> imprimirPedido(Pedido pedido) async {
     if (pedido.items.isEmpty) return;
     final db = DatabaseService.instance;
@@ -262,7 +282,7 @@ class ImprimirPedidoService {
       final port = destino.puertoImpresora ?? _puertoPorDefecto;
       final payload = await _generarPayloadTicket(config, pedido.mesaNumero, numeroTicket, items);
       final ok = await _enviarAImpresora(ip, port, payload);
-      if (!ok && destino.nombre != null) {
+      if (!ok) {
         debugPrint('No se pudo imprimir en ${destino.nombre} ($ip:$port)');
       }
     }

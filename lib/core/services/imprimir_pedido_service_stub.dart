@@ -9,4 +9,11 @@ class ImprimirPedidoService {
 
   /// No-op en web/stub.
   Future<void> imprimirPedido(Pedido pedido) async {}
+
+  /// No-op en web/stub (impresora buffet).
+  Future<void> imprimirPedidoEnImpresora(
+    Pedido pedido,
+    String host,
+    int port,
+  ) async {}
 }
