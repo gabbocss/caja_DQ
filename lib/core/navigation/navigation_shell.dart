@@ -99,6 +99,7 @@ class NavigationShell extends StatelessWidget {
       return 0; // Mesas (0), Cocina (1), Servidor (2), WiFi (3)
     }
     if (location.startsWith(AppRoutes.configuracion)) return _isWebFlow ? 1 : 2;
+    if (location.startsWith(AppRoutes.wifiQr)) return 3; // desktop: WiFi (4º tab)
     return _isWebFlow ? 0 : 0; // web: cocina=0; desktop: pedidos=0
   }
 
@@ -143,6 +144,9 @@ class NavigationShell extends StatelessWidget {
         break;
       case 2:
         context.go(AppRoutes.configuracion);
+        break;
+      case 3:
+        context.go(AppRoutes.wifiQr);
         break;
     }
   }
@@ -209,6 +213,12 @@ class NavigationShell extends StatelessWidget {
                   label: Text('Config'),
                   padding: EdgeInsets.symmetric(vertical: 8),
                 ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.wifi_outlined),
+                  selectedIcon: Icon(Icons.wifi),
+                  label: Text('WiFi'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
               ];
 
     return Container(
@@ -260,7 +270,7 @@ class NavigationShell extends StatelessWidget {
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
-    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 2);
+    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 3); // desktop: 4 tabs (Pedidos,Cocina,Config,WiFi)
     final safeIndex = selectedIndex.clamp(0, maxIndex);
 
     return Container(
@@ -295,6 +305,7 @@ class NavigationShell extends StatelessWidget {
                         _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Pedidos'),
                         _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
                         _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
+                        _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi'),
                       ],
           ),
         ),

@@ -102,6 +102,13 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                           Icons.cloud,
                           color: const Color(0xFF4FC3F7),
                         ),
+                      _buildAccionTile(
+                        'QR WiFi',
+                        'Mostrar QR para conectarse a la red del local',
+                        Icons.qr_code_2,
+                        onTap: () => context.go(AppRoutes.wifiQr),
+                        color: const Color(0xFF00D9A5),
+                      ),
                     ],
                   ),
                   
