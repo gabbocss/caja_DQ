@@ -130,81 +130,13 @@ class CarritoPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           
-          // Grid de mesas
-          SizedBox(
-            height: 80,
-            child: GridView.builder(
-              scrollDirection: Axis.horizontal,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 1,
-              ),
-              itemCount: 10,
-              itemBuilder: (context, index) {
-                final numeroMesa = index + 1;
-                final isSelected = mesaSeleccionada == numeroMesa;
-                final tieneCuentaAbierta = mesasConCuentaAbierta.contains(numeroMesa);
-                
-                Color borderColor = const Color(0xFF16213E);
-                Color? backgroundColor = const Color(0xFF1A1A2E);
-                if (isSelected) {
-                  borderColor = const Color(0xFFE94560);
-                  backgroundColor = null;
-                } else if (tieneCuentaAbierta) {
-                  borderColor = const Color(0xFF00D9A5);
-                  backgroundColor = const Color(0xFF00D9A5).withValues(alpha: 0.15);
-                }
-                
-                return Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      if (onMesaTap != null) {
-                        onMesaTap!(numeroMesa);
-                      } else {
-                        onMesaChanged(numeroMesa);
-                      }
-                    },
-                    onLongPress: onMostrarQrMesa != null
-                        ? () => onMostrarQrMesa!(numeroMesa)
-                        : null,
-                    borderRadius: BorderRadius.circular(8),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        gradient: isSelected
-                            ? const LinearGradient(
-                                colors: [Color(0xFFE94560), Color(0xFFFF6B6B)],
-                              )
-                            : null,
-                        color: isSelected ? null : backgroundColor,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: borderColor,
-                          width: 2,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$numeroMesa',
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : tieneCuentaAbierta
-                                    ? const Color(0xFF00D9A5)
-                                    : Colors.white60,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
+          // Selector de mesas con paginación (10 por página, flechas)
+          _MesaSelectorPaginado(
+            mesaSeleccionada: mesaSeleccionada,
+            mesasConCuentaAbierta: mesasConCuentaAbierta,
+            onMesaChanged: onMesaChanged,
+            onMesaTap: onMesaTap,
+            onMostrarQrMesa: onMostrarQrMesa,
           ),
         ],
       ),
@@ -506,6 +438,168 @@ class CarritoPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Selector de mesas: grid horizontal (igual que antes) con flechas para desplazar
+class _MesaSelectorPaginado extends StatefulWidget {
+  final int mesaSeleccionada;
+  final Set<int> mesasConCuentaAbierta;
+  final ValueChanged<int> onMesaChanged;
+  final Future<void> Function(int mesa)? onMesaTap;
+  final ValueChanged<int>? onMostrarQrMesa;
+
+  const _MesaSelectorPaginado({
+    required this.mesaSeleccionada,
+    required this.mesasConCuentaAbierta,
+    required this.onMesaChanged,
+    this.onMesaTap,
+    this.onMostrarQrMesa,
+  });
+
+  @override
+  State<_MesaSelectorPaginado> createState() => _MesaSelectorPaginadoState();
+}
+
+class _MesaSelectorPaginadoState extends State<_MesaSelectorPaginado> {
+  static const int _totalMesas = 20;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollIzquierda() {
+    const delta = 120.0;
+    final offset = (_scrollController.offset - delta).clamp(0.0, _scrollController.position.maxScrollExtent);
+    _scrollController.animateTo(offset, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+  }
+
+  void _scrollDerecha() {
+    const delta = 120.0;
+    final max = _scrollController.position.maxScrollExtent;
+    final offset = (_scrollController.offset + delta).clamp(0.0, max);
+    _scrollController.animateTo(offset, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          onPressed: () {
+            if (_scrollController.hasClients && _scrollController.offset > 0) {
+              _scrollIzquierda();
+            }
+          },
+          icon: const Icon(Icons.chevron_left),
+          color: Colors.white70,
+          style: IconButton.styleFrom(
+            minimumSize: const Size(36, 36),
+            padding: EdgeInsets.zero,
+          ),
+        ),
+        Expanded(
+          child: SizedBox(
+            height: 80,
+            child: GridView.builder(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1,
+              ),
+              itemCount: _totalMesas,
+              itemBuilder: (context, index) {
+                final numeroMesa = index + 1;
+                final isSelected = widget.mesaSeleccionada == numeroMesa;
+                final tieneCuentaAbierta =
+                    widget.mesasConCuentaAbierta.contains(numeroMesa);
+
+                Color borderColor = const Color(0xFF16213E);
+                Color? backgroundColor = const Color(0xFF1A1A2E);
+                if (isSelected) {
+                  borderColor = const Color(0xFFE94560);
+                  backgroundColor = null;
+                } else if (tieneCuentaAbierta) {
+                  borderColor = const Color(0xFF00D9A5);
+                  backgroundColor =
+                      const Color(0xFF00D9A5).withValues(alpha: 0.15);
+                }
+
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      if (widget.onMesaTap != null) {
+                        widget.onMesaTap!(numeroMesa);
+                      } else {
+                        widget.onMesaChanged(numeroMesa);
+                      }
+                    },
+                    onLongPress: widget.onMostrarQrMesa != null
+                        ? () => widget.onMostrarQrMesa!(numeroMesa)
+                        : null,
+                    borderRadius: BorderRadius.circular(8),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
+                        gradient: isSelected
+                            ? const LinearGradient(
+                                colors: [
+                                  Color(0xFFE94560),
+                                  Color(0xFFFF6B6B),
+                                ],
+                              )
+                            : null,
+                        color: isSelected ? null : backgroundColor,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: borderColor,
+                          width: 2,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$numeroMesa',
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : tieneCuentaAbierta
+                                    ? const Color(0xFF00D9A5)
+                                    : Colors.white60,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: () {
+            if (_scrollController.hasClients &&
+                _scrollController.offset < _scrollController.position.maxScrollExtent) {
+              _scrollDerecha();
+            }
+          },
+          icon: const Icon(Icons.chevron_right),
+          color: Colors.white70,
+          style: IconButton.styleFrom(
+            minimumSize: const Size(36, 36),
+            padding: EdgeInsets.zero,
+          ),
+        ),
+      ],
     );
   }
 }

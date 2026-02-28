@@ -281,7 +281,7 @@ class _MesasPageState extends State<MesasPage> {
         builder: (context, provider, _) {
           final listaMesas = provider.mesas.isNotEmpty
               ? provider.mesas.where((m) => m.activa).toList()
-              : List.generate(10, (i) => Mesa.crear(numero: i + 1));
+              : List.generate(20, (i) => Mesa.crear(numero: i + 1));
 
           return RefreshIndicator(
             onRefresh: () async {

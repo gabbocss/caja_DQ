@@ -683,12 +683,26 @@ class _MesaFormDialogState extends State<_MesaFormDialog> {
     setState(() => _guardando = true);
 
     try {
-      final mesa = widget.mesa ?? Mesa();
-      mesa.numero = int.parse(_numeroController.text);
-      mesa.capacidad = int.tryParse(_capacidadController.text) ?? 4;
-      mesa.ubicacion = _ubicacionController.text.isEmpty ? null : _ubicacionController.text;
-      mesa.estado = widget.mesa?.estado ?? EstadoMesa.libre;
-      mesa.ultimaActualizacion = DateTime.now();
+      final numero = int.parse(_numeroController.text);
+      final capacidad = int.tryParse(_capacidadController.text) ?? 4;
+      final ubicacion = _ubicacionController.text.isEmpty ? null : _ubicacionController.text;
+
+      final Mesa mesa;
+      if (widget.mesa == null) {
+        mesa = Mesa.crear(
+          numero: numero,
+          capacidad: capacidad,
+          ubicacion: ubicacion,
+          estado: EstadoMesa.libre,
+        );
+      } else {
+        mesa = widget.mesa!;
+        mesa.numero = numero;
+        mesa.capacidad = capacidad;
+        mesa.ubicacion = ubicacion;
+        mesa.estado = widget.mesa?.estado ?? EstadoMesa.libre;
+        mesa.ultimaActualizacion = DateTime.now();
+      }
 
       await DatabaseService.instance.guardarMesa(mesa);
       widget.onGuardar();
