@@ -10,10 +10,12 @@ import '../../features/pedidos/presentation/pages/mesa_platos_page.dart';
 import '../../features/cocina/presentation/pages/cocina_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_page.dart';
 import '../../features/configuracion/presentation/pages/configurar_conexion_page.dart';
+import '../../features/configuracion/presentation/pages/wifi_qr_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_impresora_page.dart';
 import '../../features/configuracion/presentation/pages/destinos_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_productos_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_mesas_page.dart';
+import '../../features/configuracion/presentation/pages/gestion_categorias_page.dart';
 import '../../features/buffet_sabado/presentation/pages/configuracion_buffet_page.dart';
 import 'navigation_shell.dart';
 
@@ -28,7 +30,9 @@ class AppRoutes {
   static const String buffetConfig = '/buffet-config';
   static const String gestionProductos = '/gestion-productos';
   static const String gestionMesas = '/gestion-mesas';
+  static const String gestionCategorias = '/gestion-categorias';
   static const String configuracionImpresora = '/configuracion-impresora';
+  static const String wifiQr = '/wifi-qr';
 }
 
 /// Configuración del router de la aplicación
@@ -93,6 +97,12 @@ final appRouter = GoRouter(
           ),
         ),
         GoRoute(
+          path: AppRoutes.wifiQr,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: WifiQrPage(),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.configuracion,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: ConfiguracionPage(),
@@ -116,6 +126,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.gestionMesas,
       builder: (context, state) => const GestionMesasPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.gestionCategorias,
+      builder: (context, state) => const GestionCategoriasPage(),
     ),
     GoRoute(
       path: AppRoutes.configuracionImpresora,

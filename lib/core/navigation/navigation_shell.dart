@@ -95,7 +95,8 @@ class NavigationShell extends StatelessWidget {
     if (location.startsWith(AppRoutes.cocina)) return _isWebFlow ? 0 : 1;
     if (_isMobileFlow) {
       if (location.startsWith(AppRoutes.configurarConexion)) return 2;
-      return 0; // Mesas (0), Cocina (1), Servidor (2)
+      if (location.startsWith(AppRoutes.wifiQr)) return 3;
+      return 0; // Mesas (0), Cocina (1), Servidor (2), WiFi (3)
     }
     if (location.startsWith(AppRoutes.configuracion)) return _isWebFlow ? 1 : 2;
     return _isWebFlow ? 0 : 0; // web: cocina=0; desktop: pedidos=0
@@ -115,6 +116,9 @@ class NavigationShell extends StatelessWidget {
           break;
         case 2:
           context.go(AppRoutes.configurarConexion);
+          break;
+        case 3:
+          context.go(AppRoutes.wifiQr);
           break;
       }
       return;
@@ -162,6 +166,12 @@ class NavigationShell extends StatelessWidget {
               icon: Icon(Icons.dns_outlined),
               selectedIcon: Icon(Icons.dns),
               label: Text('Servidor'),
+              padding: EdgeInsets.symmetric(vertical: 8),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.wifi_outlined),
+              selectedIcon: Icon(Icons.wifi),
+              label: Text('WiFi'),
               padding: EdgeInsets.symmetric(vertical: 8),
             ),
           ]
@@ -250,7 +260,7 @@ class NavigationShell extends StatelessWidget {
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
-    final maxIndex = _isWebFlow ? 1 : 2;
+    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 2);
     final safeIndex = selectedIndex.clamp(0, maxIndex);
 
     return Container(
@@ -274,6 +284,7 @@ class NavigationShell extends StatelessWidget {
                     _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.table_restaurant_outlined, selectedIcon: Icons.table_restaurant, label: 'Mesas'),
                     _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
                     _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.dns_outlined, selectedIcon: Icons.dns, label: 'Servidor'),
+                    _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi'),
                   ]
                 : _isWebFlow
                     ? [

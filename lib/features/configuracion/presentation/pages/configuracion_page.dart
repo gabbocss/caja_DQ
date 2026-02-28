@@ -168,6 +168,12 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                           onTap: () => context.push(AppRoutes.gestionMesas),
                         ),
                         _buildAccionTile(
+                          'Categorías',
+                          'Modificar, añadir o eliminar categorías del menú',
+                          Icons.category,
+                          onTap: () => context.push(AppRoutes.gestionCategorias),
+                        ),
+                        _buildAccionTile(
                           'Limpiar datos',
                           'Eliminar todos los datos',
                           Icons.delete_forever,

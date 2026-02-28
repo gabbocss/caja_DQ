@@ -41,6 +41,9 @@ class Producto {
   @Index()
   String? categoria;
 
+  /// Orden de visualización en listas (gestión de productos, UI cliente buffet)
+  late int orden;
+
   /// ID del destino de impresión configurable
   /// Referencia a DestinoImpresion.id
   @Index()
@@ -89,6 +92,7 @@ class Producto {
     List<String>? alergenos,
     this.esBuffet = false,
     this.categoria,
+    this.orden = 0,
     this.destinoId,
     this.destino = DestinoProducto.cocina,
     this.activo = true,
@@ -110,6 +114,7 @@ class Producto {
       'alergenos': alergenos,
       'esBuffet': esBuffet,
       'categoria': categoria,
+      'orden': orden,
       'destinoId': destinoId,
       'destino': destino.name,
       'activo': activo,
@@ -132,6 +137,7 @@ class Producto {
       ..alergenos = (json['alergenos'] as List<dynamic>?)?.map((e) => e as String).toList() ?? []
       ..esBuffet = json['esBuffet'] as bool? ?? false
       ..categoria = json['categoria'] as String?
+      ..orden = json['orden'] as int? ?? 0
       ..destinoId = json['destinoId'] as int?
       ..destino = DestinoProducto.values.firstWhere(
         (e) => e.name == json['destino'],

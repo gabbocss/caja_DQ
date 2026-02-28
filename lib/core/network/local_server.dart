@@ -235,6 +235,7 @@ class LocalServer {
             headers: {'Content-Type': 'application/json'},
           );
         }
+        // Productos ya vienen ordenados por orden (categoría*1000 + índice en categoría)
         final productos = await _db.obtenerProductosBuffet();
         final esHorarioBuffet = await _db.esHorarioBuffet();
         final html = await _generarPaginaClienteQR(mesaNumero, productos, esHorarioBuffet);
@@ -355,6 +356,19 @@ class LocalServer {
       }
     });
 
+    // GET /api/categorias - Obtener todas las categorías
+    router.get('/api/categorias', (Request request) async {
+      try {
+        final categorias = await _db.obtenerCategorias();
+        return Response.ok(
+          jsonEncode(categorias.map((c) => c.toJson()).toList()),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al obtener categorías: $e');
+      }
+    });
+
     // DELETE /api/productos/<id> - Eliminar producto
     router.delete('/api/productos/<id>', (Request request, String id) async {
       try {
@@ -397,6 +411,22 @@ class LocalServer {
         );
       } catch (e) {
         return _errorResponse('Error al obtener mesas con cuenta abierta: $e');
+      }
+    });
+
+    // GET /api/mesas/<numero>/qr - URL del QR para pedir buffet en esa mesa (UI camarero)
+    router.get('/api/mesas/<numero>/qr', (Request request, String numero) async {
+      try {
+        final numeroMesa = int.parse(numero);
+        final token = await _db.getQrTokenForMesa(numeroMesa);
+        final baseUrl = serverUrl ?? 'http://localhost:$defaultPort';
+        final url = '$baseUrl/qr/$token';
+        return Response.ok(
+          jsonEncode({'url': url}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al obtener QR de mesa: $e');
       }
     });
 

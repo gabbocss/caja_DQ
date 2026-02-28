@@ -19,6 +19,7 @@ class GestionProductosPage extends StatefulWidget {
 class _GestionProductosPageState extends State<GestionProductosPage> {
   List<Producto> _productos = [];
   List<DestinoImpresion> _destinos = [];
+  List<Categoria> _categoriasDb = [];
   bool _cargando = true;
   String? _filtroCategoria;
 
@@ -33,6 +34,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
     try {
       _productos = await DatabaseService.instance.obtenerProductos();
       _destinos = await DatabaseService.instance.obtenerDestinosActivos();
+      _categoriasDb = await DatabaseService.instance.obtenerCategorias();
     } catch (e) {
       debugPrint('Error al cargar datos: $e');
     } finally {
@@ -91,7 +93,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
                 // Contador de productos
                 _buildContador(),
                 
-                // Lista de productos
+                // Lista de productos (solo se puede reordenar con "Todos" seleccionado)
                 Expanded(
                   child: _productosFiltrados.isEmpty
                       ? _buildSinProductos()
@@ -201,20 +203,68 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   }
 
   Widget _buildListaProductos() {
-    return ListView.builder(
+    final lista = _productosFiltrados;
+    return ReorderableListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _productosFiltrados.length,
+      itemCount: lista.length,
+      onReorder: _reordenarProductos,
       itemBuilder: (context, index) {
-        final producto = _productosFiltrados[index];
+        final producto = lista[index];
         return _ProductoTile(
+          key: ValueKey(producto.id),
           producto: producto,
           destinos: _destinos,
+          showDragHandle: true,
+          reorderIndex: index,
           onToggleDisponibilidad: () => _toggleDisponibilidad(producto),
           onEditar: () => _mostrarFormularioProducto(producto),
           onEliminar: () => _confirmarEliminar(producto),
         );
       },
     );
+  }
+
+  /// Orden de productos: categoría * 1000 + índice dentro de la categoría.
+  int _ordenParaProducto(String? categoria, int indiceEnCategoria) {
+    final cat = _categoriasDb.where((c) => c.nombre == categoria).firstOrNull;
+    return (cat?.orden ?? 9999) * 1000 + indiceEnCategoria;
+  }
+
+  Future<void> _reordenarProductos(int oldIndex, int newIndex) async {
+    final db = DatabaseService.instance;
+    if (_filtroCategoria != null) {
+      // Reordenar solo dentro de la categoría seleccionada
+      final filtered = List<Producto>.from(_productosFiltrados);
+      if (newIndex > oldIndex) newIndex--;
+      final item = filtered.removeAt(oldIndex);
+      filtered.insert(newIndex, item);
+      final catOrden = _categoriasDb
+          .where((c) => c.nombre == _filtroCategoria)
+          .firstOrNull
+          ?.orden ?? 0;
+      for (int i = 0; i < filtered.length; i++) {
+        filtered[i].orden = catOrden * 1000 + i;
+        await db.guardarProducto(filtered[i]);
+      }
+    } else {
+      // Reordenar lista completa (Todos): asignar orden = categoría*1000 + índice en categoría
+      setState(() {
+        if (newIndex > oldIndex) newIndex--;
+        final item = _productos.removeAt(oldIndex);
+        _productos.insert(newIndex, item);
+      });
+      final ordenPorCategoria = <String, int>{};
+      for (final p in _productos) {
+        final cat = p.categoria ?? '';
+        final idx = ordenPorCategoria[cat] ?? 0;
+        ordenPorCategoria[cat] = idx + 1;
+        p.orden = _ordenParaProducto(p.categoria, idx);
+      }
+      for (final p in _productos) {
+        await db.guardarProducto(p);
+      }
+    }
+    await _cargarDatos();
   }
 
   Future<void> _toggleDisponibilidad(Producto producto) async {
@@ -254,6 +304,9 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
       builder: (context) => _ProductoFormDialog(
         producto: producto,
         destinos: _destinos,
+        categoriasDisponibles: _categoriasDb.isEmpty
+            ? CategoriaProducto.todas
+            : _categoriasDb.map((c) => c.nombre).toList(),
         onGuardar: () {
           Navigator.of(context).pop();
           _cargarDatos();
@@ -347,13 +400,18 @@ class _CategoriaChip extends StatelessWidget {
 class _ProductoTile extends StatelessWidget {
   final Producto producto;
   final List<DestinoImpresion> destinos;
+  final bool showDragHandle;
+  final int? reorderIndex;
   final VoidCallback onToggleDisponibilidad;
   final VoidCallback onEditar;
   final VoidCallback onEliminar;
 
   const _ProductoTile({
+    super.key,
     required this.producto,
     required this.destinos,
+    this.showDragHandle = false,
+    this.reorderIndex,
     required this.onToggleDisponibilidad,
     required this.onEditar,
     required this.onEliminar,
@@ -367,7 +425,7 @@ class _ProductoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final card = Card(
       color: const Color(0xFF16213E),
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
@@ -383,6 +441,15 @@ class _ProductoTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
+            if (showDragHandle && reorderIndex != null) ...[
+              ReorderableDragStartListener(
+                index: reorderIndex!,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Icon(Icons.drag_handle, color: Colors.white38, size: 24),
+                ),
+              ),
+            ],
             // Indicador de disponibilidad
             Container(
               width: 8,
@@ -524,6 +591,7 @@ class _ProductoTile extends StatelessWidget {
         ),
       ),
     );
+    return card;
   }
 }
 
@@ -531,11 +599,13 @@ class _ProductoTile extends StatelessWidget {
 class _ProductoFormDialog extends StatefulWidget {
   final Producto? producto;
   final List<DestinoImpresion> destinos;
+  final List<String> categoriasDisponibles;
   final VoidCallback onGuardar;
 
   const _ProductoFormDialog({
     this.producto,
     required this.destinos,
+    required this.categoriasDisponibles,
     required this.onGuardar,
   });
 
@@ -559,6 +629,17 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
   /// Imagen del producto: data URL (base64) o URL existente
   String? _imagen;
 
+  /// Lista de categorías para el dropdown, incluyendo la actual del producto si no está en la lista
+  /// (evita error cuando se renombró o eliminó una categoría pero el producto sigue con la antigua)
+  List<String> get _categoriasParaDropdown {
+    final base = widget.categoriasDisponibles;
+    final catActual = widget.producto?.categoria;
+    if (catActual == null || catActual.isEmpty || base.contains(catActual)) {
+      return base;
+    }
+    return [catActual, ...base];
+  }
+
   static const _opcionesAlergenos = [
     ('gluten', 'Gluten'),
     ('lacteos', 'Lácteos'),
@@ -566,11 +647,6 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
     ('huevo', 'Huevo'),
     ('picante', 'Picante'),
     ('vegano', 'Vegano'),
-  ];
-
-  final _categoriasPredefinidas = [
-    'Tacos', 'Antojitos', 'Platos Fuertes', 'Sopas', 
-    'Ensaladas', 'Postres', 'Bebidas', 'Bebidas Alcohólicas', 'Extras'
   ];
 
   @override
@@ -901,7 +977,7 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
                         style: const TextStyle(color: Colors.white),
                         items: [
                           const DropdownMenuItem(value: null, child: Text('Seleccionar...')),
-                          ..._categoriasPredefinidas.map((cat) => DropdownMenuItem(
+                          ..._categoriasParaDropdown.map((cat) => DropdownMenuItem(
                             value: cat,
                             child: Text(cat),
                           )),

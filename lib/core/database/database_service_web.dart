@@ -67,6 +67,14 @@ class DatabaseService {
   Future<bool> eliminarDestino(int id) async => _unsupported();
   Stream<List<DestinoImpresion>> watchDestinos() => _unsupported();
 
+  Future<List<Categoria>> obtenerCategorias() async => _unsupported();
+  Future<int> guardarCategoria(Categoria categoria) async => _unsupported();
+  Future<bool> eliminarCategoria(int id) async => _unsupported();
+  Future<void> renombrarCategoria(int id, String nuevoNombre) async =>
+      _unsupported();
+  Future<int> contarProductosPorCategoria(String nombreCategoria) async =>
+      _unsupported();
+
   Future<List<Pedido>> obtenerPedidosPorDestino(int destinoId) async =>
       _unsupported();
   Stream<List<Pedido>> watchPedidosPorDestino(int destinoId) => _unsupported();

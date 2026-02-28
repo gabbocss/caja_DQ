@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
 
 /// Widget de selector de categorías con scroll horizontal
-/// 
-/// Permite filtrar productos por categoría con botones grandes táctiles
+///
+/// Permite filtrar productos por categoría con botones grandes táctiles.
+/// Si [categorias] es null o vacío, usa [CategoriaProducto.todas].
 class CategoriaSelector extends StatelessWidget {
   final String? categoriaSeleccionada;
   final ValueChanged<String?> onCategoriaChanged;
+  final List<String>? categorias;
 
   const CategoriaSelector({
     super.key,
     this.categoriaSeleccionada,
     required this.onCategoriaChanged,
+    this.categorias,
   });
 
   @override
@@ -55,7 +58,7 @@ class CategoriaSelector extends StatelessWidget {
           ),
           
           // Categorías dinámicas
-          ...CategoriaProducto.todas.map((categoria) => Padding(
+          ...(categorias?.isNotEmpty == true ? categorias! : CategoriaProducto.todas).map((categoria) => Padding(
             padding: const EdgeInsets.only(right: 8),
             child: _buildCategoriaChip(
               context,

@@ -73,23 +73,28 @@ const ProductoSchema = CollectionSchema(
       name: r'nombre',
       type: IsarType.string,
     ),
-    r'precio': PropertySchema(
+    r'orden': PropertySchema(
       id: 11,
+      name: r'orden',
+      type: IsarType.long,
+    ),
+    r'precio': PropertySchema(
+      id: 12,
       name: r'precio',
       type: IsarType.double,
     ),
     r'stock': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'stock',
       type: IsarType.long,
     ),
     r'stockDisponible': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'stockDisponible',
       type: IsarType.long,
     ),
     r'usarInventario': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'usarInventario',
       type: IsarType.bool,
     )
@@ -233,10 +238,11 @@ void _productoSerialize(
   writer.writeString(offsets[8], object.imagen);
   writer.writeBool(offsets[9], object.isAvailable);
   writer.writeString(offsets[10], object.nombre);
-  writer.writeDouble(offsets[11], object.precio);
-  writer.writeLong(offsets[12], object.stock);
-  writer.writeLong(offsets[13], object.stockDisponible);
-  writer.writeBool(offsets[14], object.usarInventario);
+  writer.writeLong(offsets[11], object.orden);
+  writer.writeDouble(offsets[12], object.precio);
+  writer.writeLong(offsets[13], object.stock);
+  writer.writeLong(offsets[14], object.stockDisponible);
+  writer.writeBool(offsets[15], object.usarInventario);
 }
 
 Producto _productoDeserialize(
@@ -260,10 +266,11 @@ Producto _productoDeserialize(
   object.imagen = reader.readStringOrNull(offsets[8]);
   object.isAvailable = reader.readBool(offsets[9]);
   object.nombre = reader.readString(offsets[10]);
-  object.precio = reader.readDouble(offsets[11]);
-  object.stock = reader.readLongOrNull(offsets[12]);
-  object.stockDisponible = reader.readLong(offsets[13]);
-  object.usarInventario = reader.readBool(offsets[14]);
+  object.orden = reader.readLong(offsets[11]);
+  object.precio = reader.readDouble(offsets[12]);
+  object.stock = reader.readLongOrNull(offsets[13]);
+  object.stockDisponible = reader.readLong(offsets[14]);
+  object.usarInventario = reader.readBool(offsets[15]);
   return object;
 }
 
@@ -298,12 +305,14 @@ P _productoDeserializeProp<P>(
     case 10:
       return (reader.readString(offset)) as P;
     case 11:
-      return (reader.readDouble(offset)) as P;
-    case 12:
-      return (reader.readLongOrNull(offset)) as P;
-    case 13:
       return (reader.readLong(offset)) as P;
+    case 12:
+      return (reader.readDouble(offset)) as P;
+    case 13:
+      return (reader.readLongOrNull(offset)) as P;
     case 14:
+      return (reader.readLong(offset)) as P;
+    case 15:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1784,6 +1793,59 @@ extension ProductoQueryFilter
     });
   }
 
+  QueryBuilder<Producto, Producto, QAfterFilterCondition> ordenEqualTo(
+      int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'orden',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Producto, Producto, QAfterFilterCondition> ordenGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'orden',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Producto, Producto, QAfterFilterCondition> ordenLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'orden',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Producto, Producto, QAfterFilterCondition> ordenBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'orden',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<Producto, Producto, QAfterFilterCondition> precioEqualTo(
     double value, {
     double epsilon = Query.epsilon,
@@ -2121,6 +2183,18 @@ extension ProductoQuerySortBy on QueryBuilder<Producto, Producto, QSortBy> {
     });
   }
 
+  QueryBuilder<Producto, Producto, QAfterSortBy> sortByOrden() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'orden', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Producto, Producto, QAfterSortBy> sortByOrdenDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'orden', Sort.desc);
+    });
+  }
+
   QueryBuilder<Producto, Producto, QAfterSortBy> sortByPrecio() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'precio', Sort.asc);
@@ -2316,6 +2390,18 @@ extension ProductoQuerySortThenBy
     });
   }
 
+  QueryBuilder<Producto, Producto, QAfterSortBy> thenByOrden() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'orden', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Producto, Producto, QAfterSortBy> thenByOrdenDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'orden', Sort.desc);
+    });
+  }
+
   QueryBuilder<Producto, Producto, QAfterSortBy> thenByPrecio() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'precio', Sort.asc);
@@ -2438,6 +2524,12 @@ extension ProductoQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Producto, Producto, QDistinct> distinctByOrden() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'orden');
+    });
+  }
+
   QueryBuilder<Producto, Producto, QDistinct> distinctByPrecio() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'precio');
@@ -2535,6 +2627,12 @@ extension ProductoQueryProperty
   QueryBuilder<Producto, String, QQueryOperations> nombreProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'nombre');
+    });
+  }
+
+  QueryBuilder<Producto, int, QQueryOperations> ordenProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'orden');
     });
   }
 

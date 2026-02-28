@@ -24,6 +24,7 @@ class _PedidosPageState extends State<PedidosPage> {
   final List<ItemCarrito> _carrito = [];
   bool _enviando = false;
   List<DestinoImpresion> _destinos = [];
+  List<String> _categorias = [];
   Set<int> _productosAgotados = {}; // IDs de productos marcados como agotados
   List<Pedido> _cuentaActual = []; // Pedidos no pagados de la mesa seleccionada
   Set<int> _mesasConCuentaAbierta = {}; // Mesas con al menos un pedido no pagado
@@ -36,8 +37,26 @@ class _PedidosPageState extends State<PedidosPage> {
   void initState() {
     super.initState();
     _cargarDestinos();
+    _cargarCategorias();
     _cargarMesasConCuentaAbierta();
     _cargarCuentaMesa(_mesaSeleccionada);
+  }
+
+  Future<void> _cargarCategorias() async {
+    try {
+      List<String> cats;
+      if (sl.isRegistered<ApiClient>()) {
+        final list = await sl<ApiClient>().obtenerCategorias();
+        cats = list.map((c) => c.nombre).toList();
+      } else {
+        final list = await DatabaseService.instance.obtenerCategorias();
+        cats = list.map((c) => c.nombre).toList();
+      }
+      if (mounted) setState(() => _categorias = cats);
+    } catch (e) {
+      debugPrint('Error al cargar categorías: $e');
+      if (mounted) setState(() => _categorias = []);
+    }
   }
 
   /// Obtiene cuenta (pedidos no pagados) desde servidor o DB local
@@ -541,6 +560,7 @@ class _PedidosPageState extends State<PedidosPage> {
                         // Selector de categorías
                         CategoriaSelector(
                           categoriaSeleccionada: _categoriaSeleccionada,
+                          categorias: _categorias.isNotEmpty ? _categorias : null,
                           onCategoriaChanged: (categoria) {
                             setState(() => _categoriaSeleccionada = categoria);
                           },

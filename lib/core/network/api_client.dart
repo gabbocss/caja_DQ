@@ -99,6 +99,28 @@ class ApiClient {
     }
   }
 
+  // ==================== CATEGORÍAS ====================
+
+  /// Obtiene todas las categorías
+  Future<List<Categoria>> obtenerCategorias() async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/categorias'),
+        headers: {'Accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) => Categoria.fromJson(item)).toList();
+      } else {
+        throw Exception('Error al obtener categorías: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error en obtenerCategorias: $e');
+      rethrow;
+    }
+  }
+
   // ==================== MESAS ====================
 
   /// Obtiene todas las mesas
@@ -137,6 +159,19 @@ class ApiClient {
       debugPrint('Error en obtenerMesaPorNumero: $e');
       return null;
     }
+  }
+
+  /// Obtiene la URL del QR para pedir buffet en una mesa (UI camarero).
+  Future<String> obtenerUrlQrMesa(int numeroMesa) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/api/mesas/$numeroMesa/qr'),
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al obtener QR de mesa: ${response.statusCode}');
+    }
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    return data['url'] as String;
   }
 
   /// Actualiza el estado de una mesa

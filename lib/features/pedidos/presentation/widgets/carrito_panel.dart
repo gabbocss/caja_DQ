@@ -326,32 +326,35 @@ class CarritoPanel extends StatelessWidget {
 
   Widget _buildCarritoVacio() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.shopping_cart_outlined,
-            size: 80,
-            color: Colors.white.withValues(alpha: 0.15),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Carrito vacío',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.shopping_cart_outlined,
+              size: 80,
+              color: Colors.white.withValues(alpha: 0.15),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Toca un producto para agregarlo',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.3),
-              fontSize: 14,
+            const SizedBox(height: 16),
+            Text(
+              'Carrito vacío',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Toca un producto para agregarlo',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.3),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

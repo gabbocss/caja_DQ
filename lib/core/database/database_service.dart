@@ -6,6 +6,7 @@ import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
+import '../constants/app_constants.dart';
 import '../models/models.dart';
 
 /// Servicio singleton para gestionar la base de datos Isar
@@ -68,6 +69,7 @@ class DatabaseService {
           PedidoSchema,
           DestinoImpresionSchema,
           ConfiguracionBuffetSchema,
+          CategoriaSchema,
         ],
         directory: dbPath,
         name: 'restaurante',
@@ -78,6 +80,8 @@ class DatabaseService {
       
       // Inicializar datos por defecto si la DB está vacía
       await _inicializarDatosDefecto();
+      // Migrar orden de productos al esquema categoría*1000+índice (una sola vez)
+      await _migrarOrdenProductosPorCategoria();
       
     } catch (e, stackTrace) {
       debugPrint('Error al inicializar la base de datos: $e');
@@ -149,7 +153,23 @@ class DatabaseService {
       });
       
       debugPrint('Destinos de impresión creados correctamente');
-    } else {
+    }
+
+    // Crear categorías por defecto si la colección está vacía
+    final categoriaCount = await _isar!.categorias.count();
+    if (categoriaCount == 0) {
+      debugPrint('Creando categorías por defecto...');
+      await _isar!.writeTxn(() async {
+        int orden = 0;
+        for (final nombre in CategoriaProducto.todas) {
+          final cat = Categoria.crear(nombre: nombre, orden: orden++);
+          await _isar!.categorias.put(cat);
+        }
+      });
+      debugPrint('Categorías creadas correctamente');
+    }
+
+    if (destinoCount != 0) {
       // Obtener IDs de destinos existentes
       final destinos = await _isar!.destinoImpresions.where().findAll();
       cocinaId = destinos.where((d) => d.nombre == 'Cocina').firstOrNull?.id;
@@ -320,6 +340,29 @@ class DatabaseService {
     await inicializarConfiguracionBuffetDefecto();
   }
 
+  /// Migra el campo orden de productos al esquema categoría*1000+índice (solo si aún están en 0,1,2...).
+  Future<void> _migrarOrdenProductosPorCategoria() async {
+    final productos = await isar.productos.where().sortByOrden().findAll();
+    if (productos.isEmpty) return;
+    final maxOrden = productos.map((p) => p.orden).reduce((a, b) => a > b ? a : b);
+    if (maxOrden >= 1000) return; // Ya migrado
+    final categorias = await obtenerCategorias();
+    final ordenPorCategoria = <String, int>{for (final c in categorias) c.nombre: c.orden};
+    final indiceEnCategoria = <String, int>{};
+    for (final p in productos) {
+      final cat = p.categoria ?? '';
+      final idx = indiceEnCategoria[cat] ?? 0;
+      indiceEnCategoria[cat] = idx + 1;
+      p.orden = (ordenPorCategoria[cat] ?? 9999) * 1000 + idx;
+    }
+    await isar.writeTxn(() async {
+      for (final p in productos) {
+        await isar.productos.put(p);
+      }
+    });
+    debugPrint('Migración: orden de productos actualizado por categoría');
+  }
+
   /// Cierra la conexión con la base de datos
   Future<void> close() async {
     if (_isar != null) {
@@ -365,7 +408,7 @@ class DatabaseService {
 
   /// Obtiene todos los productos
   Future<List<Producto>> obtenerProductos() async {
-    final list = await isar.productos.where().findAll();
+    final list = await isar.productos.where().sortByOrden().findAll();
     final alergenosMap = await _cargarAlergenosMap();
     for (final p in list) {
       if (p.id != null && alergenosMap.containsKey(p.id)) {
@@ -380,6 +423,7 @@ class DatabaseService {
     return await isar.productos
         .filter()
         .categoriaEqualTo(categoria)
+        .sortByOrden()
         .findAll();
   }
 
@@ -389,6 +433,7 @@ class DatabaseService {
         .filter()
         .esBuffetEqualTo(true)
         .activoEqualTo(true)
+        .sortByOrden()
         .findAll();
     final alergenosMap = await _cargarAlergenosMap();
     for (final p in list) {
@@ -402,6 +447,14 @@ class DatabaseService {
   /// Guarda o actualiza un producto
   Future<int> guardarProducto(Producto producto) async {
     producto.fechaModificacion = DateTime.now();
+    if (producto.id == null) {
+      // Nuevo producto: orden = categoría*1000 + índice al final de la categoría
+      final categorias = await obtenerCategorias();
+      final cat = categorias.where((c) => c.nombre == (producto.categoria ?? '')).firstOrNull;
+      final catOrden = cat?.orden ?? 9999;
+      final enCategoria = await obtenerProductosPorCategoria(producto.categoria ?? '');
+      producto.orden = catOrden * 1000 + enCategoria.length;
+    }
     final id = await isar.writeTxn(() => isar.productos.put(producto));
     final alergenosMap = await _cargarAlergenosMap();
     alergenosMap[id] = List.from(producto.alergenos);
@@ -713,6 +766,68 @@ class DatabaseService {
         .where()
         .sortByOrden()
         .watch(fireImmediately: true);
+  }
+
+  // ==================== OPERACIONES DE CATEGORÍAS ====================
+
+  /// Obtiene todas las categorías ordenadas
+  Future<List<Categoria>> obtenerCategorias() async {
+    return await isar.categorias
+        .where()
+        .sortByOrden()
+        .findAll();
+  }
+
+  /// Guarda o actualiza una categoría
+  Future<int> guardarCategoria(Categoria categoria) async {
+    return await isar.writeTxn(() => isar.categorias.put(categoria));
+  }
+
+  /// Elimina una categoría por ID.
+  /// Si hay productos con esa categoría, los deja con categoria=null.
+  Future<bool> eliminarCategoria(int id) async {
+    return await isar.writeTxn(() async {
+      final cat = await isar.categorias.get(id);
+      if (cat == null) return false;
+      // Actualizar productos que usan esta categoría a null
+      final productos = await isar.productos
+          .filter()
+          .categoriaEqualTo(cat.nombre)
+          .findAll();
+      for (final p in productos) {
+        p.categoria = null;
+        await isar.productos.put(p);
+      }
+      return isar.categorias.delete(id);
+    });
+  }
+
+  /// Actualiza el nombre de una categoría y todos los productos que la usan
+  Future<void> renombrarCategoria(int id, String nuevoNombre) async {
+    await isar.writeTxn(() async {
+      final cat = await isar.categorias.get(id);
+      if (cat == null) return;
+      final nombreAntiguo = cat.nombre;
+      cat.nombre = nuevoNombre;
+      await isar.categorias.put(cat);
+      // Actualizar productos
+      final productos = await isar.productos
+          .filter()
+          .categoriaEqualTo(nombreAntiguo)
+          .findAll();
+      for (final p in productos) {
+        p.categoria = nuevoNombre;
+        await isar.productos.put(p);
+      }
+    });
+  }
+
+  /// Cuenta cuántos productos usan una categoría
+  Future<int> contarProductosPorCategoria(String nombreCategoria) async {
+    return await isar.productos
+        .filter()
+        .categoriaEqualTo(nombreCategoria)
+        .count();
   }
 
   // ==================== OPERACIONES DE PEDIDOS POR DESTINO ====================
