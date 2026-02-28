@@ -291,10 +291,10 @@ class NavigationShell extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: _isMobileFlow
                 ? [
-                    _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.table_restaurant_outlined, selectedIcon: Icons.table_restaurant, label: 'Mesas'),
-                    _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
-                    _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.dns_outlined, selectedIcon: Icons.dns, label: 'Servidor'),
-                    _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi'),
+                    Expanded(child: _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.table_restaurant_outlined, selectedIcon: Icons.table_restaurant, label: 'Mesas')),
+                    Expanded(child: _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina')),
+                    Expanded(child: _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.dns_outlined, selectedIcon: Icons.dns, label: 'Servidor')),
+                    Expanded(child: _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi')),
                   ]
                 : _isWebFlow
                     ? [
@@ -330,7 +330,10 @@ class NavigationShell extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: _isMobileFlow ? 8 : 20,
+            vertical: 12,
+          ),
           decoration: BoxDecoration(
             color: isSelected
                 ? const Color(0xFFE94560).withValues(alpha: 0.2)
@@ -350,9 +353,10 @@ class NavigationShell extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: isSelected ? const Color(0xFFE94560) : Colors.white54,
-                  fontSize: 12,
+                  fontSize: _isMobileFlow ? 11 : 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

@@ -6,7 +6,7 @@ import '../../../../core/core.dart';
 
 /// Pantalla de categorías para una mesa.
 /// Muestra la lista de categorías (Bebidas, Primeros, etc.); al tocar una se navega a platos.
-/// A la derecha se muestra el QR de la mesa para pedir buffet desde el móvil del cliente.
+/// Icono QR en la appBar: al pulsarlo se abre un diálogo con el QR para pedir buffet desde el móvil.
 class MesaCategoriasPage extends StatefulWidget {
   final int numeroMesa;
 
@@ -127,158 +127,167 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_2),
+            onPressed: _mostrarDialogoQrMesa,
+            tooltip: 'Ver QR para pedir buffet',
+          ),
+        ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-                    itemCount: _categorias.length,
-                    itemBuilder: (context, index) {
-                      final categoria = _categorias[index];
-                      final slug = categoria.replaceAll(' ', '_');
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => context.push('/mesas/${widget.numeroMesa}/platos/$slug'),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF16213E),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFF0F3460), width: 1.5),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE94560).withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      _iconoCategoria(categoria),
-                                      color: const Color(0xFFE94560),
-                                      size: 32,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(
-                                      categoria,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const Icon(Icons.chevron_right, color: Colors.white54, size: 28),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SingleChildScrollView(
-                  child: _buildQrCard(),
-                ),
-              ],
-            ),
+          : _buildListaCategorias(),
     );
   }
 
-  Widget _buildQrCard() {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(right: 16, top: 16, bottom: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF00D9A5), width: 1.5),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.qr_code_2, color: Color(0xFF00D9A5), size: 24),
-          const SizedBox(height: 8),
-          Text(
-            'QR buffet',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            'Mesa ${widget.numeroMesa}',
-            style: const TextStyle(
-              color: Color(0xFF00D9A5),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (_qrCargando)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: SizedBox(
-                width: 80,
-                height: 80,
-                child: CircularProgressIndicator(color: Color(0xFF00D9A5)),
+  void _mostrarDialogoQrMesa() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF16213E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Icon(Icons.qr_code_2, color: Color(0xFF00D9A5), size: 28),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
-            )
-          else if (_qrError != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'No disponible',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
-              ),
-            )
-          else if (_qrUrl != null)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: QrImageView(
-                data: _qrUrl!,
-                version: QrVersions.auto,
-                size: 140,
-                backgroundColor: Colors.white,
-                eyeStyle: const QrEyeStyle(
-                  eyeShape: QrEyeShape.square,
-                  color: Color(0xFF1A1A2E),
-                ),
-                dataModuleStyle: const QrDataModuleStyle(
-                  dataModuleShape: QrDataModuleShape.square,
-                  color: Color(0xFF1A1A2E),
+              const SizedBox(height: 8),
+              Text(
+                'Escanee para pedir buffet',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-        ],
+              Text(
+                'Mesa ${widget.numeroMesa}',
+                style: const TextStyle(
+                  color: Color(0xFF00D9A5),
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              if (_qrCargando)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: CircularProgressIndicator(color: Color(0xFF00D9A5)),
+                  ),
+                )
+              else if (_qrError != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'No disponible',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 16),
+                  ),
+                )
+              else if (_qrUrl != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: QrImageView(
+                    data: _qrUrl!,
+                    version: QrVersions.auto,
+                    size: 220,
+                    backgroundColor: Colors.white,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Color(0xFF1A1A2E),
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Color(0xFF1A1A2E),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
+
+  Widget _buildListaCategorias() {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      itemCount: _categorias.length,
+      itemBuilder: (context, index) {
+        final categoria = _categorias[index];
+        final slug = categoria.replaceAll(' ', '_');
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => context.push('/mesas/${widget.numeroMesa}/platos/$slug'),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF16213E),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF0F3460), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE94560).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        _iconoCategoria(categoria),
+                        color: const Color(0xFFE94560),
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        categoria,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: Colors.white54, size: 28),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
 }
