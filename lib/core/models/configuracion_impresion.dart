@@ -51,6 +51,16 @@ class ConfiguracionImpresion {
   /// Tipo de corte al final: completo, parcial, ninguno
   String tipoCorte;
 
+  /// IP de la impresora para el ticket de cuenta (cuenta de mesa). Opcional.
+  String? impresoraCuentaIp;
+
+  /// Puerto de la impresora de cuenta. Si es null, se usa 9100.
+  int? impresoraCuentaPuerto;
+
+  /// True si hay impresora de cuenta configurada (IP no vacía).
+  bool get tieneImpresoraCuenta =>
+      impresoraCuentaIp != null && impresoraCuentaIp!.trim().isNotEmpty;
+
   ConfiguracionImpresion({
     this.modoTamanio = 'presets',
     this.tamanioCabecera = 'normal',
@@ -70,6 +80,8 @@ class ConfiguracionImpresion {
     this.mostrarFechaHora = true,
     this.anchoCaracteres = 48,
     this.tipoCorte = 'completo',
+    this.impresoraCuentaIp,
+    this.impresoraCuentaPuerto,
   });
 
   factory ConfiguracionImpresion.fromJson(Map<String, dynamic> json) {
@@ -92,6 +104,8 @@ class ConfiguracionImpresion {
       mostrarFechaHora: json['mostrarFechaHora'] as bool? ?? true,
       anchoCaracteres: (json['anchoCaracteres'] as num?)?.toInt() ?? 48,
       tipoCorte: json['tipoCorte'] as String? ?? 'completo',
+      impresoraCuentaIp: json['impresoraCuentaIp'] as String?,
+      impresoraCuentaPuerto: (json['impresoraCuentaPuerto'] as num?)?.toInt(),
     );
   }
 
@@ -120,6 +134,8 @@ class ConfiguracionImpresion {
       'mostrarFechaHora': mostrarFechaHora,
       'anchoCaracteres': anchoCaracteres,
       'tipoCorte': tipoCorte,
+      'impresoraCuentaIp': impresoraCuentaIp,
+      'impresoraCuentaPuerto': impresoraCuentaPuerto,
     };
   }
 

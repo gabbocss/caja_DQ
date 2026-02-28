@@ -21,6 +21,8 @@ class CarritoPanel extends StatelessWidget {
   final VoidCallback onEnviar;
   /// Se llama al pulsar LIBERAR (solo visible si la mesa tiene consumo actual)
   final VoidCallback? onLiberar;
+  /// Se llama al pulsar IMPRIMIR (ticket cuenta de la mesa)
+  final VoidCallback? onImprimirCuenta;
   final bool enviando;
   final Set<int> productosAgotados; // IDs de productos agotados
 
@@ -37,6 +39,7 @@ class CarritoPanel extends StatelessWidget {
     this.onOrdenChanged,
     required this.onEnviar,
     this.onLiberar,
+    this.onImprimirCuenta,
     this.enviando = false,
     this.productosAgotados = const {},
   });
@@ -363,28 +366,56 @@ class CarritoPanel extends StatelessWidget {
           
           const SizedBox(height: 16),
 
-          // Botón LIBERAR (solo si la mesa tiene consumo actual)
-          if (consumoActual.isNotEmpty && onLiberar != null) ...[
+          // Botones LIBERAR e IMPRIMIR (solo si la mesa tiene consumo actual)
+          if (consumoActual.isNotEmpty && (onLiberar != null || onImprimirCuenta != null)) ...[
             SizedBox(
-              width: double.infinity,
               height: 52,
-              child: OutlinedButton(
-                onPressed: enviando ? null : onLiberar,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFFF9800),
-                  side: const BorderSide(color: Color(0xFFFF9800), width: 2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'LIBERAR',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    letterSpacing: 1,
-                  ),
-                ),
+              child: Row(
+                children: [
+                  if (onLiberar != null)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: enviando ? null : onLiberar,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFFF9800),
+                          side: const BorderSide(color: Color(0xFFFF9800), width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'LIBERAR',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (onLiberar != null && onImprimirCuenta != null) const SizedBox(width: 12),
+                  if (onImprimirCuenta != null)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: enviando ? null : onImprimirCuenta,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF00D9A5),
+                          side: const BorderSide(color: Color(0xFF00D9A5), width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'IMPRIMIR',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 12),

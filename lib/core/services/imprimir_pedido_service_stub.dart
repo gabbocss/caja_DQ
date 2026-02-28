@@ -16,4 +16,11 @@ class ImprimirPedidoService {
     String host,
     int port,
   ) async {}
+
+  /// No-op en web/stub (ticket cuenta mesa).
+  Future<void> imprimirTicketCuentaMesa(
+    int mesaNumero,
+    List<ItemPedido> items,
+    double total,
+  ) async {}
 }

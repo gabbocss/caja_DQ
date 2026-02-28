@@ -223,6 +223,135 @@ class ImprimirPedidoService {
     return out;
   }
 
+  /// Genera el payload del ticket de cuenta de mesa (platos + total).
+  Future<List<int>> _generarPayloadTicketCuenta(
+    ConfiguracionImpresion config,
+    int mesaNumero,
+    List<ItemPedido> items,
+    double total,
+  ) async {
+    final out = <int>[];
+    void add(List<int> bytes) => out.addAll(bytes);
+    void addStr(String s) => out.addAll(utf8.encode(s));
+
+    final margenEsp = _espaciosMargenIzq(config);
+    final sep = _lineaSeparadora(config);
+
+    add(_escInit);
+
+    for (var i = 0; i < config.margenSuperiorLineas; i++) addStr('\n');
+
+    final usarNumerico = config.modoTamanio == 'numerico';
+
+    if (config.textoCabecera != null && config.textoCabecera!.isNotEmpty) {
+      if (config.negritaCabecera) add(_escBoldOn);
+      if (usarNumerico) {
+        add(_gsSize(config.escalaAnchoCabecera, config.escalaAltoCabecera));
+      } else {
+        add(_escTamanioCabecera(config));
+      }
+      addStr(_aplicarMargen('${config.textoCabecera!.trim()}\n', margenEsp));
+      if (!usarNumerico) add(_escSizeNormal);
+      add(_escBoldOff);
+    }
+
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+
+    if (config.negritaCabecera) add(_escBoldOn);
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCabecera, config.escalaAltoCabecera));
+    } else {
+      add(_escTamanioCabecera(config));
+    }
+    addStr(_aplicarMargen('   CUENTA MESA $mesaNumero\n', margenEsp));
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      add(_escSizeNormal);
+    }
+    add(_escBoldOff);
+
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+    addStr(_aplicarMargen('\n', margenEsp));
+
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCuerpo, config.escalaAltoCuerpo));
+    } else {
+      _aplicarTamanioCuerpo(config, add);
+    }
+    if (config.negritaCuerpo) add(_escBoldOn);
+
+    final itemsPorOrden = _agruparPorOrden(items);
+    final chSep = config.caracterSeparador.isEmpty ? '=' : config.caracterSeparador.substring(0, 1);
+    final sepCorta = chSep * (config.anchoCaracteres ~/ 2).clamp(12, 24);
+
+    for (final entry in itemsPorOrden.entries) {
+      final orden = entry.key;
+      final itemsTurno = entry.value;
+      addStr(_aplicarMargen('\n', margenEsp));
+      addStr(_aplicarMargen('$ordenº\n', margenEsp));
+      addStr(_aplicarMargen('$sepCorta\n', margenEsp));
+      final agrupado = _agruparCantidades(itemsTurno);
+      for (final e in agrupado.entries) {
+        addStr(_aplicarMargen('${e.value}x ${e.key}\n', margenEsp));
+      }
+    }
+
+    if (config.negritaCuerpo) add(_escBoldOff);
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      _resetTamanioCuerpo(add);
+    }
+
+    addStr(_aplicarMargen('\n', margenEsp));
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+    if (config.negritaCabecera) add(_escBoldOn);
+    addStr(_aplicarMargen('TOTAL: \$${total.toStringAsFixed(2)}\n', margenEsp));
+    add(_escBoldOff);
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+
+    if (config.mostrarFechaHora) {
+      final now = DateTime.now();
+      final fechaHora = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      addStr(_aplicarMargen('$fechaHora\n', margenEsp));
+    }
+
+    if (config.textoPie != null && config.textoPie!.isNotEmpty) {
+      addStr(_aplicarMargen('${config.textoPie!.trim()}\n', margenEsp));
+    }
+
+    for (var i = 0; i < config.margenInferiorLineas; i++) addStr('\n');
+
+    switch (config.tipoCorte) {
+      case 'parcial':
+        add(_escCutPartial);
+        break;
+      case 'ninguno':
+        break;
+      default:
+        add(_escCutFull);
+    }
+
+    return out;
+  }
+
+  /// Imprime el ticket de cuenta de la mesa (platos + total) en la impresora configurada para cuenta.
+  /// Si no hay impresora de cuenta configurada, no hace nada.
+  Future<void> imprimirTicketCuentaMesa(
+    int mesaNumero,
+    List<ItemPedido> items,
+    double total,
+  ) async {
+    if (items.isEmpty) return;
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    if (!config.tieneImpresoraCuenta) return;
+    final host = config.impresoraCuentaIp!.trim();
+    final port = config.impresoraCuentaPuerto ?? _puertoPorDefecto;
+    final payload = await _generarPayloadTicketCuenta(config, mesaNumero, items, total);
+    await _enviarAImpresora(host, port, payload);
+  }
+
   Future<bool> _enviarAImpresora(String host, int port, List<int> payload) async {
     Socket? socket;
     try {

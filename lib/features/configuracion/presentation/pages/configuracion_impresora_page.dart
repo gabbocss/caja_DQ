@@ -25,6 +25,8 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
   late TextEditingController _escalaAltoCabeceraController;
   late TextEditingController _escalaAnchoCuerpoController;
   late TextEditingController _escalaAltoCuerpoController;
+  late TextEditingController _impresoraCuentaIpController;
+  late TextEditingController _impresoraCuentaPuertoController;
 
   String _modoTamanio = 'presets';
   String _tamanioCabecera = 'normal';
@@ -48,6 +50,8 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
     _escalaAltoCabeceraController = TextEditingController(text: '2');
     _escalaAnchoCuerpoController = TextEditingController(text: '1');
     _escalaAltoCuerpoController = TextEditingController(text: '1');
+    _impresoraCuentaIpController = TextEditingController();
+    _impresoraCuentaPuertoController = TextEditingController();
     _cargar();
   }
 
@@ -63,6 +67,8 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
     _escalaAltoCabeceraController.dispose();
     _escalaAnchoCuerpoController.dispose();
     _escalaAltoCuerpoController.dispose();
+    _impresoraCuentaIpController.dispose();
+    _impresoraCuentaPuertoController.dispose();
     super.dispose();
   }
 
@@ -88,6 +94,8 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
       _margenIzqController.text = config.margenIzquierdoMm.toString();
       _margenSupController.text = config.margenSuperiorLineas.toString();
       _margenInfController.text = config.margenInferiorLineas.toString();
+      _impresoraCuentaIpController.text = config.impresoraCuentaIp ?? '';
+      _impresoraCuentaPuertoController.text = config.impresoraCuentaPuerto?.toString() ?? '';
     } finally {
       setState(() => _cargando = false);
     }
@@ -122,6 +130,8 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
         mostrarFechaHora: _mostrarFechaHora,
         anchoCaracteres: _anchoCaracteres,
         tipoCorte: _tipoCorte,
+        impresoraCuentaIp: _impresoraCuentaIpController.text.trim().isEmpty ? null : _impresoraCuentaIpController.text.trim(),
+        impresoraCuentaPuerto: _impresoraCuentaPuertoController.text.trim().isEmpty ? null : int.tryParse(_impresoraCuentaPuertoController.text.trim()),
       );
       await ConfiguracionImpresionService.instance.guardar(config);
       if (mounted) {
@@ -311,6 +321,35 @@ class _ConfiguracionImpresoraPageState extends State<ConfiguracionImpresoraPage>
                     _dropdown('Ancho en caracteres', _anchoCaracteres.toString(), ConfiguracionImpresion.opcionesAnchoCaracteres.map((e) => e.toString()).toList(), (v) => setState(() => _anchoCaracteres = int.parse(v!)), const ['32', '42', '48']),
                     const SizedBox(height: 12),
                     _dropdown('Tipo de corte', _tipoCorte, ConfiguracionImpresion.opcionesTipoCorte, (v) => setState(() => _tipoCorte = v!), const ['Completo', 'Parcial', 'Ninguno']),
+                  ]),
+                  const SizedBox(height: 24),
+                  _buildSeccion('Impresora ticket de cuenta (cuenta de mesa)', Icons.print, [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Impresora donde se imprime el ticket al pulsar "IMPRIMIR" en el panel de pedidos (platos y total de la mesa).',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ),
+                    TextFormField(
+                      controller: _impresoraCuentaIpController,
+                      decoration: const InputDecoration(
+                        labelText: 'IP de la impresora',
+                        hintText: 'Ej: 192.168.1.100',
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _impresoraCuentaPuertoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Puerto (opcional)',
+                        hintText: 'Vacío = 9100. Ej: 9100',
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                      keyboardType: TextInputType.number,
+                    ),
                   ]),
                   const SizedBox(height: 32),
                   SizedBox(

@@ -424,6 +424,49 @@ class _PedidosPageState extends State<PedidosPage> {
     }
   }
 
+  /// Imprime el ticket de cuenta de la mesa (platos y total) en la impresora configurada.
+  Future<void> _imprimirTicketCuenta() async {
+    if (_cuentaActual.isEmpty || !mounted) return;
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    if (!config.tieneImpresoraCuenta) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Configure la impresora de ticket de cuenta en Config > Impresora'),
+          backgroundColor: Color(0xFFFF9800),
+        ),
+      );
+      return;
+    }
+    final items = <ItemPedido>[];
+    for (final p in _cuentaActual) {
+      items.addAll(p.items);
+    }
+    final total = items.fold<double>(0, (sum, item) => sum + item.subtotal);
+    try {
+      await ImprimirPedidoService.instance.imprimirTicketCuentaMesa(
+        _mesaSeleccionada,
+        items,
+        total,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ticket enviado a la impresora'),
+          backgroundColor: Color(0xFF00D9A5),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al imprimir: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   /// Base URL del servidor para el QR: prioriza la IP de red (192.168.x.x) para que
   /// los móviles puedan escanear; si el servidor está activo usa su URL, si no el serverUrl global.
   String _obtenerBaseUrlServidor() {
@@ -594,6 +637,7 @@ class _PedidosPageState extends State<PedidosPage> {
                     onOrdenChanged: _cambiarOrden,
                     onEnviar: _enviarPedido,
                     onLiberar: _mostrarDialogoLiberarMesa,
+                    onImprimirCuenta: _imprimirTicketCuenta,
                     enviando: _enviando,
                     productosAgotados: _productosAgotados,
                   ),
