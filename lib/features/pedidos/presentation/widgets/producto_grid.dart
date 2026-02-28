@@ -28,15 +28,19 @@ class ProductoGrid extends StatelessWidget {
           .toList();
     }
 
-    // Si es sábado, ordenar productos buffet primero
+    // Orden: primero por categoría y orden dentro de categoría (campo orden)
     final esSabado = DateTime.now().weekday == DateTime.saturday;
-    if (esSabado) {
-      productosFiltrados.sort((a, b) {
+    productosFiltrados.sort((a, b) {
+      final porOrden = a.orden.compareTo(b.orden);
+      if (porOrden != 0) return porOrden;
+      // Mismo orden: si es sábado, buffet primero y luego por nombre
+      if (esSabado) {
         if (a.esBuffet && !b.esBuffet) return -1;
         if (!a.esBuffet && b.esBuffet) return 1;
         return a.nombre.compareTo(b.nombre);
-      });
-    }
+      }
+      return 0;
+    });
 
     if (productosFiltrados.isEmpty) {
       return Center(

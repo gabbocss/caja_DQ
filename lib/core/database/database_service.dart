@@ -974,10 +974,11 @@ class DatabaseService {
     return true;
   }
 
-  /// Stream de productos para actualizaciones en tiempo real
+  /// Stream de productos para actualizaciones en tiempo real (orden: categoría + orden dentro de categoría)
   Stream<List<Producto>> watchProductos() {
     return isar.productos
         .where()
+        .sortByOrden()
         .watch(fireImmediately: true);
   }
 
