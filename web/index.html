@@ -33,6 +33,49 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- Fallback si la app no carga (Safari, red lenta, etc.) -->
+  <div id="flutter-load-fallback" style="display:none; padding: 2rem; text-align: center; font-family: sans-serif; background: #1a1a2e; color: #fff; min-height: 100vh; box-sizing: border-box;">
+    <p id="flutter-load-message" style="margin: 1rem 0;">La aplicación no ha cargado correctamente.</p>
+    <p style="margin: 0.5rem 0; color: #aaa;">Compruebe la conexión WiFi e intente de nuevo.</p>
+    <button id="flutter-retry-btn" type="button" style="margin: 8px; padding: 12px 24px; font-size: 16px; cursor: pointer;">Reintentar</button>
+    <button id="flutter-retry-nocache-btn" type="button" style="margin: 8px; padding: 12px 24px; font-size: 16px; cursor: pointer;">Reintentar sin caché</button>
+  </div>
+  <script>
+    (function() {
+      var fallback = document.getElementById('flutter-load-fallback');
+      var message = document.getElementById('flutter-load-message');
+      var retryBtn = document.getElementById('flutter-retry-btn');
+      var nocacheBtn = document.getElementById('flutter-retry-nocache-btn');
+      function showFallback(msg) {
+        if (msg) message.textContent = msg;
+        fallback.style.display = 'block';
+      }
+      function isFlutterReady() {
+        return document.querySelector('flt-glass-pane') || document.querySelector('canvas') || (typeof window.__flutter !== 'undefined');
+      }
+      var script = document.createElement('script');
+      script.async = true;
+      var hasNocache = window.location.search.indexOf('nocache=') !== -1;
+      script.src = 'flutter_bootstrap.js' + (hasNocache ? '?t=' + Date.now() : '');
+      script.onerror = function() { showFallback('Error al cargar la aplicación. Compruebe la conexión.'); };
+      script.onload = function() {
+        var deadline = Date.now() + 25000;
+        function check() {
+          if (isFlutterReady()) return;
+          if (Date.now() > deadline) {
+            showFallback('La aplicación no ha cargado a tiempo. Compruebe la conexión.');
+            return;
+          }
+          setTimeout(check, 500);
+        }
+        setTimeout(check, 2000);
+      };
+      document.body.appendChild(script);
+      retryBtn.onclick = function() { location.reload(); };
+      nocacheBtn.onclick = function() {
+        location.href = location.pathname + '?nocache=' + Date.now();
+      };
+    })();
+  </script>
 </body>
 </html>

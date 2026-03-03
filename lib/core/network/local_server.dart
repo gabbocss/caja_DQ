@@ -143,7 +143,11 @@ class LocalServer {
                   headers: {'Content-Type': 'text/html; charset=utf-8'},
                 );
               }
-              return await staticOrIndexHandler(request);
+              final appResponse = await staticOrIndexHandler(request);
+              // Sin caché en el HTML de la SPA para que "Reintentar sin caché" obtenga versión nueva
+              final headers = Map<String, String>.from(appResponse.headers);
+              headers['Cache-Control'] = 'no-cache';
+              return appResponse.change(headers: headers);
             }
             return response;
           };
