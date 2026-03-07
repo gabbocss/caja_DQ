@@ -516,14 +516,20 @@ class LocalServer {
     });
 
     // GET /api/pedidos/cocina - Pedidos para la cocina (pendientes y preparando). Orden: más antiguos primero (nuevos abajo en modo buffet).
+    // Se serializa id como string para que la web no pierda precisión (JS Number < 2^53).
     router.get('/api/pedidos/cocina', (Request request) async {
       try {
         final pendientes = await _db.obtenerPedidosPorEstado(EstadoPedido.pendiente);
         final preparando = await _db.obtenerPedidosPorEstado(EstadoPedido.preparando);
         final pedidos = [...pendientes, ...preparando];
         pedidos.sort((a, b) => a.fechaCreacion.compareTo(b.fechaCreacion));
+        final list = pedidos.map((p) {
+          final m = Map<String, dynamic>.from(p.toJson());
+          if (p.id != null) m['id'] = p.id.toString();
+          return m;
+        }).toList();
         return Response.ok(
-          jsonEncode(pedidos.map((p) => p.toJson()).toList()),
+          jsonEncode(list),
           headers: {'Content-Type': 'application/json'},
         );
       } catch (e) {

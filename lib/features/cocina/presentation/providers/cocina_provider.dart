@@ -162,13 +162,15 @@ class CocinaProvider extends ChangeNotifier {
     }
   }
 
-  /// Calcula líneas abiertas (agrupación por plato) excluyendo ítems ya asignados a líneas cerradas.
+  /// Calcula líneas abiertas (agrupación por plato) excluyendo ítems ya asignados a líneas cerradas
+  /// y ítems ya marcados como listo/servido en el servidor.
   List<LineaBuffetAbierta> _calcularLineasAbiertas() {
     final map = <String, LineaBuffetAbierta>{};
     for (final pedido in _pedidosFiltrados) {
       final pedidoId = pedido.id ?? 0;
       for (var i = 0; i < pedido.items.length; i++) {
         final item = pedido.items[i];
+        if (item.estadoItem == EstadoPedido.listo || item.estadoItem == EstadoPedido.servido) continue;
         final key = '${pedidoId}_$i';
         if (_itemKeysEnLineasCerradas.contains(key)) continue;
         final k = '${item.productoId}_${item.nombreProducto}';
@@ -213,7 +215,13 @@ class CocinaProvider extends ChangeNotifier {
       }
       if (c.itemIndex >= pedido.items.length) continue;
       final item = pedido.items[c.itemIndex];
+      final pedidoOriginal = _pedidos.firstWhere((p) => p.id == c.pedidoId);
+      final indiceReal = pedidoOriginal.items.indexOf(item);
+      if (indiceReal < 0) continue;
       contribuciones.add(ContribucionBuffet(
+        pedidoId: c.pedidoId,
+        itemIndex: indiceReal,
+        keyEnLineasCerradas: c.key,
         mesaNumero: c.mesaNumero,
         cantidad: c.cantidad,
         nombreProducto: item.nombreProducto,
@@ -237,19 +245,26 @@ class CocinaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Imprime un ticket por cada mesa de la línea y marca la línea como listo (o la elimina).
+  /// Imprime un ticket por cada mesa de la línea, marca los ítems como listo en el servidor y elimina la línea.
   Future<void> hechoTodoLinea(String lineaId) async {
     final idx = _lineasCerradas.indexWhere((l) => l.id == lineaId);
     if (idx < 0) return;
     final linea = _lineasCerradas[idx];
     for (final c in linea.contribuciones) {
       await _imprimirTicketMesa(c.mesaNumero, c.nombreProducto, c.productoId, c.cantidad, c.destinoId, c.precioUnitario);
+      try {
+        await _repository.actualizarEstadoItem(c.pedidoId, c.itemIndex, EstadoPedido.listo);
+      } catch (e) {
+        debugPrint('Error al marcar ítem como listo en servidor: $e');
+      }
+      _itemKeysEnLineasCerradas.remove(c.keyEnLineasCerradas);
     }
     _lineasCerradas.removeAt(idx);
     notifyListeners();
   }
 
   /// Marca como terminada una cantidad X; prioriza mesas por orden de pedido e imprime sus tickets.
+  /// Las contribuciones totalmente completadas se marcan como listo en el servidor.
   Future<void> hechoParcialLinea(String lineaId, int cantidad) async {
     final idx = _lineasCerradas.indexWhere((l) => l.id == lineaId);
     if (idx < 0 || cantidad <= 0) return;
@@ -271,6 +286,9 @@ class CocinaProvider extends ChangeNotifier {
       final nuevoCant = c.cantidad - aImprimir;
       if (nuevoCant > 0) {
         nuevosContrib.add(ContribucionBuffet(
+          pedidoId: c.pedidoId,
+          itemIndex: c.itemIndex,
+          keyEnLineasCerradas: c.keyEnLineasCerradas,
           mesaNumero: c.mesaNumero,
           cantidad: nuevoCant,
           nombreProducto: c.nombreProducto,
@@ -279,6 +297,13 @@ class CocinaProvider extends ChangeNotifier {
           precioUnitario: c.precioUnitario,
           fechaCreacion: c.fechaCreacion,
         ));
+      } else {
+        try {
+          await _repository.actualizarEstadoItem(c.pedidoId, c.itemIndex, EstadoPedido.listo);
+        } catch (e) {
+          debugPrint('Error al marcar ítem como listo en servidor: $e');
+        }
+        _itemKeysEnLineasCerradas.remove(c.keyEnLineasCerradas);
       }
     }
     if (nuevosContrib.isEmpty) {

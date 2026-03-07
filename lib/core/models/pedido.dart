@@ -281,7 +281,8 @@ class Pedido {
           : null;
 
     if (json['id'] != null) {
-      pedido.id = json['id'] as int;
+      final v = json['id'];
+      pedido.id = (v is int) ? v : int.tryParse(v.toString());
     }
 
     return pedido;

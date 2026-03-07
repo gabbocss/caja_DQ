@@ -35,6 +35,8 @@ class _CocinaPageContent extends StatelessWidget {
           body: SafeArea(
             child: Column(
               children: [
+                // Banner de error al cargar pedidos (ej. servidor caído)
+                if (provider.error != null) _buildErrorBanner(context, provider),
                 // Cuerpo: Modo Buffet = líneas agregadas; Modo Carta = tarjetas por mesa
                 Expanded(
                   child: provider.modoBuffet
@@ -48,6 +50,37 @@ class _CocinaPageContent extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  /// Banner de error cuando falla la carga de pedidos (ej. servidor no disponible)
+  Widget _buildErrorBanner(BuildContext context, CocinaProvider provider) {
+    return Material(
+      color: const Color(0xFFB71C1C),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  provider.error!,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              TextButton(
+                onPressed: () => provider.recargar(),
+                child: const Text('Reintentar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

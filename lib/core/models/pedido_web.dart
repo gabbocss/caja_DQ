@@ -1,4 +1,5 @@
 /// Versión del modelo Pedido e ItemPedido para compilación Web (sin Isar).
+/// Los números se parsean de forma tolerante (int o double desde JSON) para evitar fallos en el runtime JS.
 
 enum EstadoPedido {
   pendiente,
@@ -58,19 +59,34 @@ class ItemPedido {
 
   factory ItemPedido.fromJson(Map<String, dynamic> json) {
     return ItemPedido()
-      ..productoId = json['productoId'] as int
+      ..productoId = _intFromJson(json['productoId'], 0)
       ..nombreProducto = json['nombreProducto'] as String
-      ..precioUnitario = (json['precioUnitario'] as num).toDouble()
-      ..cantidad = json['cantidad'] as int? ?? 1
+      ..precioUnitario = (json['precioUnitario'] as num?)?.toDouble() ?? 0.0
+      ..cantidad = _intFromJson(json['cantidad'], 1)
       ..notas = json['notas'] as String?
-      ..destinoId = json['destinoId'] as int?
+      ..destinoId = _intOrNullFromJson(json['destinoId'])
       ..nombreDestino = json['nombreDestino'] as String?
       ..estadoItem = EstadoPedido.values.firstWhere(
         (e) => e.name == json['estadoItem'],
         orElse: () => EstadoPedido.pendiente,
       )
-      ..orden = json['orden'] as int? ?? 1;
+      ..orden = _intFromJson(json['orden'], 1);
   }
+}
+
+int _intFromJson(dynamic v, int def) {
+  if (v == null) return def;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  final parsed = int.tryParse(v.toString());
+  return parsed ?? def;
+}
+
+int? _intOrNullFromJson(dynamic v) {
+  if (v == null) return null;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString());
 }
 
 class Pedido {
@@ -173,7 +189,7 @@ class Pedido {
 
   factory Pedido.fromJson(Map<String, dynamic> json) {
     final pedido = Pedido()
-      ..mesaNumero = json['mesaNumero'] as int
+      ..mesaNumero = _intFromJson(json['mesaNumero'], 1)
       ..items = (json['items'] as List<dynamic>?)
               ?.map((item) => ItemPedido.fromJson(item as Map<String, dynamic>))
               .toList() ??
@@ -183,8 +199,8 @@ class Pedido {
         orElse: () => EstadoPedido.pendiente,
       )
       ..total = (json['total'] as num?)?.toDouble() ?? 0
-      ..usuarioCamarero = json['usuarioCamarero'] as String
-      ..numeroComensales = json['numeroComensales'] as int?
+      ..usuarioCamarero = json['usuarioCamarero'] as String? ?? ''
+      ..numeroComensales = _intOrNullFromJson(json['numeroComensales'])
       ..notas = json['notas'] as String?
       ..esBuffet = json['esBuffet'] as bool? ?? false
       ..origen = OrigenPedido.values.firstWhere(
@@ -202,7 +218,7 @@ class Pedido {
           : null;
 
     if (json['id'] != null) {
-      pedido.id = (json['id'] as num).toInt();
+      pedido.id = _intOrNullFromJson(json['id']);
     }
 
     return pedido;

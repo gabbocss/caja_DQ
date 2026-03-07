@@ -1,5 +1,11 @@
 /// Contribución de una mesa a una línea de producción buffet (snapshot para impresión).
+/// Incluye [pedidoId] e [itemIndex] para poder marcar el ítem como listo en el servidor al hacer "Hecho".
+/// [keyEnLineasCerradas] es la clave que se añadió a _itemKeysEnLineasCerradas (índice en lista filtrada).
 class ContribucionBuffet {
+  final int pedidoId;
+  final int itemIndex;
+  /// Clave usada en _itemKeysEnLineasCerradas (pedidoId_indexFiltrado) para poder quitarla al hacer Hecho.
+  final String keyEnLineasCerradas;
   final int mesaNumero;
   final int cantidad;
   final String nombreProducto;
@@ -9,6 +15,9 @@ class ContribucionBuffet {
   final DateTime fechaCreacion;
 
   const ContribucionBuffet({
+    required this.pedidoId,
+    required this.itemIndex,
+    required this.keyEnLineasCerradas,
     required this.mesaNumero,
     required this.cantidad,
     required this.nombreProducto,
@@ -17,6 +26,8 @@ class ContribucionBuffet {
     required this.precioUnitario,
     required this.fechaCreacion,
   });
+
+  String get key => '${pedidoId}_$itemIndex';
 }
 
 /// Estado de una línea cerrada en modo buffet.

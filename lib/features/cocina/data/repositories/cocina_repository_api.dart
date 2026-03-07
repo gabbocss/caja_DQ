@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../../../core/models/models.dart';
 import '../../domain/repositories/cocina_repository.dart';
@@ -41,8 +43,10 @@ class CocinaRepositoryApi implements CocinaRepository {
     Future<List<Pedido>> fetch() async {
       try {
         return await _api.obtenerPedidosCocina();
-      } catch (_) {
-        return <Pedido>[];
+      } catch (e, st) {
+        debugPrint('Error al obtener pedidos cocina: $e');
+        debugPrint('$st');
+        rethrow;
       }
     }
 
