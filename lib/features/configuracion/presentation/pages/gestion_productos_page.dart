@@ -555,38 +555,68 @@ class _ProductoTile extends StatelessWidget {
                 ),
               ],
             ),
-            
-            // Botones de acción
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white54),
-              color: const Color(0xFF16213E),
-              onSelected: (value) {
-                if (value == 'editar') onEditar();
-                if (value == 'eliminar') onEliminar();
+            const SizedBox(width: 16),
+            // Botón de menú (área 40x40 para no solaparse con el switch)
+            Builder(
+              builder: (btnContext) {
+                return SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.more_vert, color: Colors.white54, size: 24),
+                    onPressed: () {
+                      final box = btnContext.findRenderObject() as RenderBox?;
+                      final overlay = Overlay.of(btnContext).context.findRenderObject() as RenderBox?;
+                      if (box != null && overlay != null) {
+                        final pos = box.localToGlobal(Offset.zero, ancestor: overlay);
+                        final size = box.size;
+                        final position = RelativeRect.fromLTRB(
+                          pos.dx,
+                          pos.dy + size.height,
+                          pos.dx + size.width,
+                          pos.dy + size.height + 8,
+                        );
+                        showMenu<String>(
+                          context: btnContext,
+                          position: position,
+                          color: const Color(0xFF16213E),
+                          items: [
+                            PopupMenuItem<String>(
+                              value: 'editar',
+                              onTap: () => onEditar(),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.edit, color: Colors.white70, size: 20),
+                                  SizedBox(width: 12),
+                                  Text('Editar', style: TextStyle(color: Colors.white)),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'eliminar',
+                              onTap: () => onEliminar(),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.delete, color: Colors.red, size: 20),
+                                  SizedBox(width: 12),
+                                  Text('Eliminar', style: TextStyle(color: Colors.red)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                    },
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white54,
+                    ),
+                  ),
+                );
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'editar',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, color: Colors.white70, size: 20),
-                      SizedBox(width: 12),
-                      Text('Editar', style: TextStyle(color: Colors.white)),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'eliminar',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red, size: 20),
-                      SizedBox(width: 12),
-                      Text('Eliminar', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
             ),
+            const SizedBox(width: 16),
           ],
         ),
       ),

@@ -19,6 +19,7 @@ export 'constants/app_constants.dart';
 
 // Utilidades
 export 'utils/platform_utils.dart';
+export 'utils/device_info.dart';
 
 // Preferencias (URL del servidor en móvil)
 export 'prefs/server_url_prefs.dart';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:provider/provider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 import 'core/core.dart';
 import 'features/pedidos/presentation/providers/pedidos_mobile_provider.dart';
@@ -27,6 +28,14 @@ void main() async {
   debugPrint('  🎯  Rol: ${kIsWeb ? 'Cliente Web' : PlatformUtils.suggestedRole}');
   debugPrint('  🖥️  Modo servidor: $actAsServer');
   debugPrint('═══════════════════════════════════════════════════════════════');
+
+  // En Android, obtener versión del SO para adaptar tema (sin cambiar funcionalidad)
+  if (PlatformUtils.isAndroid && !kIsWeb) {
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      DeviceInfo.androidSdkInt = info.version.sdkInt;
+    } catch (_) {}
+  }
 
   try {
     await initializeDependencies(
@@ -77,7 +86,8 @@ class RestauranteApp extends StatelessWidget {
     const backgroundColor = Color(0xFF1A1A2E);
 
     return ThemeData(
-      useMaterial3: true,
+      // Material 3 puede dar fallos en Android 15; usar Material 2 en API < 36
+      useMaterial3: !DeviceInfo.isLegacyAndroid,
       brightness: Brightness.dark,
       
       // Esquema de colores
