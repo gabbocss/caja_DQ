@@ -28,6 +28,8 @@ class _PedidosPageState extends State<PedidosPage> {
   Set<int> _productosAgotados = {}; // IDs de productos marcados como agotados
   List<Pedido> _cuentaActual = []; // Pedidos no pagados de la mesa seleccionada
   Set<int> _mesasConCuentaAbierta = {}; // Mesas con al menos un pedido no pagado
+  /// Números de mesa configurados (Config > Mesas). Vacío hasta cargar; si vacío el panel usa 1..20.
+  List<int> _numerosMesas = [];
   // Apertura de mesa: buffet (sábado horario) o cubiertos
   int _adultosBuffet = 0;
   int _ninosBuffet = 0;
@@ -38,8 +40,34 @@ class _PedidosPageState extends State<PedidosPage> {
     super.initState();
     _cargarDestinos();
     _cargarCategorias();
+    _cargarMesas();
     _cargarMesasConCuentaAbierta();
     _cargarCuentaMesa(_mesaSeleccionada);
+  }
+
+  /// Carga la lista de mesas configuradas (Config > Mesas) para el selector del panel.
+  Future<void> _cargarMesas() async {
+    try {
+      List<Mesa> list;
+      if (sl.isRegistered<ApiClient>()) {
+        list = await sl<ApiClient>().obtenerMesas();
+      } else {
+        list = await DatabaseService.instance.obtenerMesas();
+      }
+      final numeros = list.where((m) => m.activa).map((m) => m.numero).toList()..sort();
+      if (mounted) {
+        setState(() {
+          _numerosMesas = numeros.isNotEmpty ? numeros : List.generate(20, (i) => i + 1);
+          if (!_numerosMesas.contains(_mesaSeleccionada)) {
+            _mesaSeleccionada = _numerosMesas.first;
+          }
+        });
+        _cargarCuentaMesa(_mesaSeleccionada);
+      }
+    } catch (e) {
+      debugPrint('Error al cargar mesas: $e');
+      if (mounted) setState(() => _numerosMesas = List.generate(20, (i) => i + 1));
+    }
   }
 
   Future<void> _cargarCategorias() async {
@@ -624,6 +652,7 @@ class _PedidosPageState extends State<PedidosPage> {
                   // Panel lateral - Carrito
                   CarritoPanel(
                     mesaSeleccionada: _mesaSeleccionada,
+                    numerosMesas: _numerosMesas,
                     items: _carrito,
                     consumoActual: _cuentaActual,
                     mesasConCuentaAbierta: _mesasConCuentaAbierta,
@@ -691,6 +720,17 @@ class _PedidosPageState extends State<PedidosPage> {
           ),
           
           const Spacer(),
+
+          // Refrescar mesas (tras cambiar Config > Mesas)
+          IconButton(
+            onPressed: () async {
+              await _cargarMesas();
+              await _cargarMesasConCuentaAbierta();
+              if (mounted) setState(() {});
+            },
+            icon: const Icon(Icons.refresh, color: Colors.white70),
+            tooltip: 'Actualizar lista de mesas',
+          ),
           
           // Indicador de día de buffet
           if (esSabado)

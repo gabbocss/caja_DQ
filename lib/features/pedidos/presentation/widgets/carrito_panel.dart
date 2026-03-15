@@ -8,6 +8,8 @@ import '../pages/pedidos_page.dart';
 /// Muestra la mesa seleccionada, items agregados, consumo actual de la mesa y botón de envío
 class CarritoPanel extends StatelessWidget {
   final int mesaSeleccionada;
+  /// Números de mesa configurados (Config > Mesas). Si vacío o null se usa 1..20.
+  final List<int> numerosMesas;
   final List<ItemCarrito> items;
   final List<Pedido> consumoActual; // Pedidos no pagados de la mesa (cuenta abierta)
   final Set<int> mesasConCuentaAbierta; // Mesas con al menos un pedido no pagado
@@ -29,6 +31,7 @@ class CarritoPanel extends StatelessWidget {
   const CarritoPanel({
     super.key,
     required this.mesaSeleccionada,
+    this.numerosMesas = const [],
     required this.items,
     this.consumoActual = const [],
     this.mesasConCuentaAbierta = const {},
@@ -133,9 +136,10 @@ class CarritoPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           
-          // Selector de mesas con paginación (10 por página, flechas)
+          // Selector de mesas con paginación (usa mesas configuradas en Config > Mesas)
           _MesaSelectorPaginado(
             mesaSeleccionada: mesaSeleccionada,
+            numerosMesas: numerosMesas,
             mesasConCuentaAbierta: mesasConCuentaAbierta,
             onMesaChanged: onMesaChanged,
             onMesaTap: onMesaTap,
@@ -473,9 +477,10 @@ class CarritoPanel extends StatelessWidget {
   }
 }
 
-/// Selector de mesas: grid horizontal (igual que antes) con flechas para desplazar
+/// Selector de mesas: grid horizontal con flechas. Usa numerosMesas si no vacío; si no 1..20.
 class _MesaSelectorPaginado extends StatefulWidget {
   final int mesaSeleccionada;
+  final List<int> numerosMesas;
   final Set<int> mesasConCuentaAbierta;
   final ValueChanged<int> onMesaChanged;
   final Future<void> Function(int mesa)? onMesaTap;
@@ -483,6 +488,7 @@ class _MesaSelectorPaginado extends StatefulWidget {
 
   const _MesaSelectorPaginado({
     required this.mesaSeleccionada,
+    this.numerosMesas = const [],
     required this.mesasConCuentaAbierta,
     required this.onMesaChanged,
     this.onMesaTap,
@@ -494,8 +500,12 @@ class _MesaSelectorPaginado extends StatefulWidget {
 }
 
 class _MesaSelectorPaginadoState extends State<_MesaSelectorPaginado> {
-  static const int _totalMesas = 20;
   final ScrollController _scrollController = ScrollController();
+
+  List<int> get _numerosMesas {
+    if (widget.numerosMesas.isNotEmpty) return widget.numerosMesas;
+    return List.generate(20, (i) => i + 1);
+  }
 
   @override
   void dispose() {
@@ -545,9 +555,9 @@ class _MesaSelectorPaginadoState extends State<_MesaSelectorPaginado> {
                 crossAxisSpacing: 8,
                 childAspectRatio: 1,
               ),
-              itemCount: _totalMesas,
+              itemCount: _numerosMesas.length,
               itemBuilder: (context, index) {
-                final numeroMesa = index + 1;
+                final numeroMesa = _numerosMesas[index];
                 final isSelected = widget.mesaSeleccionada == numeroMesa;
                 final tieneCuentaAbierta =
                     widget.mesasConCuentaAbierta.contains(numeroMesa);
