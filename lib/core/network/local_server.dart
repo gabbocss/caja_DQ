@@ -1310,7 +1310,8 @@ class LocalServer {
     .producto.agotado .precio { color: #9E9E9E; font-weight: 600; }
     .producto.agotado .descripcion { color: #424242; }
     .btn-agregar {
-      background: #E65100;
+      /* Rojo vino (botón +) */
+      background: #8B1E2D;
       border: none;
       color: white;
       width: 44px;
@@ -1325,7 +1326,7 @@ class LocalServer {
       align-items: center;
       justify-content: center;
       line-height: 1;
-      box-shadow: 0 2px 10px rgba(230, 81, 0, 0.35);
+      box-shadow: 0 2px 10px rgba(139, 30, 45, 0.35);
     }
     .btn-agregar:active { transform: scale(0.95); }
     /* Botón flotante del carrito (móvil) */
@@ -1336,10 +1337,11 @@ class LocalServer {
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: #E65100;
+      /* Terracota (botón carrito) */
+      background: #C65D3A;
       border: none;
       color: white;
-      box-shadow: 0 4px 20px rgba(230, 81, 0, 0.4);
+      box-shadow: 0 4px 20px rgba(198, 93, 58, 0.4);
       cursor: pointer;
       z-index: 100;
       display: flex;
