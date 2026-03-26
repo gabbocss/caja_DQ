@@ -70,6 +70,7 @@ class DatabaseService {
           DestinoImpresionSchema,
           ConfiguracionBuffetSchema,
           CategoriaSchema,
+          CarritoQrMesaSchema,
         ],
         directory: dbPath,
         name: 'restaurante',
@@ -730,6 +731,130 @@ class DatabaseService {
         .estadoEqualTo(EstadoPedido.preparando)
         .sortByFechaCreacion()
         .watch(fireImmediately: true);
+  }
+
+  // ==================== CARRITO QR (BUFFET) ====================
+
+  Future<CarritoQrMesa> _obtenerOCrearCarritoQrMesa(int mesaNumero) async {
+    final existente = await isar.carritoQrMesas
+        .filter()
+        .mesaNumeroEqualTo(mesaNumero)
+        .findFirst();
+    if (existente != null) return existente;
+    final nuevo = CarritoQrMesa()
+      ..mesaNumero = mesaNumero
+      ..items = []
+      ..fechaActualizacion = DateTime.now();
+    final id = await isar.writeTxn(() => isar.carritoQrMesas.put(nuevo));
+    final creado = await isar.carritoQrMesas.get(id);
+    return creado ?? nuevo;
+  }
+
+  /// Devuelve el carrito comunitario de una mesa.
+  Future<List<ItemCarritoQr>> obtenerCarritoQrMesa(int mesaNumero) async {
+    final carrito = await _obtenerOCrearCarritoQrMesa(mesaNumero);
+    return List<ItemCarritoQr>.from(carrito.items);
+  }
+
+  /// Suma [delta] a la cantidad del producto en el carrito (si no existe, lo crea).
+  Future<void> sumarProductoCarritoQrMesa({
+    required int mesaNumero,
+    required int productoId,
+    required int delta,
+    required String nombreProducto,
+    required double precioUnitario,
+    int? destinoId,
+    String? nombreDestino,
+  }) async {
+    if (delta == 0) return;
+    await isar.writeTxn(() async {
+      final carrito = await isar.carritoQrMesas
+          .filter()
+          .mesaNumeroEqualTo(mesaNumero)
+          .findFirst();
+      final obj = carrito ??
+          (CarritoQrMesa()
+            ..mesaNumero = mesaNumero
+            ..items = []
+            ..fechaActualizacion = DateTime.now());
+      final items = obj.items;
+      final idx = items.indexWhere((i) => i.productoId == productoId);
+      if (idx >= 0) {
+        final actual = items[idx];
+        final nueva = actual.cantidad + delta;
+        if (nueva <= 0) {
+          items.removeAt(idx);
+        } else {
+          actual.cantidad = nueva;
+        }
+      } else if (delta > 0) {
+        items.add(ItemCarritoQr.crear(
+          productoId: productoId,
+          nombreProducto: nombreProducto,
+          precioUnitario: precioUnitario,
+          cantidad: delta,
+          destinoId: destinoId,
+          nombreDestino: nombreDestino,
+        ));
+      }
+      obj.fechaActualizacion = DateTime.now();
+      await isar.carritoQrMesas.put(obj);
+    });
+  }
+
+  /// Establece cantidad exacta de un producto en el carrito (0 = quitar).
+  Future<void> setCantidadProductoCarritoQrMesa({
+    required int mesaNumero,
+    required int productoId,
+    required int cantidad,
+    String? nombreProducto,
+    double? precioUnitario,
+    int? destinoId,
+    String? nombreDestino,
+  }) async {
+    await isar.writeTxn(() async {
+      final carrito = await isar.carritoQrMesas
+          .filter()
+          .mesaNumeroEqualTo(mesaNumero)
+          .findFirst();
+      final obj = carrito ??
+          (CarritoQrMesa()
+            ..mesaNumero = mesaNumero
+            ..items = []
+            ..fechaActualizacion = DateTime.now());
+      final items = obj.items;
+      final idx = items.indexWhere((i) => i.productoId == productoId);
+      if (cantidad <= 0) {
+        if (idx >= 0) items.removeAt(idx);
+      } else if (idx >= 0) {
+        items[idx].cantidad = cantidad;
+      } else {
+        items.add(ItemCarritoQr.crear(
+          productoId: productoId,
+          nombreProducto: nombreProducto ?? 'Producto',
+          precioUnitario: precioUnitario ?? 0.0,
+          cantidad: cantidad,
+          destinoId: destinoId,
+          nombreDestino: nombreDestino,
+        ));
+      }
+      obj.fechaActualizacion = DateTime.now();
+      await isar.carritoQrMesas.put(obj);
+    });
+  }
+
+  /// Vacía el carrito comunitario de una mesa.
+  Future<void> limpiarCarritoQrMesa(int mesaNumero) async {
+    await isar.writeTxn(() async {
+      final carrito = await isar.carritoQrMesas
+          .filter()
+          .mesaNumeroEqualTo(mesaNumero)
+          .findFirst();
+      if (carrito == null) return;
+      carrito.items.clear();
+      carrito.fechaActualizacion = DateTime.now();
+      await isar.carritoQrMesas.put(carrito);
+    });
   }
 
   // ==================== OPERACIONES DE DESTINOS ====================

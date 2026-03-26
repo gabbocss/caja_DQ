@@ -242,13 +242,147 @@ class LocalServer {
         // Productos ya vienen ordenados por orden (categoría*1000 + índice en categoría)
         final productos = await _db.obtenerProductosBuffet();
         final esHorarioBuffet = await _db.esHorarioBuffet();
-        final html = await _generarPaginaClienteQR(mesaNumero, productos, esHorarioBuffet);
+        final html = await _generarPaginaClienteQR(mesaNumero, token, productos, esHorarioBuffet);
         return Response.ok(
           html,
           headers: {'Content-Type': 'text/html; charset=utf-8'},
         );
       } catch (e) {
         return _errorResponse('Error al cargar página QR: $e');
+      }
+    });
+
+    // ==================== CARRITO QR COMUNITARIO (persistente) ====================
+
+    // GET /api/qr/carrito/<token> - Obtiene carrito comunitario de la mesa del token
+    router.get('/api/qr/carrito/<token>', (Request request, String token) async {
+      try {
+        final mesaNumero = await _db.getMesaNumeroPorQrToken(token);
+        if (mesaNumero == null) {
+          return Response(404, body: jsonEncode({'error': 'Token no válido'}), headers: {'Content-Type': 'application/json'});
+        }
+        final items = await _db.obtenerCarritoQrMesa(mesaNumero);
+        return Response.ok(
+          jsonEncode({
+            'mesaNumero': mesaNumero,
+            'items': items.map((i) => i.toJson()).toList(),
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al obtener carrito QR: $e');
+      }
+    });
+
+    // POST /api/qr/carrito/<token>/add - Suma 1 (o delta) a un producto en el carrito
+    router.post('/api/qr/carrito/<token>/add', (Request request, String token) async {
+      try {
+        final mesaNumero = await _db.getMesaNumeroPorQrToken(token);
+        if (mesaNumero == null) {
+          return Response(404, body: jsonEncode({'error': 'Token no válido'}), headers: {'Content-Type': 'application/json'});
+        }
+        final body = await request.readAsString();
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final productoId = (json['productoId'] as num).toInt();
+        final delta = (json['delta'] as num?)?.toInt() ?? 1;
+
+        final producto = await _db.obtenerProductoPorId(productoId);
+        if (producto == null) {
+          return Response(400, body: jsonEncode({'error': 'Producto no encontrado'}), headers: {'Content-Type': 'application/json'});
+        }
+        await _db.sumarProductoCarritoQrMesa(
+          mesaNumero: mesaNumero,
+          productoId: productoId,
+          delta: delta,
+          nombreProducto: producto.nombre,
+          precioUnitario: producto.precio,
+          destinoId: producto.destinoId,
+          nombreDestino: null,
+        );
+        final items = await _db.obtenerCarritoQrMesa(mesaNumero);
+        return Response.ok(
+          jsonEncode({'ok': true, 'items': items.map((i) => i.toJson()).toList()}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al modificar carrito QR: $e');
+      }
+    });
+
+    // POST /api/qr/carrito/<token>/set - Establece cantidad exacta
+    router.post('/api/qr/carrito/<token>/set', (Request request, String token) async {
+      try {
+        final mesaNumero = await _db.getMesaNumeroPorQrToken(token);
+        if (mesaNumero == null) {
+          return Response(404, body: jsonEncode({'error': 'Token no válido'}), headers: {'Content-Type': 'application/json'});
+        }
+        final body = await request.readAsString();
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final productoId = (json['productoId'] as num).toInt();
+        final cantidad = (json['cantidad'] as num).toInt();
+
+        final producto = await _db.obtenerProductoPorId(productoId);
+        if (producto == null) {
+          return Response(400, body: jsonEncode({'error': 'Producto no encontrado'}), headers: {'Content-Type': 'application/json'});
+        }
+        await _db.setCantidadProductoCarritoQrMesa(
+          mesaNumero: mesaNumero,
+          productoId: productoId,
+          cantidad: cantidad,
+          nombreProducto: producto.nombre,
+          precioUnitario: producto.precio,
+          destinoId: producto.destinoId,
+          nombreDestino: null,
+        );
+        final items = await _db.obtenerCarritoQrMesa(mesaNumero);
+        return Response.ok(
+          jsonEncode({'ok': true, 'items': items.map((i) => i.toJson()).toList()}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al establecer cantidad carrito QR: $e');
+      }
+    });
+
+    // POST /api/qr/carrito/<token>/remove - Quita un producto
+    router.post('/api/qr/carrito/<token>/remove', (Request request, String token) async {
+      try {
+        final mesaNumero = await _db.getMesaNumeroPorQrToken(token);
+        if (mesaNumero == null) {
+          return Response(404, body: jsonEncode({'error': 'Token no válido'}), headers: {'Content-Type': 'application/json'});
+        }
+        final body = await request.readAsString();
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final productoId = (json['productoId'] as num).toInt();
+        await _db.setCantidadProductoCarritoQrMesa(
+          mesaNumero: mesaNumero,
+          productoId: productoId,
+          cantidad: 0,
+        );
+        final items = await _db.obtenerCarritoQrMesa(mesaNumero);
+        return Response.ok(
+          jsonEncode({'ok': true, 'items': items.map((i) => i.toJson()).toList()}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al quitar producto del carrito QR: $e');
+      }
+    });
+
+    // POST /api/qr/carrito/<token>/clear - Vacía carrito
+    router.post('/api/qr/carrito/<token>/clear', (Request request, String token) async {
+      try {
+        final mesaNumero = await _db.getMesaNumeroPorQrToken(token);
+        if (mesaNumero == null) {
+          return Response(404, body: jsonEncode({'error': 'Token no válido'}), headers: {'Content-Type': 'application/json'});
+        }
+        await _db.limpiarCarritoQrMesa(mesaNumero);
+        return Response.ok(
+          jsonEncode({'ok': true}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al limpiar carrito QR: $e');
       }
     });
 
@@ -852,9 +986,21 @@ class LocalServer {
           );
         }
 
+        final token = json['token'] as String?;
+        int mesaNumero;
+        if (token != null && token.trim().isNotEmpty) {
+          final n = await _db.getMesaNumeroPorQrToken(token.trim());
+          if (n == null) {
+            return Response(404, body: jsonEncode({'error': 'Token no válido'}), headers: {'Content-Type': 'application/json'});
+          }
+          mesaNumero = n;
+        } else {
+          mesaNumero = json['mesaNumero'] as int;
+        }
+
         // Crear pedido con origen QR
         final pedido = Pedido()
-          ..mesaNumero = json['mesaNumero'] as int
+          ..mesaNumero = mesaNumero
           ..usuarioCamarero = 'CLIENTE QR'
           ..origen = OrigenPedido.qr
           ..estado = EstadoPedido.pendiente
@@ -864,11 +1010,26 @@ class LocalServer {
           ..total = 0
           ..items = [];
         
-        // Procesar items
-        final itemsJson = json['items'] as List<dynamic>;
-        for (final itemJson in itemsJson) {
-          final item = ItemPedido.fromJson(itemJson as Map<String, dynamic>);
-          pedido.items.add(item);
+        // Procesar items: si viene token, usamos el carrito comunitario persistido
+        if (token != null && token.trim().isNotEmpty) {
+          final carritoItems = await _db.obtenerCarritoQrMesa(mesaNumero);
+          for (final c in carritoItems) {
+            final item = ItemPedido.crear(
+              productoId: c.productoId,
+              nombreProducto: c.nombreProducto,
+              precioUnitario: c.precioUnitario,
+              cantidad: c.cantidad,
+              destinoId: c.destinoId,
+              nombreDestino: c.nombreDestino,
+            );
+            pedido.items.add(item);
+          }
+        } else {
+          final itemsJson = (json['items'] as List<dynamic>? ?? const []);
+          for (final itemJson in itemsJson) {
+            final item = ItemPedido.fromJson(itemJson as Map<String, dynamic>);
+            pedido.items.add(item);
+          }
         }
         
         // Validar disponibilidad de productos antes de guardar (omitir ítems especiales con productoId <= 0)
@@ -896,6 +1057,11 @@ class LocalServer {
             }),
             headers: {'Content-Type': 'application/json'},
           );
+        }
+
+        // Si venía de token, limpiar carrito comunitario tras enviar
+        if (token != null && token.trim().isNotEmpty) {
+          await _db.limpiarCarritoQrMesa(mesaNumero);
         }
         
         // ========== DESCONTAR STOCK AUTOMÁTICAMENTE ==========
@@ -1103,7 +1269,7 @@ class LocalServer {
   }
 
   /// Genera la página HTML para clientes QR
-  Future<String> _generarPaginaClienteQR(int mesa, List<Producto> productos, bool esHorarioBuffet) async {
+  Future<String> _generarPaginaClienteQR(int mesa, String token, List<Producto> productos, bool esHorarioBuffet) async {
     final productosHtml = productos.map((p) {
       final descAttr = p.descripcion != null ? _escapeHtmlAttr(p.descripcion!) : '';
       final imgAttr = p.imagen != null && p.imagen!.isNotEmpty ? _escapeHtmlAttr(p.imagen!) : '';
@@ -1890,8 +2056,30 @@ class LocalServer {
   
   <script>
     const mesa = $mesa;
+    const token = '${_escapeHtmlAttr(token)}';
     const esBuffet = $esHorarioBuffet;
     let carrito = [];
+    let _pollCarrito = null;
+
+    async function cargarCarritoServidor() {
+      try {
+        const res = await fetch('/api/qr/carrito/' + encodeURIComponent(token));
+        if (!res.ok) return;
+        const data = await res.json();
+        carrito = (data.items || []).map(function(it) {
+          return {
+            productoId: it.productoId,
+            nombreProducto: it.nombreProducto,
+            precioUnitario: it.precioUnitario,
+            cantidad: it.cantidad,
+            destinoId: it.destinoId
+          };
+        });
+        actualizarUI();
+      } catch (e) {
+        console.error('Error cargando carrito servidor:', e);
+      }
+    }
     
     function estadoItemATexto(estadoItem) {
       if (estadoItem === 'pendiente' || estadoItem === 'preparando') return { texto: 'En preparación', clase: 'estado-preparacion' };
@@ -1937,20 +2125,17 @@ class LocalServer {
       }
     }
     
-    function agregarAlCarrito(id, nombre, precio, destinoId) {
-      const existente = carrito.find(item => item.productoId === id);
-      if (existente) {
-        existente.cantidad++;
-      } else {
-        carrito.push({
-          productoId: id,
-          nombreProducto: nombre,
-          precioUnitario: precio,
-          cantidad: 1,
-          destinoId: destinoId
+    async function agregarAlCarrito(id, nombre, precio, destinoId) {
+      try {
+        await fetch('/api/qr/carrito/' + encodeURIComponent(token) + '/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productoId: id, delta: 1 })
         });
+        await cargarCarritoServidor();
+      } catch (e) {
+        console.error('Error agregando al carrito:', e);
       }
-      actualizarUI();
       var btn = document.getElementById('btn-carrito-flotante');
       if (btn) {
         btn.classList.remove('bump');
@@ -1981,21 +2166,47 @@ class LocalServer {
       totalEl.textContent = n === 0 ? '0 productos' : (n === 1 ? '1 producto' : n + ' productos');
     }
     
-    function incrementarCantidad(productoId) {
-      const item = carrito.find(function(i) { return i.productoId === productoId; });
-      if (item) { item.cantidad++; actualizarUI(); }
+    async function incrementarCantidad(productoId) {
+      try {
+        await fetch('/api/qr/carrito/' + encodeURIComponent(token) + '/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productoId: productoId, delta: 1 })
+        });
+        await cargarCarritoServidor();
+      } catch (e) {
+        console.error('Error incrementando cantidad:', e);
+      }
     }
     
-    function decrementarCantidad(productoId) {
+    async function decrementarCantidad(productoId) {
       const item = carrito.find(function(i) { return i.productoId === productoId; });
-      if (!item || item.cantidad <= 1) return;
-      item.cantidad--;
-      actualizarUI();
+      if (!item) return;
+      const nueva = (item.cantidad || 1) - 1;
+      if (nueva <= 0) return;
+      try {
+        await fetch('/api/qr/carrito/' + encodeURIComponent(token) + '/set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productoId: productoId, cantidad: nueva })
+        });
+        await cargarCarritoServidor();
+      } catch (e) {
+        console.error('Error decrementando cantidad:', e);
+      }
     }
     
-    function quitarDelCarrito(productoId) {
-      carrito = carrito.filter(function(i) { return i.productoId !== productoId; });
-      actualizarUI();
+    async function quitarDelCarrito(productoId) {
+      try {
+        await fetch('/api/qr/carrito/' + encodeURIComponent(token) + '/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productoId: productoId })
+        });
+        await cargarCarritoServidor();
+      } catch (e) {
+        console.error('Error quitando del carrito:', e);
+      }
     }
     
     function renderCarritoEnDrawer() {
@@ -2020,6 +2231,7 @@ class LocalServer {
       if (drawer.classList.contains('abierto')) {
         cerrarCarritoDrawer();
       } else {
+        cargarCarritoServidor();
         renderCarritoEnDrawer();
         drawer.classList.add('abierto');
         overlay.classList.add('visible');
@@ -2087,6 +2299,7 @@ class LocalServer {
     }
     
     async function enviarPedido() {
+      await cargarCarritoServidor();
       if (carrito.length === 0) return;
       
       const btn = document.getElementById('btn-enviar');
@@ -2159,16 +2372,16 @@ class LocalServer {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            token: token,
             mesaNumero: mesa,
-            esBuffet: esBuffet,
-            items: carrito
+            esBuffet: esBuffet
           })
         });
         
         if (response.ok) {
           cerrarCarritoDrawer();
-          carrito = [];
-          actualizarUI();
+          // El servidor limpia el carrito al enviar; refrescar para sincronizar
+          await cargarCarritoServidor();
           refrescarMisPedidos();
           document.getElementById('overlay').classList.add('visible');
           document.getElementById('mensaje').classList.add('visible');
@@ -2188,6 +2401,13 @@ class LocalServer {
         btn.textContent = 'Enviar Pedido';
       }
     }
+
+    // Inicial: cargar carrito comunitario y refrescar periódicamente para ver cambios de otros móviles
+    (function iniciarCarritoComunitario() {
+      cargarCarritoServidor();
+      if (_pollCarrito) clearInterval(_pollCarrito);
+      _pollCarrito = setInterval(cargarCarritoServidor, 4000);
+    })();
     
     function cerrarMensajeYRecargar() {
       document.getElementById('overlay').classList.remove('visible');
