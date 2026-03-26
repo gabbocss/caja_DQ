@@ -391,6 +391,7 @@ class _CocinaPageContent extends StatelessWidget {
     });
 
     return GridView.builder(
+      key: ValueKey('cocina_grid_${provider.versionOptimista}'),
       padding: const EdgeInsets.all(20),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 400,

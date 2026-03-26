@@ -265,126 +265,130 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
           final mesasCuenta = mobileProvider.mesasConCuentaAbierta;
 
           return Scaffold(
-            key: _scaffoldKey,
-            backgroundColor: const Color(0xFF1A1A2E),
-            appBar: AppBar(
-              title: Text('Mesa ${widget.numeroMesa} - ${widget.categoriaNombre}'),
-              backgroundColor: const Color(0xFF16213E),
-              foregroundColor: Colors.white,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              actions: [
-                Stack(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.shopping_cart),
-                      onPressed: _openCarrito,
-                    ),
-                    if (items.isNotEmpty)
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE94560),
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                          child: Text(
-                            '${items.length}',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
+              key: _scaffoldKey,
+              backgroundColor: const Color(0xFF1A1A2E),
+              appBar: AppBar(
+                title: Text('Mesa ${widget.numeroMesa} - ${widget.categoriaNombre}'),
+                backgroundColor: const Color(0xFF16213E),
+                foregroundColor: Colors.white,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                actions: [
+                  Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.shopping_cart),
+                        onPressed: _openCarrito,
+                      ),
+                      if (items.isNotEmpty)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE94560),
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                            child: Text(
+                              '${items.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            body: GestureDetector(
-              onHorizontalDragEnd: (details) {
-                if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-                  _openCarrito();
-                }
-              },
-              child: ProductoGrid(
-                categoriaFiltro: widget.categoriaNombre,
-                productos: pedidosProvider.productos,
-                onProductoTap: (producto) {
-                  if (!producto.isAvailable) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${producto.nombre} está agotado'),
-                        backgroundColor: Colors.orange,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                    return;
-                  }
-                  mobileProvider.addToCart(widget.numeroMesa, producto);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${producto.nombre} agregado'),
-                      backgroundColor: const Color(0xFF00D9A5),
-                      duration: const Duration(milliseconds: 800),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
+                    ],
+                  ),
+                ],
               ),
-            ),
-            endDrawer: Drawer(
-              backgroundColor: const Color(0xFF1A1A2E),
-              width: MediaQuery.of(context).size.width * 0.9,
-              child: SafeArea(
-                child: CarritoPanel(
-                  mesaSeleccionada: widget.numeroMesa,
-                  items: items,
-                  consumoActual: cuenta,
-                  mesasConCuentaAbierta: mesasCuenta,
-                  onMesaChanged: (_) {},
-                  onItemRemoved: (index) => mobileProvider.removeFromCart(widget.numeroMesa, index),
-                  onOrdenChanged: (index, orden) => mobileProvider.changeOrder(widget.numeroMesa, index, orden),
-                  onEnviar: () async {
-                    final items = mobileProvider.carritoMesa(widget.numeroMesa);
-                    final productos = pedidosProvider.productos;
-                    final result = _validarStockCarrito(items, productos);
-                    if (result.ajustes.isNotEmpty || result.agotados.isNotEmpty) {
-                      await _mostrarDialogoValidacionStock(
-                        context,
-                        result.ajustes,
-                        result.agotados,
-                        items,
+              body: GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+                    _openCarrito();
+                  }
+                },
+                child: ProductoGrid(
+                  categoriaFiltro: widget.categoriaNombre,
+                  productos: pedidosProvider.productos,
+                  onProductoTap: (producto) {
+                    if (!producto.isAvailable) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${producto.nombre} está agotado'),
+                          backgroundColor: Colors.orange,
+                          behavior: SnackBarBehavior.floating,
+                        ),
                       );
                       return;
                     }
-                    final ok = await mobileProvider.sendOrder(widget.numeroMesa);
-                    if (!context.mounted) return;
-                    if (ok) {
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Pedido enviado'),
-                          backgroundColor: Color(0xFF00D9A5),
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(mobileProvider.error ?? 'Error al enviar'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
+                    mobileProvider.addToCart(widget.numeroMesa, producto);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${producto.nombre} agregado'),
+                        backgroundColor: const Color(0xFF00D9A5),
+                        duration: const Duration(milliseconds: 800),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   },
-                  enviando: mobileProvider.enviando,
-                  productosAgotados: const {},
                 ),
               ),
-            ),
+              endDrawer: Drawer(
+                backgroundColor: const Color(0xFF1A1A2E),
+                width: MediaQuery.of(context).size.width * 0.9,
+                child: SafeArea(
+                  child: CarritoPanel(
+                    mesaSeleccionada: widget.numeroMesa,
+                    items: items,
+                    consumoActual: cuenta,
+                    mesasConCuentaAbierta: mesasCuenta,
+                    onMesaChanged: (_) {},
+                    onItemRemoved: (index) => mobileProvider.removeFromCart(widget.numeroMesa, index),
+                    onOrdenChanged: (index, orden) => mobileProvider.changeOrder(widget.numeroMesa, index, orden),
+                    onEnviar: () async {
+                      final items = mobileProvider.carritoMesa(widget.numeroMesa);
+                      final productos = pedidosProvider.productos;
+                      final result = _validarStockCarrito(items, productos);
+                      if (result.ajustes.isNotEmpty || result.agotados.isNotEmpty) {
+                        await _mostrarDialogoValidacionStock(
+                          context,
+                          result.ajustes,
+                          result.agotados,
+                          items,
+                        );
+                        return;
+                      }
+                      final ok = await mobileProvider.sendOrder(widget.numeroMesa);
+                      if (!context.mounted) return;
+                      if (ok) {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Pedido enviado'),
+                            backgroundColor: Color(0xFF00D9A5),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(mobileProvider.error ?? 'Error al enviar'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    enviando: mobileProvider.enviando,
+                    productosAgotados: const {},
+                  ),
+                ),
+              ),
           );
         },
       ),

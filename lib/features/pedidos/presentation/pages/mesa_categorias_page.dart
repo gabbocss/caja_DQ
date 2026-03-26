@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/core.dart';
+import '../providers/pedidos_mobile_provider.dart';
+import 'pedidos_page.dart' show ItemCarrito;
+
+enum _DecisionSalidaMesa {
+  cancelar,
+  enviar,
+  noEnviar,
+}
 
 /// Pantalla de categorías para una mesa.
 /// Muestra la lista de categorías (Bebidas, Primeros, etc.); al tocar una se navega a platos.
@@ -22,6 +31,189 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
   String? _qrUrl;
   bool _qrCargando = true;
   String? _qrError;
+  bool _manejandoSalida = false;
+
+  Future<List<Producto>> _obtenerProductos() async {
+    if (sl.isRegistered<ApiClient>()) {
+      return sl<ApiClient>().obtenerProductos();
+    }
+    return DatabaseService.instance.obtenerProductos();
+  }
+
+  ({List<Map<String, dynamic>> ajustes, Set<int> agotados}) _validarStockCarrito(
+    List<ItemCarrito> items,
+    List<Producto> productos,
+  ) {
+    final cantidadPorProducto = <int, int>{};
+    for (final item in items) {
+      final id = item.producto.id;
+      if (id == null || id <= 0) continue;
+      cantidadPorProducto[id] = (cantidadPorProducto[id] ?? 0) + item.cantidad;
+    }
+
+    final ajustes = <Map<String, dynamic>>[];
+    final agotados = <int>{};
+    for (final entry in cantidadPorProducto.entries) {
+      final id = entry.key;
+      final solicitado = entry.value;
+      Producto? producto;
+      for (final p in productos) {
+        if (p.id == id) {
+          producto = p;
+          break;
+        }
+      }
+      if (producto == null) {
+        agotados.add(id);
+        continue;
+      }
+      if (!producto.isAvailable) {
+        agotados.add(id);
+        continue;
+      }
+      if (producto.usarInventario) {
+        final disponible = producto.stockDisponible;
+        if (disponible < solicitado) {
+          if (disponible > 0) {
+            ajustes.add({
+              'id': id,
+              'nombre': producto.nombre,
+              'solicitado': solicitado,
+              'disponible': disponible,
+            });
+          } else {
+            agotados.add(id);
+          }
+        }
+      }
+    }
+    return (ajustes: ajustes, agotados: agotados);
+  }
+
+  Future<bool> _mostrarDialogoSalidaMesa({
+    required BuildContext context,
+    required PedidosMobileProvider mobileProvider,
+    required int numeroMesa,
+  }) async {
+    while (true) {
+      final items = mobileProvider.carritoMesa(numeroMesa);
+      if (items.isEmpty) return true;
+
+      final decision = await showDialog<_DecisionSalidaMesa>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF16213E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFFFD700)),
+              SizedBox(width: 8),
+              Text(
+                'Platos sin enviar',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+          content: const Text(
+            'tienes platos sin enviar ¿Que quieres hacer?',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(_DecisionSalidaMesa.cancelar),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(_DecisionSalidaMesa.enviar),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF00D9A5),
+              ),
+              child: const Text('Enviar'),
+            ),
+            FilledButton.tonal(
+              onPressed: () => Navigator.of(ctx).pop(_DecisionSalidaMesa.noEnviar),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFE94560),
+              ),
+              child: const Text(
+                'NO enviar',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (decision == null) return false;
+
+      switch (decision) {
+        case _DecisionSalidaMesa.cancelar:
+          return false;
+        case _DecisionSalidaMesa.noEnviar:
+          final confirmar = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: const Color(0xFF16213E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('Confirmar', style: TextStyle(color: Colors.white)),
+              content: const Text(
+                'Vas a salir sin enviar los platos. ¿Seguro que quieres continuar?',
+                style: TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE94560)),
+                  child: const Text('Sí, salir'),
+                ),
+              ],
+            ),
+          );
+          // Si cancela, volvemos al primer diálogo
+          if (confirmar != true) {
+            continue;
+          }
+          mobileProvider.vaciarCarritoPendiente(numeroMesa);
+          return true;
+        case _DecisionSalidaMesa.enviar:
+          final productos = await _obtenerProductos();
+          final result = _validarStockCarrito(items, productos);
+          if (result.ajustes.isNotEmpty || result.agotados.isNotEmpty) {
+            await showDialog<void>(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: const Color(0xFF16213E),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                title: const Text('No se puede enviar', style: TextStyle(color: Colors.white)),
+                content: const Text(
+                  'Hay productos sin stock suficiente o agotados. Revisa el carrito.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                actions: [
+                  FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE94560)),
+                    child: const Text('ENTENDIDO'),
+                  ),
+                ],
+              ),
+            );
+            return false;
+          }
+
+          final ok = await mobileProvider.sendOrder(numeroMesa);
+          if (!context.mounted) return false;
+          return ok;
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -117,27 +309,56 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(
-        title: Text('Mesa ${widget.numeroMesa} - Categorías'),
-        backgroundColor: const Color(0xFF16213E),
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_2),
-            onPressed: _mostrarDialogoQrMesa,
-            tooltip: 'Ver QR para pedir buffet',
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        if (_manejandoSalida) return;
+        _manejandoSalida = true;
+        try {
+          final mobileProvider = context.read<PedidosMobileProvider>();
+          final ok = await _mostrarDialogoSalidaMesa(
+            context: context,
+            mobileProvider: mobileProvider,
+            numeroMesa: widget.numeroMesa,
+          );
+          if (!context.mounted) return;
+          if (ok) context.pop();
+        } finally {
+          _manejandoSalida = false;
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF1A1A2E),
+        appBar: AppBar(
+          title: Text('Mesa ${widget.numeroMesa} - Categorías'),
+          backgroundColor: const Color(0xFF16213E),
+          foregroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              final mobileProvider = context.read<PedidosMobileProvider>();
+              final ok = await _mostrarDialogoSalidaMesa(
+                context: context,
+                mobileProvider: mobileProvider,
+                numeroMesa: widget.numeroMesa,
+              );
+              if (!context.mounted) return;
+              if (ok) context.pop();
+            },
           ),
-        ],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.qr_code_2),
+              onPressed: _mostrarDialogoQrMesa,
+              tooltip: 'Ver QR para pedir buffet',
+            ),
+          ],
+        ),
+        body: _cargando
+            ? const Center(child: CircularProgressIndicator())
+            : _buildListaCategorias(),
       ),
-      body: _cargando
-          ? const Center(child: CircularProgressIndicator())
-          : _buildListaCategorias(),
     );
   }
 

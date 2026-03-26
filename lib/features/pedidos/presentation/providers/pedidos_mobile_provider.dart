@@ -138,6 +138,15 @@ class PedidosMobileProvider extends ChangeNotifier {
     }
   }
 
+  /// Elimina los platos pendientes de la mesa (carrito) y cancela la apertura
+  /// para que [sendOrder] no envíe nada aunque haya apertura.
+  /// No toca el consumo ya existente cargado en [_cuentaByMesa].
+  void vaciarCarritoPendiente(int numeroMesa) {
+    _carritoByMesa[numeroMesa] = [];
+    _aperturaByMesa.remove(numeroMesa);
+    notifyListeners();
+  }
+
   /// Envía el pedido de la mesa (DB o API según esté registrado ApiClient)
   Future<bool> sendOrder(int numeroMesa) async {
     final carrito = carritoMesa(numeroMesa);

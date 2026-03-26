@@ -53,6 +53,11 @@ dependencies:
   # Versión de Android para adaptar tema (solo móvil)
   device_info_plus: ^11.0.0
 
+  # Estadísticas: PDF y gráficos
+  pdf: ^3.11.1
+  printing: ^5.13.0
+  fl_chart: ^0.69.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -25,6 +25,8 @@ class ItemPedido {
   int? destinoId;
   String? nombreDestino;
   EstadoPedido estadoItem = EstadoPedido.pendiente;
+  DateTime? fechaInicioPreparacionItem;
+  DateTime? fechaListoItem;
   int orden = 1;
 
   ItemPedido();
@@ -53,6 +55,8 @@ class ItemPedido {
       'destinoId': destinoId,
       'nombreDestino': nombreDestino,
       'estadoItem': estadoItem.name,
+      'fechaInicioPreparacionItem': fechaInicioPreparacionItem?.toIso8601String(),
+      'fechaListoItem': fechaListoItem?.toIso8601String(),
       'orden': orden,
     };
   }
@@ -70,6 +74,12 @@ class ItemPedido {
         (e) => e.name == json['estadoItem'],
         orElse: () => EstadoPedido.pendiente,
       )
+      ..fechaInicioPreparacionItem = json['fechaInicioPreparacionItem'] != null
+          ? DateTime.tryParse(json['fechaInicioPreparacionItem'] as String)
+          : null
+      ..fechaListoItem = json['fechaListoItem'] != null
+          ? DateTime.tryParse(json['fechaListoItem'] as String)
+          : null
       ..orden = _intFromJson(json['orden'], 1);
   }
 }
@@ -103,6 +113,8 @@ class Pedido {
   late DateTime fechaCreacion;
   late DateTime fechaActualizacion;
   DateTime? fechaCompletado;
+  DateTime? fechaInicioPreparacion;
+  DateTime? fechaListo;
 
   Pedido();
 
@@ -184,6 +196,8 @@ class Pedido {
       'fechaCreacion': fechaCreacion.toIso8601String(),
       'fechaActualizacion': fechaActualizacion.toIso8601String(),
       'fechaCompletado': fechaCompletado?.toIso8601String(),
+      'fechaInicioPreparacion': fechaInicioPreparacion?.toIso8601String(),
+      'fechaListo': fechaListo?.toIso8601String(),
     };
   }
 
@@ -215,6 +229,12 @@ class Pedido {
           : DateTime.now()
       ..fechaCompletado = json['fechaCompletado'] != null
           ? DateTime.parse(json['fechaCompletado'] as String)
+          : null
+      ..fechaInicioPreparacion = json['fechaInicioPreparacion'] != null
+          ? DateTime.parse(json['fechaInicioPreparacion'] as String)
+          : null
+      ..fechaListo = json['fechaListo'] != null
+          ? DateTime.parse(json['fechaListo'] as String)
           : null;
 
     if (json['id'] != null) {

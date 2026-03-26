@@ -3,18 +3,31 @@ import 'package:flutter/material.dart';
 import '../../../../core/core.dart';
 
 /// Grid de productos con tarjetas táctiles
-/// 
-/// Muestra productos con indicadores visuales para buffet y destino
+///
+/// Muestra productos con indicadores visuales para buffet y destino.
+/// [popularidadPorProductoId]: si no es null, ordena primero por más pedidos (UI servidor).
+/// [factorTamanoTarjeta]: 1.0 = tamaño camarero; 0.7 ≈ tarjeta ~30 % más pequeña en ancho/alto/contenido (UI servidor).
+/// [gridAnchoFactor]: multiplica el ancho máximo de celda (1.1 = +10 % horizontal).
+/// [gridAltoFraccion]: fracción de la altura “natural” (ratio 0.85); 0.4 = celdas ~40 % de alto.
 class ProductoGrid extends StatelessWidget {
   final String? categoriaFiltro;
   final List<Producto> productos;
   final ValueChanged<Producto> onProductoTap;
+  /// productoId → unidades pedidas en histórico; null = orden solo por campo orden (camarero).
+  final Map<int, int>? popularidadPorProductoId;
+  final double factorTamanoTarjeta;
+  final double gridAnchoFactor;
+  final double gridAltoFraccion;
 
   const ProductoGrid({
     super.key,
     this.categoriaFiltro,
     required this.productos,
     required this.onProductoTap,
+    this.popularidadPorProductoId,
+    this.factorTamanoTarjeta = 1.0,
+    this.gridAnchoFactor = 1.0,
+    this.gridAltoFraccion = 1.0,
   });
 
   @override
@@ -28,12 +41,16 @@ class ProductoGrid extends StatelessWidget {
           .toList();
     }
 
-    // Orden: primero por categoría y orden dentro de categoría (campo orden)
     final esSabado = DateTime.now().weekday == DateTime.saturday;
+    final pop = popularidadPorProductoId;
     productosFiltrados.sort((a, b) {
+      if (pop != null) {
+        final ca = pop[a.id ?? 0] ?? 0;
+        final cb = pop[b.id ?? 0] ?? 0;
+        if (ca != cb) return cb.compareTo(ca);
+      }
       final porOrden = a.orden.compareTo(b.orden);
       if (porOrden != 0) return porOrden;
-      // Mismo orden: si es sábado, buffet primero y luego por nombre
       if (esSabado) {
         if (a.esBuffet && !b.esBuffet) return -1;
         if (!a.esBuffet && b.esBuffet) return 1;
@@ -42,6 +59,7 @@ class ProductoGrid extends StatelessWidget {
       return 0;
     });
 
+    final f = factorTamanoTarjeta;
     if (productosFiltrados.isEmpty) {
       return Center(
         child: Column(
@@ -49,29 +67,33 @@ class ProductoGrid extends StatelessWidget {
           children: [
             Icon(
               Icons.inventory_2_outlined,
-              size: 80,
+              size: 80 * f,
               color: Colors.white.withValues(alpha: 0.2),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16 * f),
             Text(
               'No hay productos en esta categoría',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 16,
+                fontSize: 16 * f,
               ),
             ),
           ],
         ),
       );
     }
+    const ratioBase = 0.85;
+    final ancho = gridAnchoFactor.clamp(0.5, 2.0);
+    final altoFrac = gridAltoFraccion.clamp(0.25, 1.0);
+    final aspectRatio = ratioBase * ancho / altoFrac;
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 180,
-        childAspectRatio: 0.85,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+      padding: EdgeInsets.all(16 * f),
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 180 * f * ancho,
+        childAspectRatio: aspectRatio,
+        crossAxisSpacing: 12 * f,
+        mainAxisSpacing: 12 * f,
       ),
       itemCount: productosFiltrados.length,
       itemBuilder: (context, index) {
@@ -80,6 +102,7 @@ class ProductoGrid extends StatelessWidget {
           producto: producto,
           onTap: () => onProductoTap(producto),
           esSabado: esSabado,
+          factorTamanoTarjeta: f,
         );
       },
     );
@@ -91,24 +114,35 @@ class ProductoCard extends StatelessWidget {
   final Producto producto;
   final VoidCallback onTap;
   final bool esSabado;
+  /// 1.0 = tamaño estándar; 0.7 escala tarjeta (padding, tipografía, badges).
+  final double factorTamanoTarjeta;
 
   const ProductoCard({
     super.key,
     required this.producto,
     required this.onTap,
     this.esSabado = false,
+    this.factorTamanoTarjeta = 1.0,
   });
 
   @override
   Widget build(BuildContext context) {
+    final f = factorTamanoTarjeta;
+    // +5 % respecto al ajuste anterior (1.05 × 1.05 ≈ +10 % sobre la base original)
+    const escalaTexto = 1.1025;
+    final r = 16.0 * f;
     final esBuffetYSabado = producto.esBuffet && esSabado;
     final estaAgotado = !producto.isAvailable;
-    
+    // Cinta "BUFFET" esquina superior izquierda (solo sábado): dejar hueco arriba del nombre
+    final paddingTopTexto = (esBuffetYSabado && !estaAgotado)
+        ? (4 * f + 11 * f * escalaTexto + 4 * f)
+        : 12 * f;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: estaAgotado ? null : onTap, // Deshabilitar si está agotado
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(r),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
@@ -125,14 +159,14 @@ class ProductoCard extends StatelessWidget {
                       const Color(0xFF1A1A2E).withValues(alpha: 0.8),
                     ],
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(r),
             border: Border.all(
               color: estaAgotado
                   ? Colors.grey.shade700
                   : esBuffetYSabado
                       ? const Color(0xFFFFD700)
                       : const Color(0xFF0F3460),
-              width: esBuffetYSabado ? 2.5 : 1.5,
+              width: (esBuffetYSabado ? 2.5 : 1.5) * f,
             ),
             boxShadow: [
               BoxShadow(
@@ -141,8 +175,8 @@ class ProductoCard extends StatelessWidget {
                     : esBuffetYSabado
                         ? const Color(0xFFFFD700).withValues(alpha: 0.3)
                         : Colors.black.withValues(alpha: 0.2),
-                blurRadius: esBuffetYSabado ? 12 : 8,
-                offset: const Offset(0, 4),
+                blurRadius: (esBuffetYSabado ? 12.0 : 8.0) * f,
+                offset: Offset(0, 4 * f),
               ),
             ],
           ),
@@ -152,45 +186,25 @@ class ProductoCard extends StatelessWidget {
               Opacity(
                 opacity: estaAgotado ? 0.4 : 1.0,
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.fromLTRB(12 * f, paddingTopTexto, 12 * f, 12 * f),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Icono del producto
                       Expanded(
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: _getColorDestino().withValues(alpha: estaAgotado ? 0.05 : 0.15),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              _getIconoCategoria(),
-                              size: 40,
-                              color: estaAgotado ? Colors.grey : _getColorDestino(),
-                            ),
+                        child: Text(
+                          producto.nombre,
+                          style: TextStyle(
+                            color: estaAgotado ? Colors.grey : Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14 * f * escalaTexto,
+                            height: 1.2,
                           ),
+                          maxLines: 8,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      
-                      const SizedBox(height: 8),
-                      
-                      // Nombre del producto
-                      Text(
-                        producto.nombre,
-                        style: TextStyle(
-                          color: estaAgotado ? Colors.grey : Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      
-                      const SizedBox(height: 4),
-                      
-                      // Precio
+                      SizedBox(height: 6 * f),
+                      // Precio y estrella buffet a la derecha (sustituye al indicador cocina/barra)
                       Row(
                         children: [
                           Text(
@@ -202,35 +216,39 @@ class ProductoCard extends StatelessWidget {
                                       ? const Color(0xFFFFD700)
                                       : const Color(0xFF00D9A5),
                               fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                              fontSize: 18 * f * escalaTexto,
                               decoration: estaAgotado ? TextDecoration.lineThrough : null,
                             ),
                           ),
                           const Spacer(),
-                          // Indicador de destino
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                          if (producto.esBuffet && !estaAgotado)
+                            Container(
+                              padding: EdgeInsets.all(4 * f),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                                    blurRadius: 8 * f,
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.star,
+                                color: Colors.white,
+                                size: 14 * f,
+                              ),
                             ),
-                            decoration: BoxDecoration(
-                              color: _getColorDestino().withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              producto.destino == DestinoProducto.cocina
-                                  ? '🍳'
-                                  : '🍹',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
               ),
-              
+
               // Cartel de AGOTADO
               if (estaAgotado)
                 Positioned.fill(
@@ -238,113 +256,86 @@ class ProductoCard extends StatelessWidget {
                     child: Transform.rotate(
                       angle: -0.2, // Ligera inclinación
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16 * f,
+                          vertical: 8 * f,
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE94560),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8 * f),
                           boxShadow: [
                             BoxShadow(
                               color: const Color(0xFFE94560).withValues(alpha: 0.5),
-                              blurRadius: 12,
-                              spreadRadius: 2,
+                              blurRadius: 12 * f,
+                              spreadRadius: 2 * f,
                             ),
                           ],
                         ),
-                        child: const Text(
+                        child: Text(
                           'AGOTADO',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            letterSpacing: 1.5,
+                            fontSize: 14 * f * escalaTexto,
+                            letterSpacing: 1.5 * f,
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              
-              // Badge de buffet (estrella dorada)
-              if (producto.esBuffet && !estaAgotado)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.star,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                  ),
-                ),
-              
+
               // Indicador "INCLUIDO" si es buffet y sábado
               if (esBuffetYSabado && !estaAgotado)
                 Positioned(
                   top: 0,
                   left: 0,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8 * f,
+                      vertical: 4 * f,
                     ),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
                         colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
                       ),
                       borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(14),
-                        bottomRight: Radius.circular(12),
+                        topLeft: Radius.circular(14 * f),
+                        bottomRight: Radius.circular(12 * f),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'BUFFET',
                       style: TextStyle(
                         color: Colors.black87,
-                        fontSize: 9,
+                        fontSize: 9 * f * escalaTexto,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                        letterSpacing: 0.5 * f,
                       ),
                     ),
                   ),
                 ),
-              
+
               // Indicador de stock disponible (si usa inventario y hay stock)
               if (producto.usarInventario && !estaAgotado && producto.stockDisponible > 0)
                 Positioned(
-                  bottom: 8,
-                  right: 8,
+                  bottom: 8 * f,
+                  right: 8 * f,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8 * f,
+                      vertical: 4 * f,
                     ),
                     decoration: BoxDecoration(
                       color: producto.stockDisponible <= 5
                           ? const Color(0xFFFF6B6B).withValues(alpha: 0.9)
                           : const Color(0xFF00D9A5).withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12 * f),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                          blurRadius: 4 * f,
+                          offset: Offset(0, 2 * f),
                         ),
                       ],
                     ),
@@ -353,19 +344,19 @@ class ProductoCard extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.inventory_2,
-                          size: 12,
+                          size: 12 * f,
                           color: producto.stockDisponible <= 5
                               ? Colors.white
                               : Colors.black87,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4 * f),
                         Text(
                           'Quedan ${producto.stockDisponible}',
                           style: TextStyle(
                             color: producto.stockDisponible <= 5
                                 ? Colors.white
                                 : Colors.black87,
-                            fontSize: 10,
+                            fontSize: 10 * f * escalaTexto,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -384,30 +375,5 @@ class ProductoCard extends StatelessWidget {
     return producto.destino == DestinoProducto.cocina
         ? const Color(0xFFE94560)
         : const Color(0xFF00D9A5);
-  }
-
-  IconData _getIconoCategoria() {
-    switch (producto.categoria) {
-      case 'Tacos':
-        return Icons.lunch_dining;
-      case 'Antojitos':
-        return Icons.tapas;
-      case 'Platos Fuertes':
-        return Icons.dinner_dining;
-      case 'Sopas':
-        return Icons.soup_kitchen;
-      case 'Ensaladas':
-        return Icons.eco;
-      case 'Postres':
-        return Icons.cake;
-      case 'Bebidas':
-        return Icons.local_drink;
-      case 'Bebidas Alcohólicas':
-        return Icons.local_bar;
-      case 'Extras':
-        return Icons.add_circle;
-      default:
-        return Icons.restaurant;
-    }
   }
 }

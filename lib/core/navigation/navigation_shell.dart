@@ -100,6 +100,7 @@ class NavigationShell extends StatelessWidget {
     }
     if (location.startsWith(AppRoutes.configuracion)) return _isWebFlow ? 1 : 2;
     if (location.startsWith(AppRoutes.wifiQr)) return 3; // desktop: WiFi (4º tab)
+    if (location.startsWith(AppRoutes.estadisticas)) return 4; // desktop: Estadísticas (5º tab)
     return _isWebFlow ? 0 : 0; // web: cocina=0; desktop: pedidos=0
   }
 
@@ -147,6 +148,9 @@ class NavigationShell extends StatelessWidget {
         break;
       case 3:
         context.go(AppRoutes.wifiQr);
+        break;
+      case 4:
+        context.go(AppRoutes.estadisticas);
         break;
     }
   }
@@ -219,6 +223,12 @@ class NavigationShell extends StatelessWidget {
                   label: Text('WiFi'),
                   padding: EdgeInsets.symmetric(vertical: 8),
                 ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.bar_chart_outlined),
+                  selectedIcon: Icon(Icons.bar_chart),
+                  label: Text('Estadísticas'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
               ];
 
     return Container(
@@ -270,7 +280,7 @@ class NavigationShell extends StatelessWidget {
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
-    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 3); // desktop: 4 tabs (Pedidos,Cocina,Config,WiFi)
+    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 4); // desktop: 5 tabs (Pedidos,Cocina,Config,WiFi,Estadísticas)
     final safeIndex = selectedIndex.clamp(0, maxIndex);
 
     return Container(
@@ -306,6 +316,7 @@ class NavigationShell extends StatelessWidget {
                         _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
                         _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
                         _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi'),
+                        _buildNavItem(context, index: 4, selectedIndex: safeIndex, icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Estadísticas'),
                       ],
           ),
         ),

@@ -622,6 +622,15 @@ class DatabaseService {
         .findAll();
   }
 
+  /// Pedidos entre dos fechas (inclusive). Para estadísticas.
+  Future<List<Pedido>> obtenerPedidosEntreFechas(DateTime desde, DateTime hasta) async {
+    return await isar.pedidos
+        .filter()
+        .fechaCreacionBetween(desde, hasta)
+        .sortByFechaCreacionDesc()
+        .findAll();
+  }
+
   /// Obtiene pedidos de una mesa específica
   Future<List<Pedido>> obtenerPedidosDeMesa(int mesaNumero) async {
     return await isar.pedidos
@@ -686,6 +695,11 @@ class DatabaseService {
     if (pedido != null) {
       pedido.estado = nuevoEstado;
       pedido.fechaActualizacion = DateTime.now();
+      if (nuevoEstado == EstadoPedido.preparando) {
+        pedido.fechaInicioPreparacion ??= DateTime.now();
+      } else if (nuevoEstado == EstadoPedido.listo) {
+        pedido.fechaListo = DateTime.now();
+      }
       if (nuevoEstado == EstadoPedido.pagado ||
           nuevoEstado == EstadoPedido.cancelado) {
         pedido.fechaCompletado = DateTime.now();
@@ -868,8 +882,15 @@ class DatabaseService {
   Future<void> actualizarEstadoItem(int pedidoId, int itemIndex, EstadoPedido nuevoEstado) async {
     final pedido = await isar.pedidos.get(pedidoId);
     if (pedido != null && itemIndex < pedido.items.length) {
-      pedido.items[itemIndex].estadoItem = nuevoEstado;
-      pedido.fechaActualizacion = DateTime.now();
+      final item = pedido.items[itemIndex];
+      item.estadoItem = nuevoEstado;
+      final ahora = DateTime.now();
+      if (nuevoEstado == EstadoPedido.preparando) {
+        item.fechaInicioPreparacionItem = ahora;
+      } else if (nuevoEstado == EstadoPedido.listo || nuevoEstado == EstadoPedido.servido) {
+        item.fechaListoItem = ahora;
+      }
+      pedido.fechaActualizacion = ahora;
       
       // Verificar si todos los items están listos para cambiar estado del pedido
       final todosListos = pedido.items.every((item) => 

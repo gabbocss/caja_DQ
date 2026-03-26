@@ -28,6 +28,18 @@ class CocinaProvider extends ChangeNotifier {
   /// Claves pedidoId_itemIndex de ítems ya asignados a una línea cerrada (no se suman en abiertas).
   final Set<String> _itemKeysEnLineasCerradas = {};
 
+  /// Estado de pedido pendiente de confirmar por el servidor (modo carta, optimista).
+  final Map<int, EstadoPedido> _pendingEstadoPedido = {};
+  /// Estado de ítem pendiente de confirmar por el servidor (clave "pedidoId_itemIndex").
+  final Map<String, EstadoPedido> _pendingEstadoItem = {};
+
+  /// Versión que se incrementa en cada actualización optimista (para forzar rebuild en la UI).
+  int _versionOptimista = 0;
+  int get versionOptimista => _versionOptimista;
+
+  /// Última vez que se aplicó una actualización optimista (evitar que el stream pise justo después).
+  DateTime? _ultimaOptimista;
+
   /// Modo actual del KDS: Buffet o Carta
   bool get modoBuffet => _modoBuffet;
   void setModoKds(bool modoBuffet) {
@@ -338,21 +350,55 @@ class CocinaProvider extends ChangeNotifier {
     );
   }
 
+  /// Aplica la lista del servidor preservando estados optimistas pendientes.
+  void _aplicarPedidosDelServidor(List<Pedido> pedidos) {
+    for (final p in pedidos) {
+      final id = p.id;
+      if (id == null) continue;
+      final pendingEstado = _pendingEstadoPedido[id];
+      if (pendingEstado != null) {
+        if (p.estado == pendingEstado) {
+          _pendingEstadoPedido.remove(id);
+        } else {
+          p.estado = pendingEstado;
+        }
+      }
+      for (var j = 0; j < p.items.length; j++) {
+        final key = '${id}_$j';
+        final pendingItem = _pendingEstadoItem[key];
+        if (pendingItem != null) {
+          if (p.items[j].estadoItem == pendingItem) {
+            _pendingEstadoItem.remove(key);
+          } else {
+            p.items[j].estadoItem = pendingItem;
+          }
+        }
+      }
+    }
+    _pedidos = pedidos;
+    _filtrarPedidosPorDestino();
+  }
+
   /// Inicia la escucha de cambios en los pedidos
   void _iniciarEscucha() {
     _pedidosSubscription?.cancel();
     _pedidosSubscription = _repository.watchPedidosCocina().listen(
       (pedidos) {
+        // No pisar la UI si acabamos de hacer una actualización optimista (stream puede traer datos viejos).
+        final ahora = DateTime.now();
+        if (_ultimaOptimista != null &&
+            ahora.difference(_ultimaOptimista!).inMilliseconds < 800) {
+          return;
+        }
         final anteriorCount = _pedidosFiltrados.length;
-        _pedidos = pedidos;
-        _filtrarPedidosPorDestino();
+        _aplicarPedidosDelServidor(pedidos);
         _error = null;
-        
+
         // Detectar nuevos pedidos para notificación
         if (_pedidosFiltrados.length > anteriorCount && anteriorCount > 0) {
           debugPrint('🔔 ¡Nuevo pedido recibido en cocina!');
         }
-        
+
         notifyListeners();
       },
       onError: (e) {
@@ -360,6 +406,93 @@ class CocinaProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  /// Refresca solo la lista de pedidos (sin loading ni destinos). Tras cada acción en cocina.
+  Future<void> _refrescarListaPedidos() async {
+    try {
+      final list = await _repository.obtenerPedidosCocina();
+      _aplicarPedidosDelServidor(list);
+      _error = null;
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  void _marcarOptimistaAplicada() {
+    _versionOptimista++;
+    _ultimaOptimista = DateTime.now();
+  }
+
+  /// Actualización optimista: refleja "Empezar" en la lista local (modo carta).
+  void _aplicarOptimisticoIniciarPreparacion(int pedidoId) {
+    final idx = _pedidos.indexWhere((p) => p.id == pedidoId);
+    if (idx >= 0) {
+      _pendingEstadoPedido[pedidoId] = EstadoPedido.preparando;
+      _pedidos[idx].estado = EstadoPedido.preparando;
+      _filtrarPedidosPorDestino();
+      _marcarOptimistaAplicada();
+      notifyListeners();
+    }
+  }
+
+  /// Actualización optimista: refleja "Listo" en la lista local (modo carta).
+  void _aplicarOptimisticoMarcarListo(int pedidoId) {
+    final idx = _pedidos.indexWhere((p) => p.id == pedidoId);
+    if (idx >= 0) {
+      _pendingEstadoPedido[pedidoId] = EstadoPedido.listo;
+      _pedidos[idx].estado = EstadoPedido.listo;
+      _filtrarPedidosPorDestino();
+      _marcarOptimistaAplicada();
+      notifyListeners();
+    }
+  }
+
+  /// Actualización optimista: refleja cambio de estado de un ítem en la lista local (modo carta).
+  void _aplicarOptimisticoEstadoItem(int pedidoId, int itemIndex, EstadoPedido nuevoEstado) {
+    final idx = _pedidos.indexWhere((p) => p.id == pedidoId);
+    if (idx >= 0 && itemIndex >= 0 && itemIndex < _pedidos[idx].items.length) {
+      _pendingEstadoItem['${pedidoId}_$itemIndex'] = nuevoEstado;
+      _pedidos[idx].items[itemIndex].estadoItem = nuevoEstado;
+      _filtrarPedidosPorDestino();
+      _marcarOptimistaAplicada();
+      notifyListeners();
+    }
+  }
+
+  /// Revierte la actualización optimista si falla la API (pedido vuelve a pendiente).
+  void _revertirOptimisticoIniciarPreparacion(int pedidoId) {
+    _pendingEstadoPedido.remove(pedidoId);
+    final idx = _pedidos.indexWhere((p) => p.id == pedidoId);
+    if (idx >= 0) {
+      _pedidos[idx].estado = EstadoPedido.pendiente;
+      _filtrarPedidosPorDestino();
+      notifyListeners();
+    }
+  }
+
+  /// Revierte la actualización optimista si falla la API (pedido vuelve a preparando).
+  void _revertirOptimisticoMarcarListo(int pedidoId) {
+    _pendingEstadoPedido.remove(pedidoId);
+    final idx = _pedidos.indexWhere((p) => p.id == pedidoId);
+    if (idx >= 0) {
+      _pedidos[idx].estado = EstadoPedido.preparando;
+      _filtrarPedidosPorDestino();
+      notifyListeners();
+    }
+  }
+
+  /// Revierte la actualización optimista de un ítem si falla la API.
+  void _revertirOptimisticoEstadoItem(int pedidoId, int itemIndex, EstadoPedido estadoAnterior) {
+    _pendingEstadoItem.remove('${pedidoId}_$itemIndex');
+    final idx = _pedidos.indexWhere((p) => p.id == pedidoId);
+    if (idx >= 0 && itemIndex >= 0 && itemIndex < _pedidos[idx].items.length) {
+      _pedidos[idx].items[itemIndex].estadoItem = estadoAnterior;
+      _filtrarPedidosPorDestino();
+      notifyListeners();
+    }
   }
 
   /// Recarga los pedidos
@@ -370,8 +503,8 @@ class CocinaProvider extends ChangeNotifier {
 
     try {
       await _cargarDestinos();
-      _pedidos = await _repository.obtenerPedidosCocina();
-      _filtrarPedidosPorDestino();
+      final list = await _repository.obtenerPedidosCocina();
+      _aplicarPedidosDelServidor(list);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -382,24 +515,28 @@ class CocinaProvider extends ChangeNotifier {
 
   /// Inicia la preparación de un pedido
   Future<bool> iniciarPreparacion(int pedidoId) async {
+    _aplicarOptimisticoIniciarPreparacion(pedidoId);
     try {
       await _repository.iniciarPreparacion(pedidoId);
+      _refrescarListaPedidos(); // en segundo plano
       return true;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
+      _revertirOptimisticoIniciarPreparacion(pedidoId);
       return false;
     }
   }
 
   /// Marca un pedido como listo
   Future<bool> marcarListo(int pedidoId) async {
+    _aplicarOptimisticoMarcarListo(pedidoId);
     try {
       await _repository.marcarListo(pedidoId);
+      _refrescarListaPedidos(); // en segundo plano
       return true;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
+      _revertirOptimisticoMarcarListo(pedidoId);
       return false;
     }
   }
@@ -410,24 +547,28 @@ class CocinaProvider extends ChangeNotifier {
     int itemIndex,
     EstadoPedido nuevoEstado,
   ) async {
+    int? idx;
+    EstadoPedido? estadoAnterior;
     try {
-      // Encontrar el índice real del item en el pedido original
       final pedidoOriginal = _pedidos.firstWhere((p) => p.id == pedidoId);
       final itemFiltrado = _pedidosFiltrados
           .firstWhere((p) => p.id == pedidoId)
           .items[itemIndex];
-      
       final indiceReal = pedidoOriginal.items.indexOf(itemFiltrado);
-      if (indiceReal >= 0) {
-        await _repository.actualizarEstadoItem(pedidoId, indiceReal, nuevoEstado);
-      } else {
-        // Si no encuentra el item exacto, usar el índice proporcionado
-        await _repository.actualizarEstadoItem(pedidoId, itemIndex, nuevoEstado);
-      }
+      idx = indiceReal >= 0 ? indiceReal : itemIndex;
+      estadoAnterior = pedidoOriginal.items[idx].estadoItem;
+
+      _aplicarOptimisticoEstadoItem(pedidoId, idx, nuevoEstado);
+      await _repository.actualizarEstadoItem(pedidoId, idx, nuevoEstado);
+      _refrescarListaPedidos(); // en segundo plano
       return true;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
+      if (idx != null && estadoAnterior != null) {
+        _revertirOptimisticoEstadoItem(pedidoId, idx, estadoAnterior);
+      } else {
+        notifyListeners();
+      }
       return false;
     }
   }

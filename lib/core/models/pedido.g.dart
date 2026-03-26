@@ -43,40 +43,50 @@ const PedidoSchema = CollectionSchema(
       name: r'fechaCreacion',
       type: IsarType.dateTime,
     ),
-    r'items': PropertySchema(
+    r'fechaInicioPreparacion': PropertySchema(
       id: 5,
+      name: r'fechaInicioPreparacion',
+      type: IsarType.dateTime,
+    ),
+    r'fechaListo': PropertySchema(
+      id: 6,
+      name: r'fechaListo',
+      type: IsarType.dateTime,
+    ),
+    r'items': PropertySchema(
+      id: 7,
       name: r'items',
       type: IsarType.objectList,
       target: r'ItemPedido',
     ),
     r'mesaNumero': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'mesaNumero',
       type: IsarType.long,
     ),
     r'notas': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'notas',
       type: IsarType.string,
     ),
     r'numeroComensales': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'numeroComensales',
       type: IsarType.long,
     ),
     r'origen': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'origen',
       type: IsarType.string,
       enumMap: _PedidoorigenEnumValueMap,
     ),
     r'total': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'total',
       type: IsarType.double,
     ),
     r'usuarioCamarero': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'usuarioCamarero',
       type: IsarType.string,
     )
@@ -185,18 +195,20 @@ void _pedidoSerialize(
   writer.writeDateTime(offsets[2], object.fechaActualizacion);
   writer.writeDateTime(offsets[3], object.fechaCompletado);
   writer.writeDateTime(offsets[4], object.fechaCreacion);
+  writer.writeDateTime(offsets[5], object.fechaInicioPreparacion);
+  writer.writeDateTime(offsets[6], object.fechaListo);
   writer.writeObjectList<ItemPedido>(
-    offsets[5],
+    offsets[7],
     allOffsets,
     ItemPedidoSchema.serialize,
     object.items,
   );
-  writer.writeLong(offsets[6], object.mesaNumero);
-  writer.writeString(offsets[7], object.notas);
-  writer.writeLong(offsets[8], object.numeroComensales);
-  writer.writeString(offsets[9], object.origen.name);
-  writer.writeDouble(offsets[10], object.total);
-  writer.writeString(offsets[11], object.usuarioCamarero);
+  writer.writeLong(offsets[8], object.mesaNumero);
+  writer.writeString(offsets[9], object.notas);
+  writer.writeLong(offsets[10], object.numeroComensales);
+  writer.writeString(offsets[11], object.origen.name);
+  writer.writeDouble(offsets[12], object.total);
+  writer.writeString(offsets[13], object.usuarioCamarero);
 }
 
 Pedido _pedidoDeserialize(
@@ -213,22 +225,24 @@ Pedido _pedidoDeserialize(
   object.fechaActualizacion = reader.readDateTime(offsets[2]);
   object.fechaCompletado = reader.readDateTimeOrNull(offsets[3]);
   object.fechaCreacion = reader.readDateTime(offsets[4]);
+  object.fechaInicioPreparacion = reader.readDateTimeOrNull(offsets[5]);
+  object.fechaListo = reader.readDateTimeOrNull(offsets[6]);
   object.id = id;
   object.items = reader.readObjectList<ItemPedido>(
-        offsets[5],
+        offsets[7],
         ItemPedidoSchema.deserialize,
         allOffsets,
         ItemPedido(),
       ) ??
       [];
-  object.mesaNumero = reader.readLong(offsets[6]);
-  object.notas = reader.readStringOrNull(offsets[7]);
-  object.numeroComensales = reader.readLongOrNull(offsets[8]);
+  object.mesaNumero = reader.readLong(offsets[8]);
+  object.notas = reader.readStringOrNull(offsets[9]);
+  object.numeroComensales = reader.readLongOrNull(offsets[10]);
   object.origen =
-      _PedidoorigenValueEnumMap[reader.readStringOrNull(offsets[9])] ??
+      _PedidoorigenValueEnumMap[reader.readStringOrNull(offsets[11])] ??
           OrigenPedido.camarero;
-  object.total = reader.readDouble(offsets[10]);
-  object.usuarioCamarero = reader.readString(offsets[11]);
+  object.total = reader.readDouble(offsets[12]);
+  object.usuarioCamarero = reader.readString(offsets[13]);
   return object;
 }
 
@@ -251,6 +265,10 @@ P _pedidoDeserializeProp<P>(
     case 4:
       return (reader.readDateTime(offset)) as P;
     case 5:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 6:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 7:
       return (reader.readObjectList<ItemPedido>(
             offset,
             ItemPedidoSchema.deserialize,
@@ -258,18 +276,18 @@ P _pedidoDeserializeProp<P>(
             ItemPedido(),
           ) ??
           []) as P;
-    case 6:
-      return (reader.readLong(offset)) as P;
-    case 7:
-      return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 9:
+      return (reader.readStringOrNull(offset)) as P;
+    case 10:
+      return (reader.readLongOrNull(offset)) as P;
+    case 11:
       return (_PedidoorigenValueEnumMap[reader.readStringOrNull(offset)] ??
           OrigenPedido.camarero) as P;
-    case 10:
+    case 12:
       return (reader.readDouble(offset)) as P;
-    case 11:
+    case 13:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -988,6 +1006,149 @@ extension PedidoQueryFilter on QueryBuilder<Pedido, Pedido, QFilterCondition> {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'fechaCreacion',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      fechaInicioPreparacionIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'fechaInicioPreparacion',
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      fechaInicioPreparacionIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'fechaInicioPreparacion',
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      fechaInicioPreparacionEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'fechaInicioPreparacion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      fechaInicioPreparacionGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'fechaInicioPreparacion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      fechaInicioPreparacionLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'fechaInicioPreparacion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      fechaInicioPreparacionBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'fechaInicioPreparacion',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> fechaListoIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'fechaListo',
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> fechaListoIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'fechaListo',
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> fechaListoEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'fechaListo',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> fechaListoGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'fechaListo',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> fechaListoLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'fechaListo',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> fechaListoBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'fechaListo',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1815,6 +1976,31 @@ extension PedidoQuerySortBy on QueryBuilder<Pedido, Pedido, QSortBy> {
     });
   }
 
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByFechaInicioPreparacion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fechaInicioPreparacion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy>
+      sortByFechaInicioPreparacionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fechaInicioPreparacion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByFechaListo() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fechaListo', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByFechaListoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fechaListo', Sort.desc);
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByMesaNumero() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mesaNumero', Sort.asc);
@@ -1949,6 +2135,31 @@ extension PedidoQuerySortThenBy on QueryBuilder<Pedido, Pedido, QSortThenBy> {
     });
   }
 
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> thenByFechaInicioPreparacion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fechaInicioPreparacion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy>
+      thenByFechaInicioPreparacionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fechaInicioPreparacion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> thenByFechaListo() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fechaListo', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> thenByFechaListoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fechaListo', Sort.desc);
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -2066,6 +2277,18 @@ extension PedidoQueryWhereDistinct on QueryBuilder<Pedido, Pedido, QDistinct> {
     });
   }
 
+  QueryBuilder<Pedido, Pedido, QDistinct> distinctByFechaInicioPreparacion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'fechaInicioPreparacion');
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QDistinct> distinctByFechaListo() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'fechaListo');
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QDistinct> distinctByMesaNumero() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'mesaNumero');
@@ -2145,6 +2368,19 @@ extension PedidoQueryProperty on QueryBuilder<Pedido, Pedido, QQueryProperty> {
     });
   }
 
+  QueryBuilder<Pedido, DateTime?, QQueryOperations>
+      fechaInicioPreparacionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'fechaInicioPreparacion');
+    });
+  }
+
+  QueryBuilder<Pedido, DateTime?, QQueryOperations> fechaListoProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'fechaListo');
+    });
+  }
+
   QueryBuilder<Pedido, List<ItemPedido>, QQueryOperations> itemsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'items');
@@ -2215,38 +2451,48 @@ const ItemPedidoSchema = Schema(
       type: IsarType.string,
       enumMap: _ItemPedidoestadoItemEnumValueMap,
     ),
-    r'nombreDestino': PropertySchema(
+    r'fechaInicioPreparacionItem': PropertySchema(
       id: 3,
+      name: r'fechaInicioPreparacionItem',
+      type: IsarType.dateTime,
+    ),
+    r'fechaListoItem': PropertySchema(
+      id: 4,
+      name: r'fechaListoItem',
+      type: IsarType.dateTime,
+    ),
+    r'nombreDestino': PropertySchema(
+      id: 5,
       name: r'nombreDestino',
       type: IsarType.string,
     ),
     r'nombreProducto': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'nombreProducto',
       type: IsarType.string,
     ),
     r'notas': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'notas',
       type: IsarType.string,
     ),
     r'orden': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'orden',
       type: IsarType.long,
     ),
     r'precioUnitario': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'precioUnitario',
       type: IsarType.double,
     ),
     r'productoId': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'productoId',
       type: IsarType.long,
     ),
     r'subtotal': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'subtotal',
       type: IsarType.double,
     )
@@ -2289,13 +2535,15 @@ void _itemPedidoSerialize(
   writer.writeLong(offsets[0], object.cantidad);
   writer.writeLong(offsets[1], object.destinoId);
   writer.writeString(offsets[2], object.estadoItem.name);
-  writer.writeString(offsets[3], object.nombreDestino);
-  writer.writeString(offsets[4], object.nombreProducto);
-  writer.writeString(offsets[5], object.notas);
-  writer.writeLong(offsets[6], object.orden);
-  writer.writeDouble(offsets[7], object.precioUnitario);
-  writer.writeLong(offsets[8], object.productoId);
-  writer.writeDouble(offsets[9], object.subtotal);
+  writer.writeDateTime(offsets[3], object.fechaInicioPreparacionItem);
+  writer.writeDateTime(offsets[4], object.fechaListoItem);
+  writer.writeString(offsets[5], object.nombreDestino);
+  writer.writeString(offsets[6], object.nombreProducto);
+  writer.writeString(offsets[7], object.notas);
+  writer.writeLong(offsets[8], object.orden);
+  writer.writeDouble(offsets[9], object.precioUnitario);
+  writer.writeLong(offsets[10], object.productoId);
+  writer.writeDouble(offsets[11], object.subtotal);
 }
 
 ItemPedido _itemPedidoDeserialize(
@@ -2310,12 +2558,14 @@ ItemPedido _itemPedidoDeserialize(
   object.estadoItem =
       _ItemPedidoestadoItemValueEnumMap[reader.readStringOrNull(offsets[2])] ??
           EstadoPedido.pendiente;
-  object.nombreDestino = reader.readStringOrNull(offsets[3]);
-  object.nombreProducto = reader.readString(offsets[4]);
-  object.notas = reader.readStringOrNull(offsets[5]);
-  object.orden = reader.readLong(offsets[6]);
-  object.precioUnitario = reader.readDouble(offsets[7]);
-  object.productoId = reader.readLong(offsets[8]);
+  object.fechaInicioPreparacionItem = reader.readDateTimeOrNull(offsets[3]);
+  object.fechaListoItem = reader.readDateTimeOrNull(offsets[4]);
+  object.nombreDestino = reader.readStringOrNull(offsets[5]);
+  object.nombreProducto = reader.readString(offsets[6]);
+  object.notas = reader.readStringOrNull(offsets[7]);
+  object.orden = reader.readLong(offsets[8]);
+  object.precioUnitario = reader.readDouble(offsets[9]);
+  object.productoId = reader.readLong(offsets[10]);
   return object;
 }
 
@@ -2335,18 +2585,22 @@ P _itemPedidoDeserializeProp<P>(
               reader.readStringOrNull(offset)] ??
           EstadoPedido.pendiente) as P;
     case 3:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
       return (reader.readLong(offset)) as P;
     case 9:
+      return (reader.readDouble(offset)) as P;
+    case 10:
+      return (reader.readLong(offset)) as P;
+    case 11:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2629,6 +2883,154 @@ extension ItemPedidoQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'estadoItem',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaInicioPreparacionItemIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'fechaInicioPreparacionItem',
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaInicioPreparacionItemIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'fechaInicioPreparacionItem',
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaInicioPreparacionItemEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'fechaInicioPreparacionItem',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaInicioPreparacionItemGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'fechaInicioPreparacionItem',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaInicioPreparacionItemLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'fechaInicioPreparacionItem',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaInicioPreparacionItemBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'fechaInicioPreparacionItem',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaListoItemIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'fechaListoItem',
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaListoItemIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'fechaListoItem',
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaListoItemEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'fechaListoItem',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaListoItemGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'fechaListoItem',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaListoItemLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'fechaListoItem',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ItemPedido, ItemPedido, QAfterFilterCondition>
+      fechaListoItemBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'fechaListoItem',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }

@@ -47,6 +47,11 @@ class ItemPedido {
   @Enumerated(EnumType.name)
   EstadoPedido estadoItem = EstadoPedido.pendiente;
 
+  /// Momento en que cocina empezó este plato (estado → preparando).
+  DateTime? fechaInicioPreparacionItem;
+  /// Momento en que cocina marcó este plato como hecho (estado → listo).
+  DateTime? fechaListoItem;
+
   /// Orden del plato: 1 = 1º, 2 = 2º, etc.
   int orden = 1;
 
@@ -80,6 +85,8 @@ class ItemPedido {
       'destinoId': destinoId,
       'nombreDestino': nombreDestino,
       'estadoItem': estadoItem.name,
+      'fechaInicioPreparacionItem': fechaInicioPreparacionItem?.toIso8601String(),
+      'fechaListoItem': fechaListoItem?.toIso8601String(),
       'orden': orden,
     };
   }
@@ -98,6 +105,12 @@ class ItemPedido {
         (e) => e.name == json['estadoItem'],
         orElse: () => EstadoPedido.pendiente,
       )
+      ..fechaInicioPreparacionItem = json['fechaInicioPreparacionItem'] != null
+          ? DateTime.tryParse(json['fechaInicioPreparacionItem'] as String)
+          : null
+      ..fechaListoItem = json['fechaListoItem'] != null
+          ? DateTime.tryParse(json['fechaListoItem'] as String)
+          : null
       ..orden = json['orden'] as int? ?? 1;
   }
 }
@@ -150,6 +163,12 @@ class Pedido {
 
   /// Fecha y hora cuando el pedido fue completado/pagado
   DateTime? fechaCompletado;
+
+  /// Fecha en que cocina pulsó "Empezar" (estado → preparando). Para estadísticas de tiempo.
+  DateTime? fechaInicioPreparacion;
+
+  /// Fecha en que cocina marcó "Listo". Para estadísticas de tiempo.
+  DateTime? fechaListo;
 
   /// Constructor por defecto
   Pedido();
@@ -246,6 +265,8 @@ class Pedido {
       'fechaCreacion': fechaCreacion.toIso8601String(),
       'fechaActualizacion': fechaActualizacion.toIso8601String(),
       'fechaCompletado': fechaCompletado?.toIso8601String(),
+      'fechaInicioPreparacion': fechaInicioPreparacion?.toIso8601String(),
+      'fechaListo': fechaListo?.toIso8601String(),
     };
   }
 
@@ -278,6 +299,12 @@ class Pedido {
           : DateTime.now()
       ..fechaCompletado = json['fechaCompletado'] != null
           ? DateTime.parse(json['fechaCompletado'] as String)
+          : null
+      ..fechaInicioPreparacion = json['fechaInicioPreparacion'] != null
+          ? DateTime.parse(json['fechaInicioPreparacion'] as String)
+          : null
+      ..fechaListo = json['fechaListo'] != null
+          ? DateTime.parse(json['fechaListo'] as String)
           : null;
 
     if (json['id'] != null) {

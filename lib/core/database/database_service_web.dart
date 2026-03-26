@@ -44,6 +44,8 @@ class DatabaseService {
   Future<List<Pedido>> obtenerPedidosActivos() async => _unsupported();
   Future<List<Pedido>> obtenerPedidosPorEstado(EstadoPedido estado) async =>
       _unsupported();
+  Future<List<Pedido>> obtenerPedidosEntreFechas(DateTime desde, DateTime hasta) async =>
+      _unsupported();
   Future<List<Pedido>> obtenerPedidosDeMesa(int mesaNumero) async =>
       _unsupported();
   Future<Pedido?> obtenerPedidoActivoDeMesa(int mesaNumero) async =>

@@ -17,6 +17,7 @@ import '../../features/configuracion/presentation/pages/gestion_productos_page.d
 import '../../features/configuracion/presentation/pages/gestion_mesas_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_categorias_page.dart';
 import '../../features/buffet_sabado/presentation/pages/configuracion_buffet_page.dart';
+import '../../features/estadisticas/presentation/pages/estadisticas_page.dart';
 import 'navigation_shell.dart';
 
 /// Rutas de la aplicación
@@ -33,6 +34,7 @@ class AppRoutes {
   static const String gestionCategorias = '/gestion-categorias';
   static const String configuracionImpresora = '/configuracion-impresora';
   static const String wifiQr = '/wifi-qr';
+  static const String estadisticas = '/estadisticas';
 }
 
 /// Configuración del router de la aplicación
@@ -100,6 +102,12 @@ final appRouter = GoRouter(
           path: AppRoutes.wifiQr,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: WifiQrPage(),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.estadisticas,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: EstadisticasPage(),
           ),
         ),
         GoRoute(

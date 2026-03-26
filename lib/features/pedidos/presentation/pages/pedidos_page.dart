@@ -3,14 +3,14 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/core.dart';
+import '../../../estadisticas/data/estadisticas_service.dart';
 import '../providers/pedidos_provider.dart';
 import '../widgets/categoria_selector.dart';
 import '../widgets/producto_grid.dart';
 import '../widgets/carrito_panel.dart';
 
-/// Página principal de toma de pedidos para camareros
-/// 
-/// Diseñada para uso táctil con botones grandes y alto contraste
+/// Página principal de toma de pedidos (UI servidor / escritorio).
+/// En móvil el flujo usa [MesaPlatosPage], que mantiene el grid sin popularidad ni iconos compactos.
 class PedidosPage extends StatefulWidget {
   const PedidosPage({super.key});
 
@@ -28,6 +28,8 @@ class _PedidosPageState extends State<PedidosPage> {
   Set<int> _productosAgotados = {}; // IDs de productos marcados como agotados
   List<Pedido> _cuentaActual = []; // Pedidos no pagados de la mesa seleccionada
   Set<int> _mesasConCuentaAbierta = {}; // Mesas con al menos un pedido no pagado
+  /// Histórico de unidades pedidas por producto (último año) para ordenar el grid en servidor.
+  Map<int, int> _popularidadPorProductoId = {};
   /// Números de mesa configurados (Config > Mesas). Vacío hasta cargar; si vacío el panel usa 1..20.
   List<int> _numerosMesas = [];
   // Apertura de mesa: buffet (sábado horario) o cubiertos
@@ -43,6 +45,18 @@ class _PedidosPageState extends State<PedidosPage> {
     _cargarMesas();
     _cargarMesasConCuentaAbierta();
     _cargarCuentaMesa(_mesaSeleccionada);
+    _cargarPopularidadProductos();
+  }
+
+  /// Orden del grid por popularidad (solo con BD local; requiere histórico de pedidos).
+  Future<void> _cargarPopularidadProductos() async {
+    if (sl.isRegistered<ApiClient>()) return;
+    try {
+      final map = await EstadisticasService.obtenerMapaCantidadPedidaPorProducto();
+      if (mounted) setState(() => _popularidadPorProductoId = map);
+    } catch (e) {
+      debugPrint('Error al cargar popularidad de productos: $e');
+    }
   }
 
   /// Carga la lista de mesas configuradas (Config > Mesas) para el selector del panel.
@@ -643,6 +657,10 @@ class _PedidosPageState extends State<PedidosPage> {
                             categoriaFiltro: _categoriaSeleccionada,
                             productos: provider.productos,
                             onProductoTap: _agregarAlCarrito,
+                            popularidadPorProductoId: _popularidadPorProductoId,
+                            factorTamanoTarjeta: 0.7,
+                            gridAnchoFactor: 1.155, // +10 % y luego +5 % (1.1 × 1.05)
+                            gridAltoFraccion: 0.51,
                           ),
                         ),
                       ],
@@ -993,7 +1011,8 @@ class _PedidosPageState extends State<PedidosPage> {
       // Actualizar cuenta actual y mesas con cuenta abierta
       _cargarCuentaMesa(_mesaSeleccionada);
       _cargarMesasConCuentaAbierta();
-      
+      _cargarPopularidadProductos();
+
     } catch (e) {
       debugPrint('❌ Error al enviar pedido: $e');
       if (mounted) {
