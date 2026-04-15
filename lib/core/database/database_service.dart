@@ -777,7 +777,8 @@ class DatabaseService {
             ..mesaNumero = mesaNumero
             ..items = []
             ..fechaActualizacion = DateTime.now());
-      final items = obj.items;
+      // Isar puede devolver listas de longitud fija; trabajar siempre con una copia growable.
+      final items = List<ItemCarritoQr>.from(obj.items);
       final idx = items.indexWhere((i) => i.productoId == productoId);
       if (idx >= 0) {
         final actual = items[idx];
@@ -797,6 +798,7 @@ class DatabaseService {
           nombreDestino: nombreDestino,
         ));
       }
+      obj.items = items;
       obj.fechaActualizacion = DateTime.now();
       await isar.carritoQrMesas.put(obj);
     });
@@ -822,7 +824,8 @@ class DatabaseService {
             ..mesaNumero = mesaNumero
             ..items = []
             ..fechaActualizacion = DateTime.now());
-      final items = obj.items;
+      // Isar puede devolver listas de longitud fija; trabajar siempre con una copia growable.
+      final items = List<ItemCarritoQr>.from(obj.items);
       final idx = items.indexWhere((i) => i.productoId == productoId);
       if (cantidad <= 0) {
         if (idx >= 0) items.removeAt(idx);
@@ -838,6 +841,7 @@ class DatabaseService {
           nombreDestino: nombreDestino,
         ));
       }
+      obj.items = items;
       obj.fechaActualizacion = DateTime.now();
       await isar.carritoQrMesas.put(obj);
     });
@@ -851,7 +855,8 @@ class DatabaseService {
           .mesaNumeroEqualTo(mesaNumero)
           .findFirst();
       if (carrito == null) return;
-      carrito.items.clear();
+      // Evitar mutar listas de longitud fija devueltas por Isar.
+      carrito.items = <ItemCarritoQr>[];
       carrito.fechaActualizacion = DateTime.now();
       await isar.carritoQrMesas.put(carrito);
     });
