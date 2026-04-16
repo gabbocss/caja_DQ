@@ -71,6 +71,7 @@ class DatabaseService {
           ConfiguracionBuffetSchema,
           CategoriaSchema,
           CarritoQrMesaSchema,
+          BuffetLimiteQrMesaSchema,
         ],
         directory: dbPath,
         name: 'restaurante',
@@ -735,6 +736,129 @@ class DatabaseService {
 
   // ==================== CARRITO QR (BUFFET) ====================
 
+  /// Índice de ventana temporal fija (mismos [minutosVentana] que en configuración).
+  static int calcularVentanaBuffetId(DateTime ahora, int minutosVentana) {
+    final m = max(1, minutosVentana);
+    final durMs = m * 60 * 1000;
+    return ahora.millisecondsSinceEpoch ~/ durMs;
+  }
+
+  /// Comensales registrados al abrir la mesa (adultos + niños en cuenta abierta).
+  Future<int> obtenerComensalesRegistradosBuffetMesa(int mesaNumero) async {
+    final cuenta = await obtenerCuentaMesa(mesaNumero);
+    // Regla: el límite de tipos se calcula por (menú adulto + menú niño) de la mesa.
+    // Si no hay apertura (no aparecen esos menús), se asume 1.
+    //
+    // Priorizamos numeroComensales si ya viene informado (p. ej. desde la app),
+    // y como fallback inferimos por los ítems especiales "Buffet - Adulto" / "Buffet - Niño".
+    var maxComensales = 0;
+    var maxInferidos = 0;
+    for (final p in cuenta) {
+      final n = p.numeroComensales;
+      if (n != null && n > maxComensales) maxComensales = n;
+
+      var adultos = 0;
+      var ninos = 0;
+      for (final item in p.items) {
+        if (item.nombreProducto == 'Buffet - Adulto') {
+          adultos += item.cantidad;
+        } else if (item.nombreProducto == 'Buffet - Niño') {
+          ninos += item.cantidad;
+        }
+      }
+      final inferidos = adultos + ninos;
+      if (inferidos > maxInferidos) maxInferidos = inferidos;
+    }
+
+    final res = max(maxComensales, maxInferidos);
+    return res > 0 ? res : 1;
+  }
+
+  void _sincronizarVentanaBuffetQr(BuffetLimiteQrMesa lim, int minutosVentana) {
+    final minT = max(1, minutosVentana);
+    final vid = calcularVentanaBuffetId(DateTime.now(), minT);
+    if (lim.ventanaIdActual != vid) {
+      lim.ventanaIdActual = vid;
+      lim.productosDistintosEnviadosEnVentana = [];
+    }
+  }
+
+  /// Segundos hasta que el cliente QR pueda enviar otro pedido (0 si ya puede).
+  /// Solo lectura; no anida transacciones con el carrito.
+  Future<int> segundosHastaPoderEnviarBuffetQr(int mesaNumero) async {
+    final config = await obtenerConfiguracionBuffetActiva();
+    if (config == null || !config.limiteBuffetQrActivo) return 0;
+    final minT = max(1, config.buffetMinutosVentana);
+    final lim = await isar.buffetLimiteQrMesas
+        .filter()
+        .mesaNumeroEqualTo(mesaNumero)
+        .findFirst();
+    final ult = lim?.fechaUltimoEnvioQr;
+    if (ult == null) return 0;
+    final siguiente = ult.add(Duration(minutes: minT));
+    final d = siguiente.difference(DateTime.now());
+    return d.isNegative ? 0 : d.inSeconds;
+  }
+
+  /// Tras guardar un pedido QR, actualiza tipos distintos enviados en la ventana y fecha de último envío.
+  Future<void> registrarEnvioPedidoQrBuffet({
+    required int mesaNumero,
+    required List<int> productoIdsDistintosEnPedido,
+  }) async {
+    final config = await obtenerConfiguracionBuffetActiva();
+    if (config == null || !config.limiteBuffetQrActivo) return;
+    final minT = max(1, config.buffetMinutosVentana);
+    await isar.writeTxn(() async {
+      var lim = await isar.buffetLimiteQrMesas
+          .filter()
+          .mesaNumeroEqualTo(mesaNumero)
+          .findFirst();
+      lim ??= BuffetLimiteQrMesa()
+        ..mesaNumero = mesaNumero
+        ..ventanaIdActual = 0
+        ..productosDistintosEnviadosEnVentana = []
+        ..fechaUltimoEnvioQr = null;
+      _sincronizarVentanaBuffetQr(lim, minT);
+      // Opción C3: el cooldown es independiente y los "tipos" no se acumulan entre envíos.
+      // El límite de tipos se valida únicamente con el carrito actual, así que aquí solo
+      // marcamos el inicio de la espera y reseteamos el estado de tipos enviados.
+      lim.productosDistintosEnviadosEnVentana = const [];
+      lim.fechaUltimoEnvioQr = DateTime.now();
+      await isar.buffetLimiteQrMesas.put(lim);
+    });
+  }
+
+  /// Valida cupo de tipos distintos (carrito tras la operación). Devuelve código de error o null.
+  Future<String?> _validarLimiteTiposDistintosBuffetQr(
+    Isar isar,
+    int mesaNumero,
+    Set<int> idsCarritoTrasOperacion,
+  ) async {
+    final config = await obtenerConfiguracionBuffetActiva();
+    if (config == null || !config.limiteBuffetQrActivo) return null;
+    final minT = max(1, config.buffetMinutosVentana);
+    final nPorPersona = max(1, config.buffetTiposDistintosPorPersonaPorVentana);
+
+    var lim = await isar.buffetLimiteQrMesas
+        .filter()
+        .mesaNumeroEqualTo(mesaNumero)
+        .findFirst();
+    lim ??= BuffetLimiteQrMesa()
+      ..mesaNumero = mesaNumero
+      ..ventanaIdActual = calcularVentanaBuffetId(DateTime.now(), minT)
+      ..productosDistintosEnviadosEnVentana = [];
+    _sincronizarVentanaBuffetQr(lim, minT);
+    await isar.buffetLimiteQrMesas.put(lim);
+
+    final comensales = await obtenerComensalesRegistradosBuffetMesa(mesaNumero);
+    final cap = comensales * nPorPersona;
+    // Opción C3: validar SOLO contra el carrito tras la operación.
+    if (idsCarritoTrasOperacion.length > cap) {
+      return 'limite_tipos_distintos';
+    }
+    return null;
+  }
+
   Future<CarritoQrMesa> _obtenerOCrearCarritoQrMesa(int mesaNumero) async {
     final existente = await isar.carritoQrMesas
         .filter()
@@ -757,7 +881,8 @@ class DatabaseService {
   }
 
   /// Suma [delta] a la cantidad del producto en el carrito (si no existe, lo crea).
-  Future<void> sumarProductoCarritoQrMesa({
+  /// Devuelve un código de error si no se puede (p. ej. límite de tipos distintos).
+  Future<String?> sumarProductoCarritoQrMesa({
     required int mesaNumero,
     required int productoId,
     required int delta,
@@ -766,8 +891,8 @@ class DatabaseService {
     int? destinoId,
     String? nombreDestino,
   }) async {
-    if (delta == 0) return;
-    await isar.writeTxn(() async {
+    if (delta == 0) return null;
+    return isar.writeTxn(() async {
       final carrito = await isar.carritoQrMesas
           .filter()
           .mesaNumeroEqualTo(mesaNumero)
@@ -797,15 +922,23 @@ class DatabaseService {
           destinoId: destinoId,
           nombreDestino: nombreDestino,
         ));
+      } else {
+        return null;
       }
+
+      final idsDespues = items.map((e) => e.productoId).toSet();
+      final err = await _validarLimiteTiposDistintosBuffetQr(isar, mesaNumero, idsDespues);
+      if (err != null) return err;
+
       obj.items = items;
       obj.fechaActualizacion = DateTime.now();
       await isar.carritoQrMesas.put(obj);
+      return null;
     });
   }
 
   /// Establece cantidad exacta de un producto en el carrito (0 = quitar).
-  Future<void> setCantidadProductoCarritoQrMesa({
+  Future<String?> setCantidadProductoCarritoQrMesa({
     required int mesaNumero,
     required int productoId,
     required int cantidad,
@@ -814,7 +947,7 @@ class DatabaseService {
     int? destinoId,
     String? nombreDestino,
   }) async {
-    await isar.writeTxn(() async {
+    return isar.writeTxn(() async {
       final carrito = await isar.carritoQrMesas
           .filter()
           .mesaNumeroEqualTo(mesaNumero)
@@ -841,9 +974,15 @@ class DatabaseService {
           nombreDestino: nombreDestino,
         ));
       }
+
+      final idsDespues = items.map((e) => e.productoId).toSet();
+      final err = await _validarLimiteTiposDistintosBuffetQr(isar, mesaNumero, idsDespues);
+      if (err != null) return err;
+
       obj.items = items;
       obj.fechaActualizacion = DateTime.now();
       await isar.carritoQrMesas.put(obj);
+      return null;
     });
   }
 

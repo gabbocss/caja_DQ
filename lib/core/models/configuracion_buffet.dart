@@ -67,6 +67,15 @@ class ConfiguracionBuffet {
   /// Puerto de la impresora buffet (por defecto 9100)
   int? impresoraBuffetPuerto;
 
+  /// Activa límite de tipos distintos por comensal por ventana y espera entre envíos (cliente QR).
+  late bool limiteBuffetQrActivo;
+
+  /// Tipos de plato distintos permitidos por comensal en cada ventana (un mismo plato cuenta 1 aunque pidas varias unidades).
+  late int buffetTiposDistintosPorPersonaPorVentana;
+
+  /// Minutos de ventana para la cuota de tipos y minutos de espera obligatoria entre envíos desde QR.
+  late int buffetMinutosVentana;
+
   /// Fecha de creación
   late DateTime fechaCreacion;
 
@@ -92,6 +101,9 @@ class ConfiguracionBuffet {
         activo = true,
         mensajePromocion = '¡Buffet All You Can Eat!',
         colorTema = '#FFD700',
+        limiteBuffetQrActivo = false,
+        buffetTiposDistintosPorPersonaPorVentana = 5,
+        buffetMinutosVentana = 5,
         fechaCreacion = DateTime.now();
 
   /// Constructor con parámetros personalizados
@@ -110,6 +122,9 @@ class ConfiguracionBuffet {
     this.activo = true,
     this.mensajePromocion,
     this.colorTema,
+    this.limiteBuffetQrActivo = false,
+    this.buffetTiposDistintosPorPersonaPorVentana = 5,
+    this.buffetMinutosVentana = 5,
   }) : fechaCreacion = DateTime.now();
 
   /// Verifica si actualmente estamos dentro del horario del buffet
@@ -178,6 +193,9 @@ class ConfiguracionBuffet {
       'colorTema': colorTema,
       'impresoraBuffetIp': impresoraBuffetIp,
       'impresoraBuffetPuerto': impresoraBuffetPuerto,
+      'limiteBuffetQrActivo': limiteBuffetQrActivo,
+      'buffetTiposDistintosPorPersonaPorVentana': buffetTiposDistintosPorPersonaPorVentana,
+      'buffetMinutosVentana': buffetMinutosVentana,
       'fechaCreacion': fechaCreacion.toIso8601String(),
       'fechaModificacion': fechaModificacion?.toIso8601String(),
     };
@@ -202,6 +220,10 @@ class ConfiguracionBuffet {
       ..colorTema = json['colorTema'] as String?
       ..impresoraBuffetIp = json['impresoraBuffetIp'] as String?
       ..impresoraBuffetPuerto = json['impresoraBuffetPuerto'] as int?
+      ..limiteBuffetQrActivo = json['limiteBuffetQrActivo'] as bool? ?? false
+      ..buffetTiposDistintosPorPersonaPorVentana =
+          (json['buffetTiposDistintosPorPersonaPorVentana'] as num?)?.toInt() ?? 5
+      ..buffetMinutosVentana = (json['buffetMinutosVentana'] as num?)?.toInt() ?? 5
       ..fechaCreacion = json['fechaCreacion'] != null
           ? DateTime.parse(json['fechaCreacion'] as String)
           : DateTime.now()

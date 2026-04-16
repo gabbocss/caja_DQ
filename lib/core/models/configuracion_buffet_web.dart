@@ -25,6 +25,15 @@ class ConfiguracionBuffet {
   late DateTime fechaCreacion;
   DateTime? fechaModificacion;
 
+  /// Activa límite QR (tipos distintos + espera entre envíos).
+  late bool limiteBuffetQrActivo;
+
+  /// Tipos distintos por comensal por ventana.
+  late int buffetTiposDistintosPorPersonaPorVentana;
+
+  /// Minutos de ventana y espera entre envíos.
+  late int buffetMinutosVentana;
+
   ConfiguracionBuffet();
 
   ConfiguracionBuffet.sabadoDefault()
@@ -42,6 +51,9 @@ class ConfiguracionBuffet {
         activo = true,
         mensajePromocion = '¡Buffet All You Can Eat!',
         colorTema = '#FFD700',
+        limiteBuffetQrActivo = false,
+        buffetTiposDistintosPorPersonaPorVentana = 5,
+        buffetMinutosVentana = 5,
         fechaCreacion = DateTime.now();
 
   ConfiguracionBuffet.crear({
@@ -59,6 +71,9 @@ class ConfiguracionBuffet {
     this.activo = true,
     this.mensajePromocion,
     this.colorTema,
+    this.limiteBuffetQrActivo = false,
+    this.buffetTiposDistintosPorPersonaPorVentana = 5,
+    this.buffetMinutosVentana = 5,
   }) : fechaCreacion = DateTime.now();
 
   bool esHorarioBuffet() {
@@ -111,6 +126,9 @@ class ConfiguracionBuffet {
       'activo': activo,
       'mensajePromocion': mensajePromocion,
       'colorTema': colorTema,
+      'limiteBuffetQrActivo': limiteBuffetQrActivo,
+      'buffetTiposDistintosPorPersonaPorVentana': buffetTiposDistintosPorPersonaPorVentana,
+      'buffetMinutosVentana': buffetMinutosVentana,
       'fechaCreacion': fechaCreacion.toIso8601String(),
       'fechaModificacion': fechaModificacion?.toIso8601String(),
     };
@@ -132,6 +150,10 @@ class ConfiguracionBuffet {
       ..activo = json['activo'] as bool? ?? true
       ..mensajePromocion = json['mensajePromocion'] as String?
       ..colorTema = json['colorTema'] as String?
+      ..limiteBuffetQrActivo = json['limiteBuffetQrActivo'] as bool? ?? false
+      ..buffetTiposDistintosPorPersonaPorVentana =
+          (json['buffetTiposDistintosPorPersonaPorVentana'] as num?)?.toInt() ?? 5
+      ..buffetMinutosVentana = (json['buffetMinutosVentana'] as num?)?.toInt() ?? 5
       ..fechaCreacion = json['fechaCreacion'] != null
           ? DateTime.parse(json['fechaCreacion'] as String)
           : DateTime.now()

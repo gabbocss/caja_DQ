@@ -262,10 +262,12 @@ class LocalServer {
           return Response(404, body: jsonEncode({'error': 'Token no válido'}), headers: {'Content-Type': 'application/json'});
         }
         final items = await _db.obtenerCarritoQrMesa(mesaNumero);
+        final segundos = await _db.segundosHastaPoderEnviarBuffetQr(mesaNumero);
         return Response.ok(
           jsonEncode({
             'mesaNumero': mesaNumero,
             'items': items.map((i) => i.toJson()).toList(),
+            'segundosHastaPoderEnviar': segundos,
           }),
           headers: {'Content-Type': 'application/json'},
         );
@@ -290,7 +292,7 @@ class LocalServer {
         if (producto == null) {
           return Response(400, body: jsonEncode({'error': 'Producto no encontrado'}), headers: {'Content-Type': 'application/json'});
         }
-        await _db.sumarProductoCarritoQrMesa(
+        final errSum = await _db.sumarProductoCarritoQrMesa(
           mesaNumero: mesaNumero,
           productoId: productoId,
           delta: delta,
@@ -300,8 +302,24 @@ class LocalServer {
           nombreDestino: null,
         );
         final items = await _db.obtenerCarritoQrMesa(mesaNumero);
+        final segundos = await _db.segundosHastaPoderEnviarBuffetQr(mesaNumero);
+        if (errSum != null) {
+          return Response(
+            403,
+            body: jsonEncode({
+              'error': errSum,
+              'items': items.map((i) => i.toJson()).toList(),
+              'segundosHastaPoderEnviar': segundos,
+            }),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
         return Response.ok(
-          jsonEncode({'ok': true, 'items': items.map((i) => i.toJson()).toList()}),
+          jsonEncode({
+            'ok': true,
+            'items': items.map((i) => i.toJson()).toList(),
+            'segundosHastaPoderEnviar': segundos,
+          }),
           headers: {'Content-Type': 'application/json'},
         );
       } catch (e) {
@@ -325,7 +343,7 @@ class LocalServer {
         if (producto == null) {
           return Response(400, body: jsonEncode({'error': 'Producto no encontrado'}), headers: {'Content-Type': 'application/json'});
         }
-        await _db.setCantidadProductoCarritoQrMesa(
+        final errSet = await _db.setCantidadProductoCarritoQrMesa(
           mesaNumero: mesaNumero,
           productoId: productoId,
           cantidad: cantidad,
@@ -335,8 +353,24 @@ class LocalServer {
           nombreDestino: null,
         );
         final items = await _db.obtenerCarritoQrMesa(mesaNumero);
+        final segundos = await _db.segundosHastaPoderEnviarBuffetQr(mesaNumero);
+        if (errSet != null) {
+          return Response(
+            403,
+            body: jsonEncode({
+              'error': errSet,
+              'items': items.map((i) => i.toJson()).toList(),
+              'segundosHastaPoderEnviar': segundos,
+            }),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
         return Response.ok(
-          jsonEncode({'ok': true, 'items': items.map((i) => i.toJson()).toList()}),
+          jsonEncode({
+            'ok': true,
+            'items': items.map((i) => i.toJson()).toList(),
+            'segundosHastaPoderEnviar': segundos,
+          }),
           headers: {'Content-Type': 'application/json'},
         );
       } catch (e) {
@@ -360,8 +394,13 @@ class LocalServer {
           cantidad: 0,
         );
         final items = await _db.obtenerCarritoQrMesa(mesaNumero);
+        final segundos = await _db.segundosHastaPoderEnviarBuffetQr(mesaNumero);
         return Response.ok(
-          jsonEncode({'ok': true, 'items': items.map((i) => i.toJson()).toList()}),
+          jsonEncode({
+            'ok': true,
+            'items': items.map((i) => i.toJson()).toList(),
+            'segundosHastaPoderEnviar': segundos,
+          }),
           headers: {'Content-Type': 'application/json'},
         );
       } catch (e) {
@@ -1031,6 +1070,33 @@ class LocalServer {
             pedido.items.add(item);
           }
         }
+
+        if (pedido.items.isEmpty) {
+          return Response(
+            400,
+            body: jsonEncode({'error': 'Carrito vacío', 'mensaje': 'No hay platos para enviar.'}),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
+
+        // Tiempo de espera obligatorio entre envíos (cliente QR + límite buffet activo)
+        if (token != null && token.trim().isNotEmpty) {
+          final cfgLim = await _db.obtenerConfiguracionBuffetActiva();
+          if (cfgLim != null && cfgLim.limiteBuffetQrActivo) {
+            final espera = await _db.segundosHastaPoderEnviarBuffetQr(mesaNumero);
+            if (espera > 0) {
+              return Response(
+                429,
+                body: jsonEncode({
+                  'error': 'espera_envio',
+                  'segundosRestantes': espera,
+                  'mensaje': 'Aún no puedes enviar otro pedido.',
+                }),
+                headers: {'Content-Type': 'application/json'},
+              );
+            }
+          }
+        }
         
         // Validar disponibilidad de productos antes de guardar (omitir ítems especiales con productoId <= 0)
         final productosNoDisponibles = <String>[];
@@ -1058,11 +1124,6 @@ class LocalServer {
             headers: {'Content-Type': 'application/json'},
           );
         }
-
-        // Si venía de token, limpiar carrito comunitario tras enviar
-        if (token != null && token.trim().isNotEmpty) {
-          await _db.limpiarCarritoQrMesa(mesaNumero);
-        }
         
         // ========== DESCONTAR STOCK AUTOMÁTICAMENTE ==========
         for (final item in pedido.items) {
@@ -1079,6 +1140,20 @@ class LocalServer {
         
         pedido.calcularTotal();
         final id = await _db.guardarPedido(pedido);
+
+        // Registro de límite buffet QR (tipos distintos por ventana + inicio de espera entre envíos)
+        if (token != null && token.trim().isNotEmpty) {
+          final idsDistintos = pedido.items
+              .map((i) => i.productoId)
+              .where((id) => id > 0)
+              .toSet()
+              .toList();
+          await _db.registrarEnvioPedidoQrBuffet(
+            mesaNumero: mesaNumero,
+            productoIdsDistintosEnPedido: idsDistintos,
+          );
+          await _db.limpiarCarritoQrMesa(mesaNumero);
+        }
 
         // Actualizar estado de la mesa a ocupada
         await _db.actualizarEstadoMesa(pedido.mesaNumero, EstadoMesa.ocupada);
@@ -1658,6 +1733,18 @@ class LocalServer {
       margin-bottom: 12px;
       text-align: center;
     }
+    .carrito-envio-cuenta-atras {
+      text-align: center;
+      padding: 10px 12px;
+      margin: 0 12px 10px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #5D4037;
+      background: #FFF3E0;
+      border-radius: 10px;
+      border: 1px solid #FFCC80;
+    }
+    .carrito-envio-cuenta-atras.oculto { display: none; }
     .btn-enviar {
       background: #C41E3A;
       border: none;
@@ -2027,6 +2114,7 @@ class LocalServer {
       <button class="btn-cerrar-drawer" onclick="cerrarCarritoDrawer()" aria-label="Cerrar">✕</button>
     </div>
     <div class="carrito-drawer-lista" id="carrito-drawer-lista"></div>
+    <div class="carrito-envio-cuenta-atras oculto" id="carrito-envio-cuenta-atras" aria-live="polite"></div>
     <div class="carrito-drawer-footer">
       <div class="carrito-drawer-total" id="carrito-drawer-total">0 productos</div>
       <button class="btn-enviar" id="btn-enviar" disabled onclick="enviarPedido()">Enviar Pedido</button>
@@ -2056,10 +2144,27 @@ class LocalServer {
   
   <script>
     const mesa = $mesa;
-    const token = '${_escapeHtmlAttr(token)}';
+    const token = ${jsonEncode(token)};
     const esBuffet = $esHorarioBuffet;
     let carrito = [];
     let _pollCarrito = null;
+    let _tickEnvio = null;
+    let segundosHastaPoderEnviar = 0;
+
+    function actualizarCuentaAtrasEnvio() {
+      const el = document.getElementById('carrito-envio-cuenta-atras');
+      if (!el) return;
+      if (segundosHastaPoderEnviar <= 0) {
+        el.classList.add('oculto');
+        el.textContent = '';
+        return;
+      }
+      el.classList.remove('oculto');
+      const m = Math.floor(segundosHastaPoderEnviar / 60);
+      const s = segundosHastaPoderEnviar % 60;
+      const ss = s < 10 ? '0' + s : String(s);
+      el.textContent = 'Podrás enviar en ' + (m > 0 ? m + ':' + ss : ss + ' s');
+    }
 
     async function cargarCarritoServidor() {
       try {
@@ -2075,6 +2180,9 @@ class LocalServer {
             destinoId: it.destinoId
           };
         });
+        segundosHastaPoderEnviar = parseInt(data.segundosHastaPoderEnviar, 10) || 0;
+        if (segundosHastaPoderEnviar < 0) segundosHastaPoderEnviar = 0;
+        actualizarCuentaAtrasEnvio();
         actualizarUI();
       } catch (e) {
         console.error('Error cargando carrito servidor:', e);
@@ -2125,13 +2233,29 @@ class LocalServer {
       }
     }
     
+    async function _postCarrito(url, payload) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {})
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 403 && data && data.error === 'limite_tipos_distintos') {
+          alert('Has alcanzado el límite de tipos distintos permitido para esta mesa. Si estás en modo buffet, revisa el número de menús (adulto/niño) de la mesa.');
+        } else if (data && data.mensaje) {
+          alert(data.mensaje);
+        }
+      }
+      return res;
+    }
+
     async function agregarAlCarrito(id, nombre, precio, destinoId) {
       try {
-        await fetch('/api/qr/carrito/' + encodeURIComponent(token) + '/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productoId: id, delta: 1 })
-        });
+        await _postCarrito(
+          '/api/qr/carrito/' + encodeURIComponent(token) + '/add',
+          { productoId: id, delta: 1 }
+        );
         await cargarCarritoServidor();
       } catch (e) {
         console.error('Error agregando al carrito:', e);
@@ -2155,7 +2279,11 @@ class LocalServer {
         badge.textContent = totalItems > 99 ? '99+' : totalItems;
         badge.classList.toggle('oculto', totalItems === 0);
       }
-      document.getElementById('btn-enviar').disabled = totalItems === 0;
+      const btnEnviar = document.getElementById('btn-enviar');
+      if (btnEnviar) {
+        btnEnviar.disabled = totalItems === 0 || segundosHastaPoderEnviar > 0;
+      }
+      actualizarCuentaAtrasEnvio();
       renderCarritoEnDrawer();
     }
     
@@ -2168,11 +2296,10 @@ class LocalServer {
     
     async function incrementarCantidad(productoId) {
       try {
-        await fetch('/api/qr/carrito/' + encodeURIComponent(token) + '/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productoId: productoId, delta: 1 })
-        });
+        await _postCarrito(
+          '/api/qr/carrito/' + encodeURIComponent(token) + '/add',
+          { productoId: productoId, delta: 1 }
+        );
         await cargarCarritoServidor();
       } catch (e) {
         console.error('Error incrementando cantidad:', e);
@@ -2185,11 +2312,10 @@ class LocalServer {
       const nueva = (item.cantidad || 1) - 1;
       if (nueva <= 0) return;
       try {
-        await fetch('/api/qr/carrito/' + encodeURIComponent(token) + '/set', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productoId: productoId, cantidad: nueva })
-        });
+        await _postCarrito(
+          '/api/qr/carrito/' + encodeURIComponent(token) + '/set',
+          { productoId: productoId, cantidad: nueva }
+        );
         await cargarCarritoServidor();
       } catch (e) {
         console.error('Error decrementando cantidad:', e);
@@ -2354,7 +2480,8 @@ class LocalServer {
           // Mostrar diálogo con información detallada
           mostrarDialogoValidacionStock(ajustes, agotados);
           
-          btn.disabled = carrito.length === 0;
+          var totVal = carrito.reduce(function(s, x) { return s + x.cantidad; }, 0);
+          btn.disabled = totVal === 0 || segundosHastaPoderEnviar > 0;
           btn.textContent = 'Enviar Pedido';
           
           // Si hay productos completamente agotados, no continuar
@@ -2387,6 +2514,11 @@ class LocalServer {
           document.getElementById('mensaje').classList.add('visible');
         } else {
           const errorData = await response.json().catch(() => ({}));
+          if (response.status === 429 && errorData.segundosRestantes != null) {
+            segundosHastaPoderEnviar = parseInt(errorData.segundosRestantes, 10) || 0;
+            await cargarCarritoServidor();
+            return;
+          }
           if (errorData.productos_agotados) {
             mostrarDialogoAgotados(errorData.productos_agotados);
           } else {
@@ -2397,7 +2529,8 @@ class LocalServer {
         console.error('Error:', e);
         alert('Error de conexión. Verifica tu conexión WiFi.');
       } finally {
-        btn.disabled = carrito.length === 0;
+        var tot = carrito.reduce(function(s, x) { return s + x.cantidad; }, 0);
+        btn.disabled = tot === 0 || segundosHastaPoderEnviar > 0;
         btn.textContent = 'Enviar Pedido';
       }
     }
@@ -2407,6 +2540,18 @@ class LocalServer {
       cargarCarritoServidor();
       if (_pollCarrito) clearInterval(_pollCarrito);
       _pollCarrito = setInterval(cargarCarritoServidor, 4000);
+      if (_tickEnvio) clearInterval(_tickEnvio);
+      _tickEnvio = setInterval(function() {
+        if (segundosHastaPoderEnviar > 0) {
+          segundosHastaPoderEnviar--;
+          actualizarCuentaAtrasEnvio();
+          var btnE = document.getElementById('btn-enviar');
+          if (btnE) {
+            var tot = carrito.reduce(function(s, x) { return s + x.cantidad; }, 0);
+            btnE.disabled = tot === 0 || segundosHastaPoderEnviar > 0;
+          }
+        }
+      }, 1000);
     })();
     
     function cerrarMensajeYRecargar() {

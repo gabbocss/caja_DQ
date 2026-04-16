@@ -23,93 +23,108 @@ const ConfiguracionBuffetSchema = CollectionSchema(
       name: r'activo',
       type: IsarType.bool,
     ),
-    r'colorTema': PropertySchema(
+    r'buffetMinutosVentana': PropertySchema(
       id: 1,
+      name: r'buffetMinutosVentana',
+      type: IsarType.long,
+    ),
+    r'buffetTiposDistintosPorPersonaPorVentana': PropertySchema(
+      id: 2,
+      name: r'buffetTiposDistintosPorPersonaPorVentana',
+      type: IsarType.long,
+    ),
+    r'colorTema': PropertySchema(
+      id: 3,
       name: r'colorTema',
       type: IsarType.string,
     ),
     r'descripcion': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'descripcion',
       type: IsarType.string,
     ),
     r'diaSemana': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'diaSemana',
       type: IsarType.long,
     ),
     r'edadMaximaInfantil': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'edadMaximaInfantil',
       type: IsarType.long,
     ),
     r'edadMinimaInfantil': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'edadMinimaInfantil',
       type: IsarType.long,
     ),
     r'fechaCreacion': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'fechaCreacion',
       type: IsarType.dateTime,
     ),
     r'fechaModificacion': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'fechaModificacion',
       type: IsarType.dateTime,
     ),
     r'horaFin': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'horaFin',
       type: IsarType.string,
     ),
     r'horaInicio': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'horaInicio',
       type: IsarType.string,
     ),
     r'impresoraBuffetIp': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'impresoraBuffetIp',
       type: IsarType.string,
     ),
     r'impresoraBuffetPuerto': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'impresoraBuffetPuerto',
       type: IsarType.long,
     ),
+    r'limiteBuffetQrActivo': PropertySchema(
+      id: 14,
+      name: r'limiteBuffetQrActivo',
+      type: IsarType.bool,
+    ),
     r'mensajePromocion': PropertySchema(
-      id: 12,
+      id: 15,
       name: r'mensajePromocion',
       type: IsarType.string,
     ),
     r'nombre': PropertySchema(
-      id: 13,
+      id: 16,
       name: r'nombre',
       type: IsarType.string,
     ),
     r'precioAdulto': PropertySchema(
-      id: 14,
+      id: 17,
       name: r'precioAdulto',
       type: IsarType.double,
     ),
     r'precioCubierto': PropertySchema(
-      id: 15,
+      id: 18,
       name: r'precioCubierto',
       type: IsarType.double,
     ),
     r'precioMenor': PropertySchema(
-      id: 16,
+      id: 19,
       name: r'precioMenor',
       type: IsarType.double,
     ),
     r'precioNino': PropertySchema(
-      id: 17,
+      id: 20,
       name: r'precioNino',
       type: IsarType.double,
     ),
     r'tieneImpresoraBuffet': PropertySchema(
-      id: 18,
+      id: 21,
       name: r'tieneImpresoraBuffet',
       type: IsarType.bool,
     )
@@ -185,24 +200,27 @@ void _configuracionBuffetSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeBool(offsets[0], object.activo);
-  writer.writeString(offsets[1], object.colorTema);
-  writer.writeString(offsets[2], object.descripcion);
-  writer.writeLong(offsets[3], object.diaSemana);
-  writer.writeLong(offsets[4], object.edadMaximaInfantil);
-  writer.writeLong(offsets[5], object.edadMinimaInfantil);
-  writer.writeDateTime(offsets[6], object.fechaCreacion);
-  writer.writeDateTime(offsets[7], object.fechaModificacion);
-  writer.writeString(offsets[8], object.horaFin);
-  writer.writeString(offsets[9], object.horaInicio);
-  writer.writeString(offsets[10], object.impresoraBuffetIp);
-  writer.writeLong(offsets[11], object.impresoraBuffetPuerto);
-  writer.writeString(offsets[12], object.mensajePromocion);
-  writer.writeString(offsets[13], object.nombre);
-  writer.writeDouble(offsets[14], object.precioAdulto);
-  writer.writeDouble(offsets[15], object.precioCubierto);
-  writer.writeDouble(offsets[16], object.precioMenor);
-  writer.writeDouble(offsets[17], object.precioNino);
-  writer.writeBool(offsets[18], object.tieneImpresoraBuffet);
+  writer.writeLong(offsets[1], object.buffetMinutosVentana);
+  writer.writeLong(offsets[2], object.buffetTiposDistintosPorPersonaPorVentana);
+  writer.writeString(offsets[3], object.colorTema);
+  writer.writeString(offsets[4], object.descripcion);
+  writer.writeLong(offsets[5], object.diaSemana);
+  writer.writeLong(offsets[6], object.edadMaximaInfantil);
+  writer.writeLong(offsets[7], object.edadMinimaInfantil);
+  writer.writeDateTime(offsets[8], object.fechaCreacion);
+  writer.writeDateTime(offsets[9], object.fechaModificacion);
+  writer.writeString(offsets[10], object.horaFin);
+  writer.writeString(offsets[11], object.horaInicio);
+  writer.writeString(offsets[12], object.impresoraBuffetIp);
+  writer.writeLong(offsets[13], object.impresoraBuffetPuerto);
+  writer.writeBool(offsets[14], object.limiteBuffetQrActivo);
+  writer.writeString(offsets[15], object.mensajePromocion);
+  writer.writeString(offsets[16], object.nombre);
+  writer.writeDouble(offsets[17], object.precioAdulto);
+  writer.writeDouble(offsets[18], object.precioCubierto);
+  writer.writeDouble(offsets[19], object.precioMenor);
+  writer.writeDouble(offsets[20], object.precioNino);
+  writer.writeBool(offsets[21], object.tieneImpresoraBuffet);
 }
 
 ConfiguracionBuffet _configuracionBuffetDeserialize(
@@ -213,24 +231,27 @@ ConfiguracionBuffet _configuracionBuffetDeserialize(
 ) {
   final object = ConfiguracionBuffet();
   object.activo = reader.readBool(offsets[0]);
-  object.colorTema = reader.readStringOrNull(offsets[1]);
-  object.descripcion = reader.readStringOrNull(offsets[2]);
-  object.diaSemana = reader.readLongOrNull(offsets[3]);
-  object.edadMaximaInfantil = reader.readLong(offsets[4]);
-  object.edadMinimaInfantil = reader.readLong(offsets[5]);
-  object.fechaCreacion = reader.readDateTime(offsets[6]);
-  object.fechaModificacion = reader.readDateTimeOrNull(offsets[7]);
-  object.horaFin = reader.readString(offsets[8]);
-  object.horaInicio = reader.readString(offsets[9]);
+  object.buffetMinutosVentana = reader.readLong(offsets[1]);
+  object.buffetTiposDistintosPorPersonaPorVentana = reader.readLong(offsets[2]);
+  object.colorTema = reader.readStringOrNull(offsets[3]);
+  object.descripcion = reader.readStringOrNull(offsets[4]);
+  object.diaSemana = reader.readLongOrNull(offsets[5]);
+  object.edadMaximaInfantil = reader.readLong(offsets[6]);
+  object.edadMinimaInfantil = reader.readLong(offsets[7]);
+  object.fechaCreacion = reader.readDateTime(offsets[8]);
+  object.fechaModificacion = reader.readDateTimeOrNull(offsets[9]);
+  object.horaFin = reader.readString(offsets[10]);
+  object.horaInicio = reader.readString(offsets[11]);
   object.id = id;
-  object.impresoraBuffetIp = reader.readStringOrNull(offsets[10]);
-  object.impresoraBuffetPuerto = reader.readLongOrNull(offsets[11]);
-  object.mensajePromocion = reader.readStringOrNull(offsets[12]);
-  object.nombre = reader.readString(offsets[13]);
-  object.precioAdulto = reader.readDouble(offsets[14]);
-  object.precioCubierto = reader.readDouble(offsets[15]);
-  object.precioMenor = reader.readDouble(offsets[16]);
-  object.precioNino = reader.readDouble(offsets[17]);
+  object.impresoraBuffetIp = reader.readStringOrNull(offsets[12]);
+  object.impresoraBuffetPuerto = reader.readLongOrNull(offsets[13]);
+  object.limiteBuffetQrActivo = reader.readBool(offsets[14]);
+  object.mensajePromocion = reader.readStringOrNull(offsets[15]);
+  object.nombre = reader.readString(offsets[16]);
+  object.precioAdulto = reader.readDouble(offsets[17]);
+  object.precioCubierto = reader.readDouble(offsets[18]);
+  object.precioMenor = reader.readDouble(offsets[19]);
+  object.precioNino = reader.readDouble(offsets[20]);
   return object;
 }
 
@@ -244,40 +265,46 @@ P _configuracionBuffetDeserializeProp<P>(
     case 0:
       return (reader.readBool(offset)) as P;
     case 1:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 2:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 3:
-      return (reader.readLongOrNull(offset)) as P;
-    case 4:
-      return (reader.readLong(offset)) as P;
-    case 5:
-      return (reader.readLong(offset)) as P;
-    case 6:
-      return (reader.readDateTime(offset)) as P;
-    case 7:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 8:
-      return (reader.readString(offset)) as P;
-    case 9:
-      return (reader.readString(offset)) as P;
-    case 10:
       return (reader.readStringOrNull(offset)) as P;
-    case 11:
+    case 4:
+      return (reader.readStringOrNull(offset)) as P;
+    case 5:
       return (reader.readLongOrNull(offset)) as P;
+    case 6:
+      return (reader.readLong(offset)) as P;
+    case 7:
+      return (reader.readLong(offset)) as P;
+    case 8:
+      return (reader.readDateTime(offset)) as P;
+    case 9:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
+      return (reader.readString(offset)) as P;
     case 12:
       return (reader.readStringOrNull(offset)) as P;
     case 13:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 14:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 15:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 16:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 17:
       return (reader.readDouble(offset)) as P;
     case 18:
+      return (reader.readDouble(offset)) as P;
+    case 19:
+      return (reader.readDouble(offset)) as P;
+    case 20:
+      return (reader.readDouble(offset)) as P;
+    case 21:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -486,6 +513,118 @@ extension ConfiguracionBuffetQueryFilter on QueryBuilder<ConfiguracionBuffet,
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'activo',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      buffetMinutosVentanaEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'buffetMinutosVentana',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      buffetMinutosVentanaGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'buffetMinutosVentana',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      buffetMinutosVentanaLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'buffetMinutosVentana',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      buffetMinutosVentanaBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'buffetMinutosVentana',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      buffetTiposDistintosPorPersonaPorVentanaEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'buffetTiposDistintosPorPersonaPorVentana',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      buffetTiposDistintosPorPersonaPorVentanaGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'buffetTiposDistintosPorPersonaPorVentana',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      buffetTiposDistintosPorPersonaPorVentanaLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'buffetTiposDistintosPorPersonaPorVentana',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      buffetTiposDistintosPorPersonaPorVentanaBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'buffetTiposDistintosPorPersonaPorVentana',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -1689,6 +1828,16 @@ extension ConfiguracionBuffetQueryFilter on QueryBuilder<ConfiguracionBuffet,
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
+      limiteBuffetQrActivoEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'limiteBuffetQrActivo',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterFilterCondition>
       mensajePromocionIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2276,6 +2425,36 @@ extension ConfiguracionBuffetQuerySortBy
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByBuffetMinutosVentana() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'buffetMinutosVentana', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByBuffetMinutosVentanaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'buffetMinutosVentana', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByBuffetTiposDistintosPorPersonaPorVentana() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(
+          r'buffetTiposDistintosPorPersonaPorVentana', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByBuffetTiposDistintosPorPersonaPorVentanaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(
+          r'buffetTiposDistintosPorPersonaPorVentana', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
       sortByColorTema() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'colorTema', Sort.asc);
@@ -2430,6 +2609,20 @@ extension ConfiguracionBuffetQuerySortBy
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByLimiteBuffetQrActivo() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'limiteBuffetQrActivo', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      sortByLimiteBuffetQrActivoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'limiteBuffetQrActivo', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
       sortByMensajePromocion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mensajePromocion', Sort.asc);
@@ -2541,6 +2734,36 @@ extension ConfiguracionBuffetQuerySortThenBy
       thenByActivoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activo', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByBuffetMinutosVentana() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'buffetMinutosVentana', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByBuffetMinutosVentanaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'buffetMinutosVentana', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByBuffetTiposDistintosPorPersonaPorVentana() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(
+          r'buffetTiposDistintosPorPersonaPorVentana', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByBuffetTiposDistintosPorPersonaPorVentanaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(
+          r'buffetTiposDistintosPorPersonaPorVentana', Sort.desc);
     });
   }
 
@@ -2713,6 +2936,20 @@ extension ConfiguracionBuffetQuerySortThenBy
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByLimiteBuffetQrActivo() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'limiteBuffetQrActivo', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
+      thenByLimiteBuffetQrActivoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'limiteBuffetQrActivo', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QAfterSortBy>
       thenByMensajePromocion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mensajePromocion', Sort.asc);
@@ -2821,6 +3058,20 @@ extension ConfiguracionBuffetQueryWhereDistinct
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
+      distinctByBuffetMinutosVentana() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'buffetMinutosVentana');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
+      distinctByBuffetTiposDistintosPorPersonaPorVentana() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'buffetTiposDistintosPorPersonaPorVentana');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
       distinctByColorTema({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'colorTema', caseSensitive: caseSensitive);
@@ -2899,6 +3150,13 @@ extension ConfiguracionBuffetQueryWhereDistinct
   }
 
   QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
+      distinctByLimiteBuffetQrActivo() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'limiteBuffetQrActivo');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, ConfiguracionBuffet, QDistinct>
       distinctByMensajePromocion({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'mensajePromocion',
@@ -2960,6 +3218,20 @@ extension ConfiguracionBuffetQueryProperty
   QueryBuilder<ConfiguracionBuffet, bool, QQueryOperations> activoProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'activo');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, int, QQueryOperations>
+      buffetMinutosVentanaProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'buffetMinutosVentana');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, int, QQueryOperations>
+      buffetTiposDistintosPorPersonaPorVentanaProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'buffetTiposDistintosPorPersonaPorVentana');
     });
   }
 
@@ -3037,6 +3309,13 @@ extension ConfiguracionBuffetQueryProperty
       impresoraBuffetPuertoProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'impresoraBuffetPuerto');
+    });
+  }
+
+  QueryBuilder<ConfiguracionBuffet, bool, QQueryOperations>
+      limiteBuffetQrActivoProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'limiteBuffetQrActivo');
     });
   }
 

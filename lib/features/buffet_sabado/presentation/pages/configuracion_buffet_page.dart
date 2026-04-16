@@ -31,12 +31,15 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
   late TextEditingController _mensajeController;
   late TextEditingController _impresoraBuffetIpController;
   late TextEditingController _impresoraBuffetPuertoController;
+  late TextEditingController _tiposDistintosPorPersonaController;
+  late TextEditingController _minutosVentanaBuffetQrController;
 
   // Estado
   int _diaSemana = DateTime.saturday;
   TimeOfDay _horaInicio = const TimeOfDay(hour: 11, minute: 30);
   TimeOfDay _horaFin = const TimeOfDay(hour: 14, minute: 45);
   bool _activo = true;
+  bool _limiteBuffetQrActivo = false;
 
   @override
   void initState() {
@@ -57,6 +60,8 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
     _mensajeController = TextEditingController();
     _impresoraBuffetIpController = TextEditingController();
     _impresoraBuffetPuertoController = TextEditingController();
+    _tiposDistintosPorPersonaController = TextEditingController();
+    _minutosVentanaBuffetQrController = TextEditingController();
   }
 
   @override
@@ -72,6 +77,8 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
     _mensajeController.dispose();
     _impresoraBuffetIpController.dispose();
     _impresoraBuffetPuertoController.dispose();
+    _tiposDistintosPorPersonaController.dispose();
+    _minutosVentanaBuffetQrController.dispose();
     super.dispose();
   }
 
@@ -106,6 +113,11 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
             config.impresoraBuffetPuerto?.toString() ?? '';
         _diaSemana = config.diaSemana ?? DateTime.saturday;
         _activo = config.activo;
+        _limiteBuffetQrActivo = config.limiteBuffetQrActivo;
+        _tiposDistintosPorPersonaController.text =
+            config.buffetTiposDistintosPorPersonaPorVentana.toString();
+        _minutosVentanaBuffetQrController.text =
+            config.buffetMinutosVentana.toString();
         
         // Parsear horas
         final partsInicio = config.horaInicio.split(':');
@@ -131,6 +143,9 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
         _mensajeController.text = '¡Buffet All You Can Eat!';
         _impresoraBuffetIpController.text = '';
         _impresoraBuffetPuertoController.text = '';
+        _limiteBuffetQrActivo = false;
+        _tiposDistintosPorPersonaController.text = '5';
+        _minutosVentanaBuffetQrController.text = '5';
       }
     } catch (e) {
       debugPrint('Error al cargar configuración: $e');
@@ -169,6 +184,17 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
       config.impresoraBuffetPuerto =
           puertoStr.isEmpty ? null : int.tryParse(puertoStr);
       config.fechaCreacion = _config?.fechaCreacion ?? DateTime.now();
+      config.limiteBuffetQrActivo = _limiteBuffetQrActivo;
+      config.buffetTiposDistintosPorPersonaPorVentana =
+          int.tryParse(_tiposDistintosPorPersonaController.text.trim()) ?? 5;
+      if (config.buffetTiposDistintosPorPersonaPorVentana < 1) {
+        config.buffetTiposDistintosPorPersonaPorVentana = 1;
+      }
+      config.buffetMinutosVentana =
+          int.tryParse(_minutosVentanaBuffetQrController.text.trim()) ?? 5;
+      if (config.buffetMinutosVentana < 1) {
+        config.buffetMinutosVentana = 1;
+      }
 
       await DatabaseService.instance.guardarConfiguracionBuffet(config);
 
@@ -349,6 +375,81 @@ class _ConfiguracionBuffetPageState extends State<ConfiguracionBuffetPage> {
                           controller: _precioMenorController,
                           label: 'Menores',
                           color: const Color(0xFF9B59B6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Límite pedidos desde QR (cliente móvil)
+              _buildSeccion(
+                titulo: 'Límite pedidos QR (cliente)',
+                icono: Icons.timer_outlined,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Limitar tipos de plato distintos por comensal y tiempo entre envíos',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                      ),
+                      Switch(
+                        value: _limiteBuffetQrActivo,
+                        onChanged: (v) => setState(() => _limiteBuffetQrActivo = v),
+                        activeTrackColor: const Color(0xFFFFD700),
+                        thumbColor: WidgetStateProperty.all(Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Cada tipo de plato cuenta una vez aunque pidas varias unidades. '
+                    'Los comensales se toman de la mesa (adultos + niños al abrir). '
+                    'En el carrito del cliente solo verán una cuenta atrás hasta poder enviar de nuevo.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCampoTexto(
+                          controller: _tiposDistintosPorPersonaController,
+                          label: 'Tipos distintos por comensal y ventana',
+                          hint: 'Ej: 5',
+                          icono: Icons.restaurant_menu,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          validator: (v) {
+                            final n = int.tryParse(v ?? '');
+                            if (n == null || n < 1) return 'Mínimo 1';
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildCampoTexto(
+                          controller: _minutosVentanaBuffetQrController,
+                          label: 'Minutos (ventana y espera entre envíos)',
+                          hint: 'Ej: 5',
+                          icono: Icons.schedule,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          validator: (v) {
+                            final n = int.tryParse(v ?? '');
+                            if (n == null || n < 1) return 'Mínimo 1';
+                            return null;
+                          },
                         ),
                       ),
                     ],
