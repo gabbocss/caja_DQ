@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
@@ -47,6 +48,67 @@ class ImprimirPedidoService {
       map[nombre] = (map[nombre] ?? 0) + item.cantidad;
     }
     return map;
+  }
+
+  /// Agrupa ítems por producto (manteniendo precio unitario) y suma cantidades.
+  /// La clave se basa en productoId + precioUnitario para evitar mezclar precios distintos.
+  Map<String, ({int productoId, String nombre, int cantidad, double precioUnitario})>
+      _agruparCantidadesConPrecio(List<ItemPedido> items) {
+    final map =
+        <String, ({int productoId, String nombre, int cantidad, double precioUnitario})>{};
+    for (final item in items) {
+      final nombre = item.nombreProducto.trim();
+      final key = '${item.productoId}_${item.precioUnitario.toStringAsFixed(6)}';
+      final existente = map[key];
+      if (existente == null) {
+        map[key] = (
+          productoId: item.productoId,
+          nombre: nombre,
+          cantidad: item.cantidad,
+          precioUnitario: item.precioUnitario,
+        );
+      } else {
+        map[key] = (
+          productoId: existente.productoId,
+          nombre: existente.nombre,
+          cantidad: existente.cantidad + item.cantidad,
+          precioUnitario: existente.precioUnitario,
+        );
+      }
+    }
+    return map;
+  }
+
+  String _formatearLineaCuentaConPrecio({
+    required ConfiguracionImpresion config,
+    required int margenEsp,
+    required int cantidad,
+    required String nombre,
+    required double precioUnitario,
+  }) {
+    final ancho = config.anchoCaracteres.clamp(24, 80);
+    // Dejamos el margen para _aplicarMargen, aquí formateamos el contenido.
+    // Formato: "<cant>x <nombre>" + (unit y subtotal alineados a la derecha)
+    final subtotal = precioUnitario * cantidad;
+    final right = '${precioUnitario.toStringAsFixed(2)}€  ${subtotal.toStringAsFixed(2)}€';
+
+    // Reservar columna derecha. Si el ticket es estrecho, priorizar subtotal.
+    final minRight = max(10, right.length);
+    final rightW = min(minRight, (ancho * 0.45).floor().clamp(10, 24));
+    final leftW = max(0, (ancho - 1 - rightW));
+
+    var left = '${cantidad}x $nombre';
+    if (left.length > leftW) {
+      if (leftW <= 1) {
+        left = '';
+      } else if (leftW == 2) {
+        left = '…';
+      } else {
+        left = left.substring(0, leftW - 1) + '…';
+      }
+    }
+    final line = left.padRight(leftW) + ' ' + right.padLeft(rightW);
+    return _aplicarMargen('$line\n', margenEsp);
   }
 
   /// Agrupa ítems por orden (1º, 2º, 3º...) y devuelve los turnos ordenados.
@@ -180,7 +242,7 @@ class ImprimirPedidoService {
       final orden = entry.key;
       final itemsTurno = entry.value;
       addStr(_aplicarMargen('\n', margenEsp));
-      addStr(_aplicarMargen('$ordenn', margenEsp));
+      addStr(_aplicarMargen('$ordenº\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
       final agrupado = _agruparCantidades(itemsTurno);
       for (final e in agrupado.entries) {
@@ -291,9 +353,17 @@ class ImprimirPedidoService {
       addStr(_aplicarMargen('\n', margenEsp));
       addStr(_aplicarMargen('$ordenº\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
-      final agrupado = _agruparCantidades(itemsTurno);
-      for (final e in agrupado.entries) {
-        addStr(_aplicarMargen('${e.value}x ${e.key}\n', margenEsp));
+      final agrupado = _agruparCantidadesConPrecio(itemsTurno);
+      final valores = agrupado.values.toList()
+        ..sort((a, b) => a.nombre.compareTo(b.nombre));
+      for (final e in valores) {
+        addStr(_formatearLineaCuentaConPrecio(
+          config: config,
+          margenEsp: margenEsp,
+          cantidad: e.cantidad,
+          nombre: e.nombre,
+          precioUnitario: e.precioUnitario,
+        ));
       }
     }
 
@@ -307,7 +377,7 @@ class ImprimirPedidoService {
     addStr(_aplicarMargen('\n', margenEsp));
     addStr(_aplicarMargen('$sep\n', margenEsp));
     if (config.negritaCabecera) add(_escBoldOn);
-    addStr(_aplicarMargen('TOTAL: \$${total.toStringAsFixed(2)}\n', margenEsp));
+    addStr(_aplicarMargen('TOTAL: ${total.toStringAsFixed(2)}€\n', margenEsp));
     add(_escBoldOff);
     addStr(_aplicarMargen('$sep\n', margenEsp));
 
