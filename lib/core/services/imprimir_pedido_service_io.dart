@@ -241,8 +241,8 @@ class ImprimirPedidoService {
     for (final entry in itemsPorOrden.entries) {
       final orden = entry.key;
       final itemsTurno = entry.value;
-      addStr(_aplicarMargen('\n', margenEsp));
-      addStr(_aplicarMargen('$ordenº\n', margenEsp));
+      addStr(_aplicarMargen('\n\n', margenEsp));
+      addStr(_aplicarMargen('$orden Plato\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
       final agrupado = _agruparCantidades(itemsTurno);
       for (final e in agrupado.entries) {
@@ -350,8 +350,8 @@ class ImprimirPedidoService {
     for (final entry in itemsPorOrden.entries) {
       final orden = entry.key;
       final itemsTurno = entry.value;
-      addStr(_aplicarMargen('\n', margenEsp));
-      addStr(_aplicarMargen('$ordenº\n', margenEsp));
+      addStr(_aplicarMargen('\n\n', margenEsp));
+      addStr(_aplicarMargen('$orden Plato\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
       final agrupado = _agruparCantidadesConPrecio(itemsTurno);
       final valores = agrupado.values.toList()
