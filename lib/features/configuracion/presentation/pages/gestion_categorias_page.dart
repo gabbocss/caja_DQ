@@ -115,9 +115,21 @@ class _GestionCategoriasPageState extends State<GestionCategoriasPage> {
     });
 
     final db = DatabaseService.instance;
-    for (int i = 0; i < _categorias.length; i++) {
-      _categorias[i].orden = i;
-      await db.guardarCategoria(_categorias[i]);
+    try {
+      // Guardar nuevo orden de categorías
+      for (int i = 0; i < _categorias.length; i++) {
+        _categorias[i].orden = i;
+        await db.guardarCategoria(_categorias[i]);
+      }
+      // Recalcular orden global de productos para que vistas "TODOS" (cliente QR) respeten el orden.
+      await db.recalcularOrdenProductosPorCategorias();
+    } catch (e) {
+      debugPrint('Error al reordenar categorías: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

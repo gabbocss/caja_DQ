@@ -365,6 +365,63 @@ class DatabaseService {
     debugPrint('Migración: orden de productos actualizado por categoría');
   }
 
+  /// Recalcula el orden global de los productos según el orden actual de categorías.
+  ///
+  /// Mantiene el orden interno de cada categoría en base al orden actual de los productos
+  /// (si se reordenaron desde "Gestión de productos", se respeta).
+  ///
+  /// Esto es importante para vistas "TODOS" (p. ej. cliente QR), que dependen de que
+  /// `Producto.orden` codifique `categoria*1000 + índice`.
+  Future<void> recalcularOrdenProductosPorCategorias() async {
+    final categorias = await obtenerCategorias(); // ya viene sortByOrden()
+    final ordenPorCategoria = <String, int>{for (final c in categorias) c.nombre: c.orden};
+
+    // Cargar todos los productos en su orden actual para preservar el orden interno por categoría.
+    final productos = await isar.productos.where().sortByOrden().findAll();
+    if (productos.isEmpty) return;
+
+    // Agrupar por categoría (null -> '') manteniendo el orden actual (sortByOrden()).
+    final porCategoria = <String, List<Producto>>{};
+    for (final p in productos) {
+      final cat = p.categoria ?? '';
+      (porCategoria[cat] ??= <Producto>[]).add(p);
+    }
+
+    // Orden estable dentro de cada categoría: por orden actual y luego por id.
+    for (final entry in porCategoria.entries) {
+      entry.value.sort((a, b) {
+        final cmp = a.orden.compareTo(b.orden);
+        if (cmp != 0) return cmp;
+        return (a.id ?? 0).compareTo(b.id ?? 0);
+      });
+    }
+
+    // Reasignar `orden = catOrden*1000 + idx`.
+    // Categorías desconocidas / vacías quedan al final con prefijo 9999.
+    var cambios = 0;
+    for (final entry in porCategoria.entries) {
+      final cat = entry.key;
+      final catOrden = ordenPorCategoria[cat] ?? 9999;
+      final list = entry.value;
+      for (var i = 0; i < list.length; i++) {
+        final p = list[i];
+        final nuevoOrden = catOrden * 1000 + i;
+        if (p.orden != nuevoOrden) {
+          p.orden = nuevoOrden;
+          cambios++;
+        }
+      }
+    }
+
+    if (cambios == 0) return;
+    await isar.writeTxn(() async {
+      for (final p in productos) {
+        await isar.productos.put(p);
+      }
+    });
+    debugPrint('Reindexado: orden de productos recalculado por categorías ($cambios cambios)');
+  }
+
   /// Cierra la conexión con la base de datos
   Future<void> close() async {
     if (_isar != null) {

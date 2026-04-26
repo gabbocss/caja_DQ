@@ -27,6 +27,7 @@ class DatabaseService {
   Future<List<Producto>> obtenerProductosBuffet() async => _unsupported();
   Future<int> guardarProducto(Producto producto) async => _unsupported();
   Future<bool> eliminarProducto(int id) async => _unsupported();
+  Future<void> recalcularOrdenProductosPorCategorias() async => _unsupported();
 
   Future<List<Mesa>> obtenerMesas() async => _unsupported();
   Future<String> getQrTokenForMesa(int numeroMesa) async => _unsupported();
