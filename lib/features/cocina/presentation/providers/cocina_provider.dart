@@ -12,6 +12,7 @@ class CocinaProvider extends ChangeNotifier {
   final CocinaRepository _repository;
   final DatabaseService _db;
   static const _uuid = Uuid();
+  final Beeper _beeper;
 
   List<Pedido> _pedidos = [];
   List<Pedido> _pedidosFiltrados = [];
@@ -36,6 +37,14 @@ class CocinaProvider extends ChangeNotifier {
   /// Versión que se incrementa en cada actualización optimista (para forzar rebuild en la UI).
   int _versionOptimista = 0;
   int get versionOptimista => _versionOptimista;
+
+  /// Sonido (solo web): requiere interacción del usuario para activarse.
+  bool _sonidoActivado = false;
+  bool get sonidoActivado => _sonidoActivado;
+
+  /// Control de notificación: detectar pedidos nuevos por ID (un pitido por batch).
+  bool _streamInicializado = false;
+  Set<String> _idsVistos = <String>{};
 
   /// Última vez que se aplicó una actualización optimista (evitar que el stream pise justo después).
   DateTime? _ultimaOptimista;
@@ -84,11 +93,22 @@ class CocinaProvider extends ChangeNotifier {
   /// Líneas abiertas en modo buffet: platos únicos con cantidad total y contribuciones (sin congelar).
   List<LineaBuffetAbierta> get lineasAbiertas => _calcularLineasAbiertas();
 
-  CocinaProvider({CocinaRepository? repository, DatabaseService? db})
+  CocinaProvider({CocinaRepository? repository, DatabaseService? db, Beeper? beeper})
       : _repository = repository ?? 
           CocinaRepositoryImpl(DatabaseService.instance),
-        _db = db ?? DatabaseService.instance {
+        _db = db ?? DatabaseService.instance,
+        _beeper = beeper ?? Beeper() {
     _inicializar();
+  }
+
+  Future<void> toggleSonido() async {
+    _sonidoActivado = !_sonidoActivado;
+    if (_sonidoActivado) {
+      await _beeper.enable();
+    } else {
+      await _beeper.disable();
+    }
+    notifyListeners();
   }
 
   /// Inicializa el provider
@@ -390,6 +410,21 @@ class CocinaProvider extends ChangeNotifier {
             ahora.difference(_ultimaOptimista!).inMilliseconds < 800) {
           return;
         }
+        // Detectar nuevos pedidos por ID (1 pitido por batch).
+        final currentIds = <String>{};
+        for (final p in pedidos) {
+          final id = p.id;
+          if (id == null) continue;
+          currentIds.add(id.toString());
+        }
+        final nuevosIds = currentIds.difference(_idsVistos);
+        if (_streamInicializado && nuevosIds.isNotEmpty && _sonidoActivado) {
+          // Un pitido por batch de pedidos nuevos.
+          _beeper.beep();
+        }
+        _idsVistos = currentIds;
+        _streamInicializado = true;
+
         final anteriorCount = _pedidosFiltrados.length;
         _aplicarPedidosDelServidor(pedidos);
         _error = null;

@@ -216,6 +216,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
           destinos: _destinos,
           showDragHandle: true,
           reorderIndex: index,
+          onToggleBuffet: () => _toggleBuffet(producto),
           onToggleDisponibilidad: () => _toggleDisponibilidad(producto),
           onEditar: () => _mostrarFormularioProducto(producto),
           onEliminar: () => _confirmarEliminar(producto),
@@ -289,6 +290,22 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
           ),
         );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleBuffet(Producto producto) async {
+    try {
+      final actualizado = producto;
+      actualizado.esBuffet = !actualizado.esBuffet;
+      actualizado.fechaModificacion = DateTime.now();
+      await DatabaseService.instance.guardarProducto(actualizado);
+      await _cargarDatos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -402,6 +419,7 @@ class _ProductoTile extends StatelessWidget {
   final List<DestinoImpresion> destinos;
   final bool showDragHandle;
   final int? reorderIndex;
+  final VoidCallback onToggleBuffet;
   final VoidCallback onToggleDisponibilidad;
   final VoidCallback onEditar;
   final VoidCallback onEliminar;
@@ -412,6 +430,7 @@ class _ProductoTile extends StatelessWidget {
     required this.destinos,
     this.showDragHandle = false,
     this.reorderIndex,
+    required this.onToggleBuffet,
     required this.onToggleDisponibilidad,
     required this.onEditar,
     required this.onEliminar,
@@ -421,6 +440,13 @@ class _ProductoTile extends StatelessWidget {
     if (producto.destinoId == null) return 'Sin destino';
     final destino = destinos.where((d) => d.id == producto.destinoId).firstOrNull;
     return destino?.nombre ?? 'Desconocido';
+  }
+
+  /// Foto: URL, data URL base64, etc. — sin texto o vacío = sin foto.
+  bool get _tieneFotoCargada {
+    final i = producto.imagen;
+    if (i == null) return false;
+    return i.trim().isNotEmpty;
   }
 
   @override
@@ -473,6 +499,8 @@ class _ProductoTile extends StatelessWidget {
                       Expanded(
                         child: Text(
                           producto.nombre,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: producto.isAvailable ? Colors.white : Colors.white60,
                             fontWeight: FontWeight.bold,
@@ -481,7 +509,21 @@ class _ProductoTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (producto.esBuffet)
+                      if (!_tieneFotoCargada) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          'No foto',
+                          style: TextStyle(
+                            color: const Color(0xFFEF9A9A), // Rojo claro, legible sobre el fondo
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.2,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                      if (producto.esBuffet) ...[
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -497,6 +539,7 @@ class _ProductoTile extends StatelessWidget {
                             ),
                           ),
                         ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -533,25 +576,51 @@ class _ProductoTile extends StatelessWidget {
               ),
             ),
             
-            // Toggle de disponibilidad
-            Column(
+            // Toggles (Buffet + Disponibilidad)
+            Row(
               children: [
-                Switch(
-                  value: producto.isAvailable,
-                  onChanged: (_) => onToggleDisponibilidad(),
-                  activeTrackColor: const Color(0xFF00D9A5),
-                  inactiveTrackColor: const Color(0xFFE94560).withValues(alpha: 0.5),
-                  thumbColor: WidgetStateProperty.all(Colors.white),
+                Column(
+                  children: [
+                    Switch(
+                      value: producto.esBuffet,
+                      onChanged: (_) => onToggleBuffet(),
+                      activeTrackColor: const Color(0xFFFFD700),
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.18),
+                      thumbColor: WidgetStateProperty.all(Colors.white),
+                    ),
+                    Text(
+                      'Buffet',
+                      style: TextStyle(
+                        color: producto.esBuffet
+                            ? const Color(0xFFFFD700)
+                            : Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  producto.isAvailable ? 'Disponible' : 'Agotado',
-                  style: TextStyle(
-                    color: producto.isAvailable
-                        ? const Color(0xFF00D9A5)
-                        : const Color(0xFFE94560),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
+                const SizedBox(width: 12),
+                Column(
+                  children: [
+                    Switch(
+                      value: producto.isAvailable,
+                      onChanged: (_) => onToggleDisponibilidad(),
+                      activeTrackColor: const Color(0xFF00D9A5),
+                      inactiveTrackColor: const Color(0xFFE94560).withValues(alpha: 0.5),
+                      thumbColor: WidgetStateProperty.all(Colors.white),
+                    ),
+                    Text(
+                      producto.isAvailable ? 'Disponible' : 'Agotado',
+                      style: TextStyle(
+                        color: producto.isAvailable
+                            ? const Color(0xFF00D9A5)
+                            : const Color(0xFFE94560),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

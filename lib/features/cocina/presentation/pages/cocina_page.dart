@@ -293,6 +293,15 @@ class _CocinaPageContent extends StatelessWidget {
           _RelojWidget(),
           const SizedBox(width: 16),
           IconButton(
+            onPressed: provider.toggleSonido,
+            icon: Icon(
+              provider.sonidoActivado ? Icons.volume_up : Icons.volume_off,
+              color: provider.sonidoActivado ? const Color(0xFF00D9A5) : Colors.white54,
+              size: 28,
+            ),
+            tooltip: provider.sonidoActivado ? 'Sonido activado' : 'Activar sonido',
+          ),
+          IconButton(
             onPressed: provider.recargar,
             icon: const Icon(Icons.refresh, color: Colors.white54, size: 28),
             tooltip: 'Actualizar',
