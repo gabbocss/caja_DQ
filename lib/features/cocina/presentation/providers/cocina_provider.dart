@@ -17,6 +17,8 @@ class CocinaProvider extends ChangeNotifier {
   List<Pedido> _pedidos = [];
   List<Pedido> _pedidosFiltrados = [];
   List<DestinoImpresion> _destinos = [];
+  /// Mapa de destinos activos por ID (para filtrar por tipo sin tocar la UI).
+  final Map<int, DestinoImpresion> _destinosPorId = {};
   DestinoImpresion? _destinoSeleccionado;
   bool _cargando = false;
   String? _error;
@@ -136,14 +138,31 @@ class CocinaProvider extends ChangeNotifier {
   /// Carga los destinos disponibles (en web el stub no tiene DB; se deja lista vacía)
   Future<void> _cargarDestinos() async {
     try {
-      _destinos = await _db.obtenerDestinosActivos();
+      final destinosActivos = await _db.obtenerDestinosActivos();
+
+      _destinosPorId
+        ..clear()
+        ..addEntries(destinosActivos.where((d) => d.id != null).map((d) => MapEntry(d.id!, d)));
+
+      // En cocina solo deben aparecer destinos con salida a pantalla.
+      _destinos = destinosActivos
+          .where((d) => d.tipo == TipoDestino.pantalla || d.tipo == TipoDestino.ambos)
+          .toList();
+
+      // Selección por defecto: primer destino visible. Si el seleccionado deja de ser válido, se reajusta.
       if (_destinos.isNotEmpty) {
-        _destinoSeleccionado = _destinos.first;
+        if (_destinoSeleccionado == null ||
+            !_destinos.any((d) => d.id == _destinoSeleccionado!.id)) {
+          _destinoSeleccionado = _destinos.first;
+        }
+      } else {
+        _destinoSeleccionado = null;
       }
       notifyListeners();
     } catch (e) {
       debugPrint('Error al cargar destinos: $e');
       _destinos = [];
+      _destinosPorId.clear();
       _destinoSeleccionado = null;
       notifyListeners();
     }
@@ -165,33 +184,47 @@ class CocinaProvider extends ChangeNotifier {
 
   /// Filtra los pedidos según el destino seleccionado
   void _filtrarPedidosPorDestino() {
-    if (_destinoSeleccionado == null) {
-      _pedidosFiltrados = List.from(_pedidos);
-    } else {
-      // Filtrar pedidos que tengan items para este destino
-      _pedidosFiltrados = _pedidos.where((pedido) {
-        return pedido.items.any((item) => item.destinoId == _destinoSeleccionado!.id);
-      }).map((pedido) {
-        // Crear una copia del pedido solo con los items del destino
-        final pedidoFiltrado = Pedido()
-          ..id = pedido.id
-          ..mesaNumero = pedido.mesaNumero
-          ..items = pedido.items
-              .where((item) => item.destinoId == _destinoSeleccionado!.id)
-              .toList()
-          ..estado = pedido.estado
-          ..total = pedido.total
-          ..usuarioCamarero = pedido.usuarioCamarero
-          ..numeroComensales = pedido.numeroComensales
-          ..notas = pedido.notas
-          ..esBuffet = pedido.esBuffet
-          ..fechaCreacion = pedido.fechaCreacion
-          ..fechaActualizacion = pedido.fechaActualizacion
-          ..fechaCompletado = pedido.fechaCompletado;
-        
-        return pedidoFiltrado;
-      }).toList();
+    bool esItemVisibleEnCocina(ItemPedido item) {
+      final destinoId = item.destinoId;
+      if (destinoId == null) return true;
+      final destino = _destinosPorId[destinoId];
+      // Si no conocemos el destino (p.ej. en web sin DB), mantenemos el comportamiento anterior.
+      if (destino == null) return true;
+      return destino.tipo == TipoDestino.pantalla || destino.tipo == TipoDestino.ambos;
     }
+
+    List<ItemPedido> filtrarItems(Pedido pedido) {
+      final sel = _destinoSeleccionado;
+      if (sel == null) {
+        return pedido.items.where(esItemVisibleEnCocina).toList();
+      }
+      return pedido.items.where((item) => item.destinoId == sel.id).toList();
+    }
+
+    _pedidosFiltrados = _pedidos
+        .map((pedido) {
+          final items = filtrarItems(pedido);
+          if (items.isEmpty) return null;
+
+          // Crear una copia del pedido solo con los items filtrados
+          final pedidoFiltrado = Pedido()
+            ..id = pedido.id
+            ..mesaNumero = pedido.mesaNumero
+            ..items = items
+            ..estado = pedido.estado
+            ..total = pedido.total
+            ..usuarioCamarero = pedido.usuarioCamarero
+            ..numeroComensales = pedido.numeroComensales
+            ..notas = pedido.notas
+            ..esBuffet = pedido.esBuffet
+            ..fechaCreacion = pedido.fechaCreacion
+            ..fechaActualizacion = pedido.fechaActualizacion
+            ..fechaCompletado = pedido.fechaCompletado;
+
+          return pedidoFiltrado;
+        })
+        .whereType<Pedido>()
+        .toList();
   }
 
   /// Calcula líneas abiertas (agrupación por plato) excluyendo ítems ya asignados a líneas cerradas
