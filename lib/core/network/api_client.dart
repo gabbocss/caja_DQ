@@ -368,6 +368,32 @@ class ApiClient {
     }
   }
 
+  // ==================== DESTINOS ====================
+
+  /// Obtiene destinos activos del servidor (necesario en web donde no hay BD local).
+  Future<List<DestinoImpresion>> obtenerDestinosActivos() async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/destinos/activos'),
+        headers: {'Accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data
+            .map((item) =>
+                DestinoImpresion.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw Exception(
+            'Error al obtener destinos activos: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error en obtenerDestinosActivos: $e');
+      rethrow;
+    }
+  }
+
   /// Actualiza el estado de un ítem de un pedido
   Future<void> actualizarEstadoItem(
     int pedidoId,

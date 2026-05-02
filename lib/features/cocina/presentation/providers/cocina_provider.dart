@@ -135,11 +135,25 @@ class CocinaProvider extends ChangeNotifier {
     }
   }
 
-  /// Carga los destinos disponibles (en web el stub no tiene DB; se deja lista vacía)
+  /// Carga los destinos: BD local si existe; si no (p. ej. web), desde la API del servidor.
   Future<void> _cargarDestinos() async {
-    try {
-      final destinosActivos = await _db.obtenerDestinosActivos();
+    List<DestinoImpresion> destinosActivos = [];
 
+    try {
+      destinosActivos = await _db.obtenerDestinosActivos();
+    } catch (e) {
+      debugPrint('Destinos por BD local no disponibles: $e');
+    }
+
+    if (destinosActivos.isEmpty && sl.isRegistered<ApiClient>()) {
+      try {
+        destinosActivos = await sl<ApiClient>().obtenerDestinosActivos();
+      } catch (e) {
+        debugPrint('Error al cargar destinos por API: $e');
+      }
+    }
+
+    try {
       _destinosPorId
         ..clear()
         ..addEntries(destinosActivos.where((d) => d.id != null).map((d) => MapEntry(d.id!, d)));
@@ -178,7 +192,7 @@ class CocinaProvider extends ChangeNotifier {
   /// Ver todos los pedidos (sin filtro de destino)
   void verTodos() {
     _destinoSeleccionado = null;
-    _pedidosFiltrados = List.from(_pedidos);
+    _filtrarPedidosPorDestino();
     notifyListeners();
   }
 
