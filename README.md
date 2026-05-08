@@ -1,4 +1,4 @@
-# Sistema de Restaurante - Programa Caja
+# Sistema de Restaurante - Programa Caja DQ
 
 Sistema modular y escalable para gestión de restaurante desarrollado en Flutter con Clean Architecture.
 
