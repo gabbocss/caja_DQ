@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/core.dart';
+import '../../../../core/prefs/cocina_prefs.dart';
 import '../../domain/entities/linea_buffet.dart';
 import '../../domain/repositories/cocina_repository.dart';
 import '../../data/repositories/cocina_repository_impl.dart';
@@ -110,11 +111,32 @@ class CocinaProvider extends ChangeNotifier {
     } else {
       await _beeper.disable();
     }
+    try {
+      await setCocinaSonidoActivado(_sonidoActivado);
+    } catch (e) {
+      debugPrint('Guardar preferencia sonido cocina: $e');
+    }
     notifyListeners();
+  }
+
+  Future<void> _cargarPreferenciaSonido() async {
+    try {
+      final on = await getCocinaSonidoActivado();
+      _sonidoActivado = on;
+      if (on) {
+        await _beeper.enable();
+      } else {
+        await _beeper.disable();
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Leer preferencia sonido cocina: $e');
+    }
   }
 
   /// Inicializa el provider
   Future<void> _inicializar() async {
+    await _cargarPreferenciaSonido();
     await _cargarDestinos();
     await _ajustarModoBuffetPorHorario();
     _iniciarEscucha();
@@ -163,15 +185,16 @@ class CocinaProvider extends ChangeNotifier {
           .where((d) => d.tipo == TipoDestino.pantalla || d.tipo == TipoDestino.ambos)
           .toList();
 
-      // Selección por defecto: primer destino visible. Si el seleccionado deja de ser válido, se reajusta.
+      // Por defecto "TODOS" (sin chip). Solo se limpia si el destino elegido dejó de existir.
       if (_destinos.isNotEmpty) {
-        if (_destinoSeleccionado == null ||
+        if (_destinoSeleccionado != null &&
             !_destinos.any((d) => d.id == _destinoSeleccionado!.id)) {
-          _destinoSeleccionado = _destinos.first;
+          _destinoSeleccionado = null;
         }
       } else {
         _destinoSeleccionado = null;
       }
+      _filtrarPedidosPorDestino();
       notifyListeners();
     } catch (e) {
       debugPrint('Error al cargar destinos: $e');
@@ -486,7 +509,9 @@ class CocinaProvider extends ChangeNotifier {
       onError: (e) {
         _error = e.toString();
         notifyListeners();
+        _iniciarEscucha();
       },
+      cancelOnError: false,
     );
   }
 
@@ -591,6 +616,7 @@ class CocinaProvider extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _cargando = false;
+      _iniciarEscucha();
       notifyListeners();
     }
   }

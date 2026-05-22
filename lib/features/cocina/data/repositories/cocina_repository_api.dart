@@ -39,22 +39,16 @@ class CocinaRepositoryApi implements CocinaRepository {
   }
 
   @override
-  Stream<List<Pedido>> watchPedidosCocina() {
-    Future<List<Pedido>> fetch() async {
+  Stream<List<Pedido>> watchPedidosCocina() async* {
+    while (true) {
       try {
-        return await _api.obtenerPedidosCocina();
+        yield await _api.obtenerPedidosCocina();
       } catch (e, st) {
         debugPrint('Error al obtener pedidos cocina: $e');
         debugPrint('$st');
-        rethrow;
       }
+      await Future.delayed(_pollingInterval);
     }
-
-    return Stream.fromFuture(fetch()).asyncExpand((initial) {
-      return Stream.value(initial).asyncExpand((_) {
-        return Stream.periodic(_pollingInterval, (_) {}).asyncMap((_) => fetch());
-      });
-    });
   }
 
   @override
