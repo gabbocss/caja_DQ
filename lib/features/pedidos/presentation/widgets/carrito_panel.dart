@@ -28,6 +28,8 @@ class CarritoPanel extends StatelessWidget {
   final VoidCallback? onImprimirCuenta;
   /// Se llama al pulsar PAGOS (modal de formas de pago)
   final VoidCallback? onPagos;
+  /// Doble clic en CONSUMO ACTUAL para abrir edición de platos
+  final VoidCallback? onEditarConsumo;
   final bool enviando;
   final Set<int> productosAgotados; // IDs de productos agotados
 
@@ -47,6 +49,7 @@ class CarritoPanel extends StatelessWidget {
     this.onLiberar,
     this.onImprimirCuenta,
     this.onPagos,
+    this.onEditarConsumo,
     this.enviando = false,
     this.productosAgotados = const {},
   });
@@ -175,18 +178,7 @@ class CarritoPanel extends StatelessWidget {
         .toDouble();
     final hayPagosParciales = pagadoCuenta > 0.009 && pendienteCuenta > 0.009;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F3460),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF00D9A5).withValues(alpha: 0.5),
-          width: 1,
-        ),
-      ),
-      child: Column(
+    final contenido = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -194,65 +186,36 @@ class CarritoPanel extends StatelessWidget {
             children: [
               Icon(Icons.receipt_long, color: const Color(0xFF00D9A5), size: 18),
               const SizedBox(width: 6),
-              const Text(
-                'CONSUMO ACTUAL',
-                style: TextStyle(
-                  color: Color(0xFF00D9A5),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
+              const Expanded(
+                child: Text(
+                  'CONSUMO ACTUAL',
+                  style: TextStyle(
+                    color: Color(0xFF00D9A5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
                 ),
               ),
+              if (onEditarConsumo != null)
+                Icon(
+                  Icons.touch_app_outlined,
+                  size: 16,
+                  color: Colors.white.withValues(alpha: 0.35),
+                ),
             ],
           ),
-          const SizedBox(height: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 140),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: todosLosItems.length,
-              itemBuilder: (context, index) {
-                final item = todosLosItems[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${item.cantidad}×',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          item.nombreProducto,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        '\$${item.subtotal.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Color(0xFF00D9A5),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+          if (onEditarConsumo != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Doble clic para editar platos',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.35),
+                fontSize: 10,
+              ),
             ),
-          ),
-          const Divider(color: Color(0xFF00D9A5), height: 16),
+          ],
+          const SizedBox(height: 10),
           _lineaResumenCuenta('Subtotal cuenta', subtotalCuenta, destacado: false),
           if (hayPagosParciales) ...[
             const SizedBox(height: 6),
@@ -273,6 +236,22 @@ class CarritoPanel extends StatelessWidget {
           ] else
             _lineaResumenCuenta('Subtotal cuenta', subtotalCuenta, destacado: true),
         ],
+      );
+
+    return GestureDetector(
+      onDoubleTap: onEditarConsumo,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F3460),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFF00D9A5).withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+        child: contenido,
       ),
     );
   }

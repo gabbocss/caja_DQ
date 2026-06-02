@@ -9,6 +9,8 @@ import '../providers/pedidos_provider.dart';
 import '../widgets/categoria_selector.dart';
 import '../widgets/producto_grid.dart';
 import '../widgets/carrito_panel.dart';
+import '../widgets/dialogo_edicion_consumo.dart';
+import '../models/linea_consumo_editable.dart';
 
 /// Forma de pago elegida en el modal de cobro.
 enum MetodoPagoCuenta {
@@ -563,6 +565,80 @@ class _PedidosPageState extends State<PedidosPage> {
           item.nombreProducto == 'Buffet - Adulto' ||
           item.nombreProducto == 'Buffet - Niño');
     });
+  }
+
+  List<Pedido> _copiaPedidosParaEdicion() {
+    return _cuentaActual.map((p) => Pedido.fromJson(p.toJson())).toList();
+  }
+
+  Future<void> _abrirEdicionConsumo() async {
+    if (_cuentaActual.isEmpty || !mounted) return;
+    await DialogoEdicionConsumo.mostrar(
+      context: context,
+      mesaNumero: _mesaSeleccionada,
+      pedidos: _copiaPedidosParaEdicion(),
+      onEnviarModificaciones: _aplicarModificacionesConsumo,
+    );
+    if (!mounted) return;
+    await _cargarCuentaMesa(_mesaSeleccionada);
+    await _cargarMesasConCuentaAbierta();
+  }
+
+  /// Aplica cantidades/precios editados e imprime eliminaciones en cocina.
+  Future<void> _aplicarModificacionesConsumo(
+    List<LineaConsumoEditable> lineas,
+  ) async {
+    for (final linea in lineas) {
+      if (linea.cantidadEliminada > 0) {
+        await ImprimirPedidoService.instance.imprimirEliminacionCocina(
+          mesaNumero: _mesaSeleccionada,
+          nombrePlato: linea.nombreProducto,
+          cantidadEliminada: linea.cantidadEliminada,
+          destinoId: linea.destinoId,
+        );
+      }
+    }
+
+    final porPedido = <int, List<LineaConsumoEditable>>{};
+    for (final l in lineas) {
+      if (l.pedidoId == null) continue;
+      porPedido.putIfAbsent(l.pedidoId!, () => []).add(l);
+    }
+
+    for (final pedido in _cuentaActual) {
+      final id = pedido.id;
+      if (id == null || !porPedido.containsKey(id)) continue;
+
+      final lineasPedido = porPedido[id]!;
+      final nuevosItems = <ItemPedido>[];
+      for (final l in lineasPedido) {
+        if (l.cantidad <= 0) continue;
+        if (l.itemIndex >= pedido.items.length) continue;
+        final item = pedido.items[l.itemIndex];
+        item.cantidad = l.cantidad;
+        item.precioUnitario = l.precioUnitario;
+        nuevosItems.add(item);
+      }
+
+      pedido.items = nuevosItems;
+      pedido.calcularTotal(resetearPendiente: false);
+      pedido.normalizarTotalPendiente();
+
+      if (pedido.items.isEmpty) {
+        if (sl.isRegistered<ApiClient>()) {
+          await sl<ApiClient>().actualizarEstadoPedido(id, EstadoPedido.cancelado);
+        } else {
+          await DatabaseService.instance.actualizarEstadoPedido(
+            id,
+            EstadoPedido.cancelado,
+          );
+        }
+      } else if (sl.isRegistered<ApiClient>()) {
+        await sl<ApiClient>().guardarPedido(pedido);
+      } else {
+        await DatabaseService.instance.guardarPedido(pedido);
+      }
+    }
   }
 
   /// Persiste el cobro en servidor o BD local.
@@ -1332,6 +1408,9 @@ class _PedidosPageState extends State<PedidosPage> {
                     onLiberar: _mostrarDialogoLiberarMesa,
                     onImprimirCuenta: _imprimirTicketCuenta,
                     onPagos: _mostrarDialogoPagos,
+                    onEditarConsumo: _cuentaActual.isEmpty
+                        ? null
+                        : _abrirEdicionConsumo,
                     enviando: _enviando,
                     productosAgotados: _productosAgotados,
                   ),

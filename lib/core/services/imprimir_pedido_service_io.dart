@@ -606,6 +606,104 @@ class ImprimirPedidoService {
     await _enviarAImpresora(host, port, payload);
   }
 
+  /// Ticket de cocina por platos eliminados de la cuenta (formato acordado).
+  Future<void> imprimirEliminacionCocina({
+    required int mesaNumero,
+    required String nombrePlato,
+    required int cantidadEliminada,
+    int? destinoId,
+  }) async {
+    if (cantidadEliminada <= 0) return;
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    final texto =
+        'Mesa $mesaNumero - ELIMINADO: $nombrePlato x$cantidadEliminada - ¡NO HACER!';
+    final payload = await _generarPayloadAvisoCocina(config, texto);
+
+    final db = DatabaseService.instance;
+    final destinosAImprimir = <({String host, int port})>[];
+
+    if (destinoId != null) {
+      final destino = await db.obtenerDestinoPorId(destinoId);
+      if (destino != null) {
+        final tipo = destino.tipo;
+        if (tipo == TipoDestino.impresora || tipo == TipoDestino.ambos) {
+          final ip = destino.direccionImpresora?.trim();
+          if (ip != null && ip.isNotEmpty) {
+            destinosAImprimir.add((
+              host: ip,
+              port: destino.puertoImpresora ?? _puertoPorDefecto,
+            ));
+          }
+        }
+      }
+    }
+
+    if (destinosAImprimir.isEmpty) {
+      final todos = await db.obtenerDestinos();
+      for (final destino in todos) {
+        if (destino.tipo != TipoDestino.impresora &&
+            destino.tipo != TipoDestino.ambos) {
+          continue;
+        }
+        final ip = destino.direccionImpresora?.trim();
+        if (ip == null || ip.isEmpty) continue;
+        destinosAImprimir.add((
+          host: ip,
+          port: destino.puertoImpresora ?? _puertoPorDefecto,
+        ));
+      }
+    }
+
+    for (final d in destinosAImprimir) {
+      final ok = await _enviarAImpresora(d.host, d.port, payload);
+      if (!ok) {
+        debugPrint('No se pudo imprimir eliminación en ${d.host}:${d.port}');
+      }
+    }
+  }
+
+  Future<List<int>> _generarPayloadAvisoCocina(
+    ConfiguracionImpresion config,
+    String lineaPrincipal,
+  ) async {
+    final out = <int>[];
+    void add(List<int> bytes) => out.addAll(bytes);
+    void addStr(String s) => out.addAll(utf8.encode(s));
+
+    final margenEsp = _espaciosMargenIzq(config);
+    final sep = _lineaSeparadora(config);
+
+    add(_escInit);
+    for (var i = 0; i < config.margenSuperiorLineas; i++) addStr('\n');
+
+    add(_escBoldOn);
+    add(_escSizeDoubleBoth);
+    addStr(_aplicarMargen('$lineaPrincipal\n', margenEsp));
+    add(_escSizeNormal);
+    add(_escBoldOff);
+
+    addStr(_aplicarMargen('\n$sep\n', margenEsp));
+    if (config.mostrarFechaHora) {
+      final now = DateTime.now();
+      final fechaHora =
+          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')} '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      addStr(_aplicarMargen('$fechaHora\n', margenEsp));
+    }
+    for (var i = 0; i < config.margenInferiorLineas; i++) addStr('\n');
+
+    switch (config.tipoCorte) {
+      case 'parcial':
+        add(_escCutPartial);
+        break;
+      case 'ninguno':
+        break;
+      default:
+        add(_escCutFull);
+    }
+    return out;
+  }
+
   Future<void> imprimirPedido(Pedido pedido) async {
     if (pedido.items.isEmpty) return;
     final db = DatabaseService.instance;

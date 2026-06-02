@@ -24,6 +24,14 @@ class ImprimirPedidoService {
     double total,
   ) async {}
 
+  /// No-op en web/stub (aviso eliminación cocina).
+  Future<void> imprimirEliminacionCocina({
+    required int mesaNumero,
+    required String nombrePlato,
+    required int cantidadEliminada,
+    int? destinoId,
+  }) async {}
+
   /// No-op en web/stub (ticket pago parcial).
   Future<void> imprimirTicketPagoParcial({
     required int mesaNumero,
