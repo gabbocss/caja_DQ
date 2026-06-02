@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/core.dart';
+import '../../../../core/services/registro_pago_service.dart';
 import '../pages/pedidos_page.dart';
 
 /// Panel lateral del carrito de compras
@@ -25,6 +26,8 @@ class CarritoPanel extends StatelessWidget {
   final VoidCallback? onLiberar;
   /// Se llama al pulsar IMPRIMIR (ticket cuenta de la mesa)
   final VoidCallback? onImprimirCuenta;
+  /// Se llama al pulsar PAGOS (modal de formas de pago)
+  final VoidCallback? onPagos;
   final bool enviando;
   final Set<int> productosAgotados; // IDs de productos agotados
 
@@ -43,6 +46,7 @@ class CarritoPanel extends StatelessWidget {
     required this.onEnviar,
     this.onLiberar,
     this.onImprimirCuenta,
+    this.onPagos,
     this.enviando = false,
     this.productosAgotados = const {},
   });
@@ -158,10 +162,18 @@ class CarritoPanel extends StatelessWidget {
     }
     if (todosLosItems.isEmpty) return const SizedBox.shrink();
 
-    final totalConsumo = todosLosItems.fold<double>(
+    final subtotalCuenta = todosLosItems.fold<double>(
       0,
       (sum, item) => sum + item.subtotal,
     );
+    final pendienteCuenta = consumoActual.fold<double>(0, (sum, pedido) {
+      pedido.normalizarTotalPendiente();
+      return sum + pedido.totalPendienteSeguro;
+    });
+    final pagadoCuenta = (subtotalCuenta - pendienteCuenta)
+        .clamp(0, subtotalCuenta)
+        .toDouble();
+    final hayPagosParciales = pagadoCuenta > 0.009 && pendienteCuenta > 0.009;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -241,25 +253,56 @@ class CarritoPanel extends StatelessWidget {
             ),
           ),
           const Divider(color: Color(0xFF00D9A5), height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Subtotal cuenta',
-                style: TextStyle(color: Colors.white60, fontSize: 12),
+          _lineaResumenCuenta('Subtotal cuenta', subtotalCuenta, destacado: false),
+          if (hayPagosParciales) ...[
+            const SizedBox(height: 6),
+            _ResumenPagosPorMetodo(
+              key: ValueKey(
+                '$mesaSeleccionada-${pagadoCuenta.toStringAsFixed(2)}-'
+                '${pendienteCuenta.toStringAsFixed(2)}',
               ),
-              Text(
-                '\$${totalConsumo.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: Color(0xFF00D9A5),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+              mesaNumero: mesaSeleccionada,
+              consumoActual: consumoActual,
+            ),
+            const SizedBox(height: 6),
+            _lineaResumenCuenta(
+              'Total Restante',
+              pendienteCuenta,
+              destacado: true,
+            ),
+          ] else
+            _lineaResumenCuenta('Subtotal cuenta', subtotalCuenta, destacado: true),
         ],
       ),
+    );
+  }
+
+  Widget _lineaResumenCuenta(
+    String etiqueta,
+    double importe, {
+    bool destacado = false,
+    Color? color,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          etiqueta,
+          style: TextStyle(
+            color: color ?? (destacado ? Colors.white60 : Colors.white54),
+            fontSize: destacado ? 12 : 11,
+            fontWeight: destacado ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+        Text(
+          '\$${importe.toStringAsFixed(2)}',
+          style: TextStyle(
+            color: destacado ? const Color(0xFF00D9A5) : (color ?? Colors.white70),
+            fontSize: destacado ? 16 : 14,
+            fontWeight: destacado ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -425,50 +468,69 @@ class CarritoPanel extends StatelessWidget {
             const SizedBox(height: 12),
           ],
 
-          // Botón ENVIAR
+          // Botones ENVIAR y PAGOS (misma altura que LIBERAR / IMPRIMIR)
           SizedBox(
-            width: double.infinity,
-            height: 60,
-            child: ElevatedButton(
-              onPressed: enviando || items.isEmpty ? null : onEnviar,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE94560),
-                disabledBackgroundColor: const Color(0xFF1A1A2E),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 8,
-                shadowColor: const Color(0xFFE94560).withValues(alpha: 0.5),
-              ),
-              child: enviando
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
+            height: 52,
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: enviando || items.isEmpty ? null : onEnviar,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94560),
+                      disabledBackgroundColor: const Color(0xFF1A1A2E),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    )
-                  : const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.send,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        SizedBox(width: 12),
-                        Text(
-                          'ENVIAR',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ],
+                      elevation: 4,
+                      shadowColor: const Color(0xFFE94560).withValues(alpha: 0.5),
                     ),
+                    child: enviando
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'ENVIAR',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                  ),
+                ),
+                if (onPagos != null) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: enviando || consumoActual.isEmpty
+                          ? null
+                          : onPagos,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFBB86FC),
+                        side: const BorderSide(color: Color(0xFFBB86FC), width: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'PAGOS',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -866,4 +928,97 @@ class _CarritoItemTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Cobros parciales de la mesa desglosados por método (desde registros de caja).
+class _ResumenPagosPorMetodo extends StatefulWidget {
+  const _ResumenPagosPorMetodo({
+    super.key,
+    required this.mesaNumero,
+    required this.consumoActual,
+  });
+
+  final int mesaNumero;
+  final List<Pedido> consumoActual;
+
+  @override
+  State<_ResumenPagosPorMetodo> createState() => _ResumenPagosPorMetodoState();
+}
+
+class _ResumenPagosPorMetodoState extends State<_ResumenPagosPorMetodo> {
+  late Future<Map<String, double>> _totalesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _totalesFuture = _cargarTotales();
+  }
+
+  Future<Map<String, double>> _cargarTotales() {
+    DateTime? desde;
+    if (widget.consumoActual.isNotEmpty) {
+      var min = widget.consumoActual.first.fechaCreacion;
+      for (final p in widget.consumoActual) {
+        if (p.fechaCreacion.isBefore(min)) min = p.fechaCreacion;
+      }
+      desde = min;
+    }
+    return RegistroPagoService.instance.totalesPorMetodoEnMesa(
+      widget.mesaNumero,
+      desde: desde,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, double>>(
+      future: _totalesFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox(height: 18);
+        }
+        final totales = snapshot.data!;
+        final filas = <Widget>[];
+
+        void addSiPositivo(String etiqueta, double importe) {
+          if (importe <= 0.009) return;
+          if (filas.isNotEmpty) filas.add(const SizedBox(height: 4));
+          filas.add(_filaPagoMetodo(etiqueta, importe));
+        }
+
+        addSiPositivo('Efectivo', totales['efectivo'] ?? 0);
+        addSiPositivo('Tarjeta', totales['tarjeta'] ?? 0);
+        addSiPositivo('Otros', totales['otros'] ?? 0);
+
+        if (filas.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: filas,
+        );
+      },
+    );
+  }
+}
+
+Widget _filaPagoMetodo(String etiqueta, double importe) {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        etiqueta,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 11,
+        ),
+      ),
+      Text(
+        '\$${importe.toStringAsFixed(2)}',
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ],
+  );
 }

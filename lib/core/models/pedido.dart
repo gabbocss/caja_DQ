@@ -134,8 +134,12 @@ class Pedido {
   @Enumerated(EnumType.name)
   late EstadoPedido estado;
 
-  /// Total calculado del pedido
+  /// Total calculado del pedido (importes con IVA incluido)
   late double total;
+
+  /// Importe pendiente de cobro en este pedido (IVA incluido).
+  /// Al crear o recalcular la cuenta suele coincidir con [total]; los pagos parciales lo reducen.
+  late double totalPendiente;
 
   /// Identificador o nombre del camarero/mesero
   @Index()
@@ -184,6 +188,7 @@ class Pedido {
     this.esBuffet = false,
     this.origen = OrigenPedido.camarero,
   })  : total = 0,
+        totalPendiente = 0,
         fechaCreacion = DateTime.now(),
         fechaActualizacion = DateTime.now() {
     if (items.isEmpty) {
@@ -208,9 +213,55 @@ class Pedido {
     }
   }
 
-  /// Recalcula el total del pedido basándose en los items
-  void calcularTotal() {
+  /// Recalcula el total del pedido basándose en los items.
+  /// Si [resetearPendiente] es true, [totalPendiente] pasa a igualar [total] (pedido nuevo o cuenta sin pagos).
+  void calcularTotal({bool resetearPendiente = true}) {
     total = items.fold(0, (sum, item) => sum + item.subtotal);
+    if (resetearPendiente) {
+      totalPendiente = total;
+    }
+  }
+
+  /// Resta un importe cobrado del pendiente (pagos parciales o totales).
+  void aplicarPago(double importe) {
+    normalizarTotalPendiente();
+    final cobro = importe.clamp(0, totalPendiente).toDouble();
+    totalPendiente = (totalPendiente - cobro).clamp(0, total).toDouble();
+    fechaActualizacion = DateTime.now();
+  }
+
+  /// Indica si queda saldo por cobrar en este pedido.
+  @ignore
+  bool get tieneSaldoPendiente {
+    normalizarTotalPendiente();
+    return totalPendiente > 0.009;
+  }
+
+  /// Alinea [total] con los ítems y corrige [totalPendiente] (0, NaN, Infinity o > total).
+  void normalizarTotalPendiente() {
+    final totalItems = items.fold<double>(0, (sum, item) => sum + item.subtotal);
+    if (totalItems > 0.009) {
+      total = totalItems;
+    }
+
+    final invalido = totalPendiente.isNaN ||
+        totalPendiente.isInfinite ||
+        totalPendiente < 0;
+    if (invalido || (totalPendiente < 0.009 && total > 0.009)) {
+      totalPendiente = total;
+    } else if (totalPendiente > total + 0.009) {
+      totalPendiente = total;
+    }
+  }
+
+  /// Alias de [normalizarTotalPendiente] (compatibilidad).
+  void asegurarTotalPendienteInicializado() => normalizarTotalPendiente();
+
+  /// Importe seguro para UI y cobros (evita NaN/Infinity).
+  @ignore
+  double get totalPendienteSeguro {
+    normalizarTotalPendiente();
+    return totalPendiente;
   }
 
   /// Agrega un item al pedido y recalcula el total
@@ -257,6 +308,7 @@ class Pedido {
       'items': items.map((item) => item.toJson()).toList(),
       'estado': estado.name,
       'total': total,
+      'totalPendiente': totalPendiente,
       'usuarioCamarero': usuarioCamarero,
       'numeroComensales': numeroComensales,
       'notas': notas,
@@ -306,6 +358,11 @@ class Pedido {
       ..fechaListo = json['fechaListo'] != null
           ? DateTime.parse(json['fechaListo'] as String)
           : null;
+
+    final totalPedido = pedido.total;
+    pedido.totalPendiente =
+        (json['totalPendiente'] as num?)?.toDouble() ?? totalPedido;
+    pedido.normalizarTotalPendiente();
 
     if (json['id'] != null) {
       final v = json['id'];

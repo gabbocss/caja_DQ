@@ -3,11 +3,45 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/core.dart';
+import '../../../../core/services/registro_pago_service.dart';
 import '../../../estadisticas/data/estadisticas_service.dart';
 import '../providers/pedidos_provider.dart';
 import '../widgets/categoria_selector.dart';
 import '../widgets/producto_grid.dart';
 import '../widgets/carrito_panel.dart';
+
+/// Forma de pago elegida en el modal de cobro.
+enum MetodoPagoCuenta {
+  efectivo,
+  tarjeta,
+  otros,
+}
+
+extension MetodoPagoCuentaExt on MetodoPagoCuenta {
+  String get etiquetaImpresion {
+    switch (this) {
+      case MetodoPagoCuenta.efectivo:
+        return 'efectivo';
+      case MetodoPagoCuenta.tarjeta:
+        return 'tarjeta';
+      case MetodoPagoCuenta.otros:
+        return 'otros';
+    }
+  }
+
+  String get nombreUI {
+    switch (this) {
+      case MetodoPagoCuenta.efectivo:
+        return 'Efectivo';
+      case MetodoPagoCuenta.tarjeta:
+        return 'Tarjeta';
+      case MetodoPagoCuenta.otros:
+        return 'Otros';
+    }
+  }
+}
+
+enum _PasoDialogoPagos { menu, importe }
 
 /// Página principal de toma de pedidos (UI servidor / escritorio).
 /// En móvil el flujo usa [MesaPlatosPage], que mantiene el grid sin popularidad ni iconos compactos.
@@ -109,6 +143,9 @@ class _PedidosPageState extends State<PedidosPage> {
         pedidos = await sl<ApiClient>().obtenerCuentaMesa(numeroMesa);
       } else {
         pedidos = await DatabaseService.instance.obtenerCuentaMesa(numeroMesa);
+      }
+      for (final p in pedidos) {
+        p.normalizarTotalPendiente();
       }
       if (mounted) setState(() => _cuentaActual = pedidos);
     } catch (e) {
@@ -466,6 +503,615 @@ class _PedidosPageState extends State<PedidosPage> {
     }
   }
 
+  /// Importe válido para cobros/UI (rechaza NaN e Infinity).
+  double _importeCobroSeguro(double valor, double fallback) {
+    if (valor.isNaN || valor.isInfinite || valor < 0) return fallback;
+    return valor;
+  }
+
+  /// Total pendiente de la mesa (suma de totalPendiente de pedidos abiertos).
+  double get _totalPendienteMesa {
+    final fallback = _totalCuentaBrutaMesa();
+    final suma = _cuentaActual.fold<double>(0, (sum, p) {
+      p.normalizarTotalPendiente();
+      return sum + p.totalPendienteSeguro;
+    });
+    return _importeCobroSeguro(suma, fallback);
+  }
+
+  /// Corrige pendientes en memoria y los persiste antes de cobrar.
+  Future<void> _sincronizarPendientesCuentaMesa() async {
+    var huboCambios = false;
+    for (final p in _cuentaActual) {
+      final antes = p.totalPendiente;
+      p.normalizarTotalPendiente();
+      if ((antes - p.totalPendiente).abs() > 0.001 ||
+          antes.isNaN ||
+          antes.isInfinite) {
+        huboCambios = true;
+      }
+    }
+    if (huboCambios && !sl.isRegistered<ApiClient>()) {
+      final db = DatabaseService.instance;
+      for (final p in _cuentaActual) {
+        if (p.id != null) {
+          await db.guardarPedido(p);
+        }
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// Todos los ítems de la cuenta abierta de la mesa.
+  List<ItemPedido> _itemsCuentaMesa() {
+    final items = <ItemPedido>[];
+    for (final p in _cuentaActual) {
+      items.addAll(p.items);
+    }
+    return items;
+  }
+
+  /// Total bruto de la cuenta (suma de líneas, IVA incluido).
+  double _totalCuentaBrutaMesa() {
+    return _itemsCuentaMesa().fold<double>(0, (sum, i) => sum + i.subtotal);
+  }
+
+  bool _cuentaTieneBuffet() {
+    return _cuentaActual.any((p) {
+      if (p.esBuffet) return true;
+      return p.items.any((item) =>
+          item.nombreProducto == 'Buffet - Adulto' ||
+          item.nombreProducto == 'Buffet - Niño');
+    });
+  }
+
+  /// Persiste el cobro en servidor o BD local.
+  /// Devuelve `true` si fue pago total, `false` si parcial, `null` si hubo error.
+  Future<bool?> _aplicarCobroEnSistema({
+    required double importe,
+    required MetodoPagoCuenta metodo,
+    required bool pagoTotal,
+    double? importeRecibido,
+  }) async {
+    final numero = _mesaSeleccionada;
+    try {
+      if (sl.isRegistered<ApiClient>()) {
+        final res = await sl<ApiClient>().registrarPagoMesa(
+          numeroMesa: numero,
+          importe: importe,
+          metodo: metodo.name,
+          importeRecibido: importeRecibido,
+          pagoTotal: pagoTotal,
+        );
+        final lista = res['pedidos'] as List<dynamic>? ?? [];
+        if (mounted) {
+          setState(() {
+            _cuentaActual = lista
+                .map((e) => Pedido.fromJson(e as Map<String, dynamic>))
+                .toList();
+            for (final p in _cuentaActual) {
+              p.normalizarTotalPendiente();
+            }
+          });
+        }
+        await _cargarMesasConCuentaAbierta();
+        return res['esPagoTotal'] as bool? ?? false;
+      }
+
+      final db = DatabaseService.instance;
+      final pendienteAntes = await db.obtenerTotalPendienteMesa(numero);
+      final esTotal = pagoTotal || importe >= pendienteAntes - 0.009;
+      final double importeCobrado = esTotal
+          ? pendienteAntes
+          : importe.clamp(0, pendienteAntes).toDouble();
+
+      final double? vuelto = importeRecibido != null && esTotal
+          ? (importeRecibido - importeCobrado)
+              .clamp(0, double.infinity)
+              .toDouble()
+          : null;
+
+      double pendienteRestante;
+      if (esTotal) {
+        await db.liberarMesa(numero, isBuffetClose: _cuentaTieneBuffet());
+        pendienteRestante = 0;
+        if (mounted) setState(() => _cuentaActual = []);
+      } else {
+        pendienteRestante = await db.aplicarPagoMesa(numero, importeCobrado);
+        await _cargarCuentaMesa(numero);
+      }
+
+      await RegistroPagoService.instance.registrar(
+        RegistroPago(
+          fecha: DateTime.now(),
+          mesaNumero: numero,
+          metodo: metodo.name,
+          importeCobrado: importeCobrado,
+          esParcial: !esTotal,
+          importeRecibido: importeRecibido,
+          vuelto: vuelto,
+          pendienteRestante: pendienteRestante,
+        ),
+      );
+
+      await _cargarMesasConCuentaAbierta();
+      return esTotal;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al registrar pago: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<void> _imprimirTicketFinalCuenta(
+    List<ItemPedido> items,
+    double total,
+  ) async {
+    if (items.isEmpty) return;
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    if (!config.tieneImpresoraCuenta) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Configure la impresora de cuenta en Config > Impresora'),
+          backgroundColor: Color(0xFFFF9800),
+        ),
+      );
+      return;
+    }
+    await ImprimirPedidoService.instance.imprimirTicketCuentaMesa(
+      _mesaSeleccionada,
+      items,
+      total,
+    );
+  }
+
+  /// Confirma un cobro (parcial o total según importe vs pendiente).
+  Future<void> _confirmarCobro({
+    required MetodoPagoCuenta metodo,
+    required double importeIntroducido,
+    double? importeRecibidoEfectivo,
+  }) async {
+    if (importeIntroducido <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Introduzca un importe válido mayor que cero'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final pendienteAntes = _totalPendienteMesa;
+    final esPagoTotal = importeIntroducido >= pendienteAntes - 0.009;
+    final double importeACobrar = esPagoTotal
+        ? pendienteAntes
+        : importeIntroducido.clamp(0, pendienteAntes).toDouble();
+
+    final itemsAntes = _itemsCuentaMesa();
+    final totalBruto = _totalCuentaBrutaMesa();
+
+    final resultado = await _aplicarCobroEnSistema(
+      importe: importeACobrar,
+      metodo: metodo,
+      pagoTotal: esPagoTotal,
+      importeRecibido: importeRecibidoEfectivo,
+    );
+
+    if (!mounted || resultado == null) return;
+
+    if (resultado) {
+      try {
+        await _imprimirTicketFinalCuenta(itemsAntes, totalBruto);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cobro registrado; error al imprimir: $e'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+      if (!mounted) return;
+      final vuelto = metodo == MetodoPagoCuenta.efectivo &&
+              importeRecibidoEfectivo != null
+          ? (importeRecibidoEfectivo - importeACobrar).toDouble()
+          : 0.0;
+      final avisoTerminal = metodo == MetodoPagoCuenta.tarjeta
+          ? ' Cobre €${importeACobrar.toStringAsFixed(2)} en el terminal SumUp.'
+          : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            vuelto > 0.009
+                ? 'Cuenta cobrada. Vuelto: €${vuelto.toStringAsFixed(2)}$avisoTerminal'
+                : 'Cuenta cobrada y mesa liberada.$avisoTerminal',
+          ),
+          backgroundColor: const Color(0xFF00D9A5),
+          duration: metodo == MetodoPagoCuenta.tarjeta
+              ? const Duration(seconds: 5)
+              : const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Pago parcial
+    final pendienteDespues = _totalPendienteMesa;
+    try {
+      await ImprimirPedidoService.instance.imprimirTicketPagoParcial(
+        mesaNumero: _mesaSeleccionada,
+        items: itemsAntes,
+        totalCuenta: totalBruto,
+        importePagado: importeACobrar,
+        totalRestante: pendienteDespues,
+        metodoPagoEtiqueta: metodo.etiquetaImpresion,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pago registrado; error al imprimir: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+
+    if (!mounted) return;
+    final avisoTerminal = metodo == MetodoPagoCuenta.tarjeta
+        ? ' Cobre €${importeACobrar.toStringAsFixed(2)} en el terminal SumUp.'
+        : '';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Pago parcial ${metodo.nombreUI}: €${importeACobrar.toStringAsFixed(2)}. '
+          'Pendiente: €${pendienteDespues.toStringAsFixed(2)}.$avisoTerminal',
+        ),
+        backgroundColor: const Color(0xFF00D9A5),
+        duration: metodo == MetodoPagoCuenta.tarjeta
+            ? const Duration(seconds: 5)
+            : const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Modal de pagos con menú de métodos y pantalla de importe.
+  Future<void> _mostrarDialogoPagos() async {
+    if (_cuentaActual.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La mesa no tiene consumo para cobrar'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final importeController = TextEditingController();
+    MetodoPagoCuenta? metodoSeleccionado;
+    var paso = _PasoDialogoPagos.menu;
+    var procesando = false;
+
+    double? parseImporte() {
+      final t = importeController.text
+          .replaceAll(',', '.')
+          .trim()
+          .toLowerCase();
+      if (t.isEmpty || t == 'infinity' || t == 'nan') return null;
+      final v = double.tryParse(t);
+      if (v == null || v.isNaN || v.isInfinite || v < 0) return null;
+      return v;
+    }
+
+    await _sincronizarPendientesCuentaMesa();
+    if (!mounted) return;
+
+    final pendienteInicial = _totalPendienteMesa;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !procesando,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final pendiente = _importeCobroSeguro(
+              _totalPendienteMesa,
+              pendienteInicial,
+            );
+            final importe = parseImporte() ?? 0;
+            final pendienteValido =
+                pendiente.isFinite && pendiente > 0.009;
+            final esCobroTotal = pendienteValido &&
+                importe >= pendiente - 0.009 &&
+                importe > 0;
+            final double? vuelto = metodoSeleccionado == MetodoPagoCuenta.efectivo &&
+                    esCobroTotal
+                ? (importe - pendiente).toDouble()
+                : null;
+
+            Future<void> confirmar() async {
+              if (!pendienteValido) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                    content: Text('No hay importe pendiente válido en la mesa'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              final valor = parseImporte();
+              if (valor == null || valor <= 0) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                    content: Text('Introduzca un importe válido'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+              if (metodoSeleccionado == null) return;
+
+              setDialogState(() => procesando = true);
+
+              await _confirmarCobro(
+                metodo: metodoSeleccionado!,
+                importeIntroducido: valor,
+                importeRecibidoEfectivo:
+                    metodoSeleccionado == MetodoPagoCuenta.efectivo
+                        ? valor
+                        : null,
+              );
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            }
+
+            Widget contenido;
+            if (paso == _PasoDialogoPagos.menu) {
+              contenido = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Pendiente: €${pendiente.toStringAsFixed(2)}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF00D9A5),
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: procesando
+                        ? null
+                        : () => setDialogState(() {
+                              metodoSeleccionado = MetodoPagoCuenta.efectivo;
+                              paso = _PasoDialogoPagos.importe;
+                              if (pendiente.isFinite && pendiente > 0) {
+                                importeController.text =
+                                    pendiente.toStringAsFixed(2);
+                              } else {
+                                importeController.clear();
+                              }
+                            }),
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text('Efectivo'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D9A5),
+                      foregroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: procesando
+                        ? null
+                        : () => setDialogState(() {
+                              metodoSeleccionado = MetodoPagoCuenta.tarjeta;
+                              paso = _PasoDialogoPagos.importe;
+                              if (pendiente.isFinite && pendiente > 0) {
+                                importeController.text =
+                                    pendiente.toStringAsFixed(2);
+                              } else {
+                                importeController.clear();
+                              }
+                            }),
+                    icon: const Icon(Icons.credit_card),
+                    label: const Text('Tarjeta'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F3460),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: procesando
+                        ? null
+                        : () => setDialogState(() {
+                              metodoSeleccionado = MetodoPagoCuenta.otros;
+                              paso = _PasoDialogoPagos.importe;
+                              if (pendiente.isFinite && pendiente > 0) {
+                                importeController.text =
+                                    pendiente.toStringAsFixed(2);
+                              } else {
+                                importeController.clear();
+                              }
+                            }),
+                    icon: const Icon(Icons.more_horiz),
+                    label: const Text('Otros'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94560),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              final etiquetaMetodo = metodoSeleccionado?.nombreUI ?? '';
+              contenido = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '$etiquetaMetodo — Mesa $_mesaSeleccionada',
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Pendiente: €${pendiente.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Color(0xFF00D9A5),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: importeController,
+                    enabled: !procesando,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: metodoSeleccionado == MetodoPagoCuenta.efectivo
+                          ? 'Importe recibido'
+                          : 'Importe a cobrar',
+                      labelStyle: const TextStyle(color: Colors.white54),
+                      prefixText: '€ ',
+                      prefixStyle: const TextStyle(
+                        color: Color(0xFF00D9A5),
+                        fontSize: 22,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFF0F3460),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                  if (metodoSeleccionado == MetodoPagoCuenta.tarjeta) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Tras confirmar, cobre este importe manualmente en el terminal SumUp.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.blue.shade200,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                  if (importe > 0 && importe < pendiente - 0.009) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Pago parcial: quedarán €${(pendiente - importe).toStringAsFixed(2)} pendientes',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.orange.shade300,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                  if (vuelto != null && vuelto > 0.009) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00D9A5).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF00D9A5)),
+                      ),
+                      child: Text(
+                        'Vuelto a devolver: €${vuelto.toStringAsFixed(2)}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF00D9A5),
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: procesando ? null : confirmar,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFBB86FC),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: procesando
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            esCobroTotal ? 'Confirmar cobro total' : 'Confirmar pago parcial',
+                          ),
+                  ),
+                ],
+              );
+            }
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF16213E),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.payments, color: Color(0xFFBB86FC)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      paso == _PasoDialogoPagos.menu
+                          ? 'Pagos — Mesa $_mesaSeleccionada'
+                          : 'Cobro',
+                      style: const TextStyle(color: Colors.white, fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+              content: contenido,
+              actions: [
+                if (paso == _PasoDialogoPagos.importe)
+                  TextButton(
+                    onPressed: procesando
+                        ? null
+                        : () => setDialogState(() {
+                              paso = _PasoDialogoPagos.menu;
+                              importeController.clear();
+                            }),
+                    child: const Text('Atrás'),
+                  ),
+                TextButton(
+                  onPressed: procesando ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    importeController.dispose();
+  }
+
   /// Imprime el ticket de cuenta de la mesa (platos y total) en la impresora configurada.
   Future<void> _imprimirTicketCuenta() async {
     if (_cuentaActual.isEmpty || !mounted) return;
@@ -685,6 +1331,7 @@ class _PedidosPageState extends State<PedidosPage> {
                     onEnviar: _enviarPedido,
                     onLiberar: _mostrarDialogoLiberarMesa,
                     onImprimirCuenta: _imprimirTicketCuenta,
+                    onPagos: _mostrarDialogoPagos,
                     enviando: _enviando,
                     productosAgotados: _productosAgotados,
                   ),

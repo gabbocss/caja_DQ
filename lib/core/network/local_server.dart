@@ -14,6 +14,7 @@ import 'package:shelf_static/shelf_static.dart';
 import '../database/database_service.dart';
 import '../models/models.dart';
 import '../services/imprimir_pedido_service.dart';
+import '../services/registro_pago_service.dart';
 
 /// Servidor HTTP local para comunicación entre dispositivos
 /// 
@@ -653,6 +654,66 @@ class LocalServer {
         );
       } catch (e) {
         return _errorResponse('Error al obtener cuenta de mesa: $e');
+      }
+    });
+
+    // POST /api/mesas/pago - Cobro parcial o total sobre la cuenta abierta
+    router.post('/api/mesas/pago', (Request request) async {
+      try {
+        final body = await request.readAsString();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        final numero = data['numero'] as int;
+        final importe = (data['importe'] as num).toDouble();
+        final metodo = data['metodo'] as String;
+        final importeRecibido = (data['importeRecibido'] as num?)?.toDouble();
+        final pagoTotal = data['pagoTotal'] as bool? ?? false;
+
+        final pendienteAntes = await _db.obtenerTotalPendienteMesa(numero);
+        final esPagoTotal = pagoTotal || importe >= pendienteAntes - 0.009;
+        final double importeCobrado = esPagoTotal
+            ? pendienteAntes
+            : importe.clamp(0, pendienteAntes).toDouble();
+
+        double pendienteRestante;
+        if (esPagoTotal) {
+          pendienteRestante = 0;
+          final isBuffetClose = data['isBuffetClose'] as bool? ?? false;
+          await _db.liberarMesa(numero, isBuffetClose: isBuffetClose);
+        } else {
+          pendienteRestante = await _db.aplicarPagoMesa(numero, importeCobrado);
+        }
+
+        final double? vuelto = importeRecibido != null && esPagoTotal
+            ? (importeRecibido - importeCobrado)
+                .clamp(0, double.infinity)
+                .toDouble()
+            : null;
+
+        await RegistroPagoService.instance.registrar(
+          RegistroPago(
+            fecha: DateTime.now(),
+            mesaNumero: numero,
+            metodo: metodo,
+            importeCobrado: importeCobrado,
+            esParcial: !esPagoTotal,
+            importeRecibido: importeRecibido,
+            vuelto: vuelto,
+            pendienteRestante: pendienteRestante,
+          ),
+        );
+
+        final pedidos = await _db.obtenerCuentaMesa(numero);
+        return Response.ok(
+          jsonEncode({
+            'pendienteRestante': pendienteRestante,
+            'esPagoTotal': esPagoTotal,
+            'importeCobrado': importeCobrado,
+            'pedidos': pedidos.map((p) => p.toJson()).toList(),
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al registrar pago: $e');
       }
     });
 

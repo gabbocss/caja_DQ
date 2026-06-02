@@ -85,8 +85,13 @@ const PedidoSchema = CollectionSchema(
       name: r'total',
       type: IsarType.double,
     ),
-    r'usuarioCamarero': PropertySchema(
+    r'totalPendiente': PropertySchema(
       id: 13,
+      name: r'totalPendiente',
+      type: IsarType.double,
+    ),
+    r'usuarioCamarero': PropertySchema(
+      id: 14,
       name: r'usuarioCamarero',
       type: IsarType.string,
     )
@@ -208,7 +213,8 @@ void _pedidoSerialize(
   writer.writeLong(offsets[10], object.numeroComensales);
   writer.writeString(offsets[11], object.origen.name);
   writer.writeDouble(offsets[12], object.total);
-  writer.writeString(offsets[13], object.usuarioCamarero);
+  writer.writeDouble(offsets[13], object.totalPendiente);
+  writer.writeString(offsets[14], object.usuarioCamarero);
 }
 
 Pedido _pedidoDeserialize(
@@ -242,7 +248,8 @@ Pedido _pedidoDeserialize(
       _PedidoorigenValueEnumMap[reader.readStringOrNull(offsets[11])] ??
           OrigenPedido.camarero;
   object.total = reader.readDouble(offsets[12]);
-  object.usuarioCamarero = reader.readString(offsets[13]);
+  object.totalPendiente = reader.readDouble(offsets[13]);
+  object.usuarioCamarero = reader.readString(offsets[14]);
   return object;
 }
 
@@ -288,6 +295,8 @@ P _pedidoDeserializeProp<P>(
     case 12:
       return (reader.readDouble(offset)) as P;
     case 13:
+      return (reader.readDouble(offset)) as P;
+    case 14:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1771,6 +1780,68 @@ extension PedidoQueryFilter on QueryBuilder<Pedido, Pedido, QFilterCondition> {
     });
   }
 
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> totalPendienteEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'totalPendiente',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> totalPendienteGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'totalPendiente',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> totalPendienteLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'totalPendiente',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition> totalPendienteBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'totalPendiente',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QAfterFilterCondition> usuarioCamareroEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2061,6 +2132,18 @@ extension PedidoQuerySortBy on QueryBuilder<Pedido, Pedido, QSortBy> {
     });
   }
 
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByTotalPendiente() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalPendiente', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByTotalPendienteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalPendiente', Sort.desc);
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByUsuarioCamarero() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'usuarioCamarero', Sort.asc);
@@ -2232,6 +2315,18 @@ extension PedidoQuerySortThenBy on QueryBuilder<Pedido, Pedido, QSortThenBy> {
     });
   }
 
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> thenByTotalPendiente() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalPendiente', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> thenByTotalPendienteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalPendiente', Sort.desc);
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QAfterSortBy> thenByUsuarioCamarero() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'usuarioCamarero', Sort.asc);
@@ -2318,6 +2413,12 @@ extension PedidoQueryWhereDistinct on QueryBuilder<Pedido, Pedido, QDistinct> {
   QueryBuilder<Pedido, Pedido, QDistinct> distinctByTotal() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'total');
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QDistinct> distinctByTotalPendiente() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'totalPendiente');
     });
   }
 
@@ -2414,6 +2515,12 @@ extension PedidoQueryProperty on QueryBuilder<Pedido, Pedido, QQueryProperty> {
   QueryBuilder<Pedido, double, QQueryOperations> totalProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'total');
+    });
+  }
+
+  QueryBuilder<Pedido, double, QQueryOperations> totalPendienteProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'totalPendiente');
     });
   }
 

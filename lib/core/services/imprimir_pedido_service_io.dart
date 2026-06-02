@@ -406,6 +406,155 @@ class ImprimirPedidoService {
     return out;
   }
 
+  /// Ticket local de pago parcial: desglose, línea del cobro y pendiente restante.
+  Future<List<int>> _generarPayloadTicketPagoParcial(
+    ConfiguracionImpresion config,
+    int mesaNumero,
+    List<ItemPedido> items,
+    double totalCuenta,
+    double importePagado,
+    double totalRestante,
+    String metodoPagoEtiqueta,
+  ) async {
+    final out = <int>[];
+    void add(List<int> bytes) => out.addAll(bytes);
+    void addStr(String s) => out.addAll(utf8.encode(s));
+
+    final margenEsp = _espaciosMargenIzq(config);
+    final sep = _lineaSeparadora(config);
+    final usarNumerico = config.modoTamanio == 'numerico';
+
+    add(_escInit);
+    for (var i = 0; i < config.margenSuperiorLineas; i++) addStr('\n');
+
+    if (config.textoCabecera != null && config.textoCabecera!.isNotEmpty) {
+      addStr(_aplicarMargen('${config.textoCabecera!.trim()}\n', margenEsp));
+    }
+
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+    if (config.negritaCabecera) add(_escBoldOn);
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCabecera, config.escalaAltoCabecera));
+    } else {
+      add(_escTamanioCabecera(config));
+    }
+    addStr(_aplicarMargen('   PAGO PARCIAL\n', margenEsp));
+    addStr(_aplicarMargen('   MESA $mesaNumero\n', margenEsp));
+    if (!usarNumerico) add(_escSizeNormal);
+    add(_escBoldOff);
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+    addStr(_aplicarMargen('\n', margenEsp));
+
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCuerpo, config.escalaAltoCuerpo));
+    } else {
+      _aplicarTamanioCuerpo(config, add);
+    }
+    if (config.negritaCuerpo) add(_escBoldOn);
+
+    final itemsPorOrden = _agruparPorOrden(items);
+    final chSep = config.caracterSeparador.isEmpty ? '=' : config.caracterSeparador.substring(0, 1);
+    final sepCorta = chSep * (config.anchoCaracteres ~/ 2).clamp(12, 24);
+
+    for (final entry in itemsPorOrden.entries) {
+      final orden = entry.key;
+      final itemsTurno = entry.value;
+      addStr(_aplicarMargen('\n\n', margenEsp));
+      addStr(_aplicarMargen('$orden Plato\n', margenEsp));
+      addStr(_aplicarMargen('$sepCorta\n', margenEsp));
+      final agrupado = _agruparCantidadesConPrecio(itemsTurno);
+      final valores = agrupado.values.toList()
+        ..sort((a, b) => a.nombre.compareTo(b.nombre));
+      for (final e in valores) {
+        addStr(_formatearLineaCuentaConPrecio(
+          config: config,
+          margenEsp: margenEsp,
+          cantidad: e.cantidad,
+          nombre: e.nombre,
+          precioUnitario: e.precioUnitario,
+        ));
+      }
+    }
+
+    if (config.negritaCuerpo) add(_escBoldOff);
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      _resetTamanioCuerpo(add);
+    }
+
+    addStr(_aplicarMargen('\n', margenEsp));
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+    addStr(_aplicarMargen(
+      'Subtotal cuenta: ${totalCuenta.toStringAsFixed(2)}€\n',
+      margenEsp,
+    ));
+    addStr(_aplicarMargen(
+      '-${importePagado.toStringAsFixed(2)}€ Pago parcial $metodoPagoEtiqueta\n',
+      margenEsp,
+    ));
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+    if (config.negritaCabecera) add(_escBoldOn);
+    addStr(_aplicarMargen(
+      'Total Restante Pendiente: ${totalRestante.toStringAsFixed(2)}€\n',
+      margenEsp,
+    ));
+    add(_escBoldOff);
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+
+    if (config.mostrarFechaHora) {
+      final now = DateTime.now();
+      final fechaHora =
+          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')} '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      addStr(_aplicarMargen('$fechaHora\n', margenEsp));
+    }
+
+    if (config.textoPie != null && config.textoPie!.isNotEmpty) {
+      addStr(_aplicarMargen('${config.textoPie!.trim()}\n', margenEsp));
+    }
+
+    for (var i = 0; i < config.margenInferiorLineas; i++) addStr('\n');
+
+    switch (config.tipoCorte) {
+      case 'parcial':
+        add(_escCutPartial);
+        break;
+      case 'ninguno':
+        break;
+      default:
+        add(_escCutFull);
+    }
+
+    return out;
+  }
+
+  /// Imprime ticket de pago parcial en la impresora de cuenta.
+  Future<void> imprimirTicketPagoParcial({
+    required int mesaNumero,
+    required List<ItemPedido> items,
+    required double totalCuenta,
+    required double importePagado,
+    required double totalRestante,
+    required String metodoPagoEtiqueta,
+  }) async {
+    if (items.isEmpty) return;
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    if (!config.tieneImpresoraCuenta) return;
+    final host = config.impresoraCuentaIp!.trim();
+    final port = config.impresoraCuentaPuerto ?? _puertoPorDefecto;
+    final payload = await _generarPayloadTicketPagoParcial(
+      config,
+      mesaNumero,
+      items,
+      totalCuenta,
+      importePagado,
+      totalRestante,
+      metodoPagoEtiqueta,
+    );
+    await _enviarAImpresora(host, port, payload);
+  }
+
   /// Imprime el ticket de cuenta de la mesa (platos + total) en la impresora configurada para cuenta.
   /// Si no hay impresora de cuenta configurada, no hace nada.
   Future<void> imprimirTicketCuentaMesa(

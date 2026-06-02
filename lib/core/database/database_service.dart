@@ -744,8 +744,46 @@ class DatabaseService {
   /// Guarda o actualiza un pedido
   Future<int> guardarPedido(Pedido pedido) async {
     pedido.fechaActualizacion = DateTime.now();
-    pedido.calcularTotal();
+    pedido.calcularTotal(resetearPendiente: false);
+    pedido.normalizarTotalPendiente();
     return await isar.writeTxn(() => isar.pedidos.put(pedido));
+  }
+
+  /// Suma el importe pendiente de todos los pedidos abiertos de una mesa.
+  Future<double> obtenerTotalPendienteMesa(int numeroMesa) async {
+    final pedidos = await obtenerCuentaMesa(numeroMesa);
+    var suma = 0.0;
+    for (final p in pedidos) {
+      p.normalizarTotalPendiente();
+      suma += p.totalPendienteSeguro;
+    }
+    return suma;
+  }
+
+  /// Reparte un cobro entre los pedidos abiertos de la mesa (más antiguos primero).
+  /// Devuelve el pendiente restante tras aplicar el importe.
+  Future<double> aplicarPagoMesa(int numeroMesa, double importe) async {
+    final pedidos = await obtenerCuentaMesa(numeroMesa);
+    pedidos.sort((a, b) => a.fechaCreacion.compareTo(b.fechaCreacion));
+    var restanteCobro = importe;
+
+    await isar.writeTxn(() async {
+      for (final pedido in pedidos) {
+        if (restanteCobro <= 0.009) break;
+        pedido.normalizarTotalPendiente();
+        final pendientePedido = pedido.totalPendienteSeguro;
+        if (pendientePedido <= 0.009) continue;
+        final aplicar = restanteCobro < pendientePedido
+            ? restanteCobro
+            : pendientePedido;
+        pedido.aplicarPago(aplicar);
+        restanteCobro -= aplicar;
+        pedido.calcularTotal(resetearPendiente: false);
+        await isar.pedidos.put(pedido);
+      }
+    });
+
+    return obtenerTotalPendienteMesa(numeroMesa);
   }
 
   /// Actualiza el estado de un pedido

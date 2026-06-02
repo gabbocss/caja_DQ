@@ -55,6 +55,10 @@ class DatabaseService {
       _unsupported();
   Future<List<int>> obtenerMesasConCuentaAbierta() async => _unsupported();
   Future<int> guardarPedido(Pedido pedido) async => _unsupported();
+  Future<double> obtenerTotalPendienteMesa(int numeroMesa) async =>
+      _unsupported();
+  Future<double> aplicarPagoMesa(int numeroMesa, double importe) async =>
+      _unsupported();
   Future<void> actualizarEstadoPedido(int id, EstadoPedido nuevoEstado) async =>
       _unsupported();
   Stream<List<Pedido>> watchPedidosActivos() => _unsupported();

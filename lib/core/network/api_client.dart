@@ -191,6 +191,34 @@ class ApiClient {
     }
   }
 
+  /// Aplica un cobro parcial o total a la cuenta de la mesa en el servidor.
+  Future<Map<String, dynamic>> registrarPagoMesa({
+    required int numeroMesa,
+    required double importe,
+    required String metodo,
+    double? importeRecibido,
+    required bool pagoTotal,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/mesas/pago'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: json.encode({
+        'numero': numeroMesa,
+        'importe': importe,
+        'metodo': metodo,
+        if (importeRecibido != null) 'importeRecibido': importeRecibido,
+        'pagoTotal': pagoTotal,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al registrar pago: ${response.statusCode}');
+    }
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
   /// Libera una mesa: cierra la cuenta (marca pedidos como pagados) y deja la mesa libre
   Future<void> liberarMesa(int numeroMesa, {bool isBuffetClose = false}) async {
     try {

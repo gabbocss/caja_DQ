@@ -23,4 +23,14 @@ class ImprimirPedidoService {
     List<ItemPedido> items,
     double total,
   ) async {}
+
+  /// No-op en web/stub (ticket pago parcial).
+  Future<void> imprimirTicketPagoParcial({
+    required int mesaNumero,
+    required List<ItemPedido> items,
+    required double totalCuenta,
+    required double importePagado,
+    required double totalRestante,
+    required String metodoPagoEtiqueta,
+  }) async {}
 }
