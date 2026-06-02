@@ -79,6 +79,29 @@ class ImprimirPedidoService {
     return map;
   }
 
+  /// Texto seguro para impresoras termicas (ASCII): sin euro ni acentos.
+  String _textoImpresora(String texto) {
+    var s = texto.replaceAll('€', '');
+    const mapa = <String, String>{
+      'á': 'a', 'à': 'a', 'ä': 'a', 'â': 'a', 'ã': 'a',
+      'é': 'e', 'è': 'e', 'ë': 'e', 'ê': 'e',
+      'í': 'i', 'ì': 'i', 'ï': 'i', 'î': 'i',
+      'ó': 'o', 'ò': 'o', 'ö': 'o', 'ô': 'o', 'õ': 'o',
+      'ú': 'u', 'ù': 'u', 'ü': 'u', 'û': 'u',
+      'Á': 'A', 'À': 'A', 'Ä': 'A', 'Â': 'A', 'Ã': 'A',
+      'É': 'E', 'È': 'E', 'Ë': 'E', 'Ê': 'E',
+      'Í': 'I', 'Ì': 'I', 'Ï': 'I', 'Î': 'I',
+      'Ó': 'O', 'Ò': 'O', 'Ö': 'O', 'Ô': 'O', 'Õ': 'O',
+      'Ú': 'U', 'Ù': 'U', 'Ü': 'U', 'Û': 'U',
+      'ñ': 'n', 'Ñ': 'N',
+      'ç': 'c', 'Ç': 'C',
+    };
+    for (final e in mapa.entries) {
+      s = s.replaceAll(e.key, e.value);
+    }
+    return s.replaceAll(RegExp(r'[^\x20-\x7E\x0A\x0D\x09]'), '');
+  }
+
   String _formatearLineaCuentaConPrecio({
     required ConfiguracionImpresion config,
     required int margenEsp,
@@ -90,7 +113,8 @@ class ImprimirPedidoService {
     // Dejamos el margen para _aplicarMargen, aquí formateamos el contenido.
     // Formato: "<cant>x <nombre>" + (unit y subtotal alineados a la derecha)
     final subtotal = precioUnitario * cantidad;
-    final right = '${precioUnitario.toStringAsFixed(2)}€  ${subtotal.toStringAsFixed(2)}€';
+    final right =
+        '${precioUnitario.toStringAsFixed(2)}  ${subtotal.toStringAsFixed(2)}';
 
     // Reservar columna derecha. Si el ticket es estrecho, priorizar subtotal.
     final minRight = max(10, right.length);
@@ -102,9 +126,9 @@ class ImprimirPedidoService {
       if (leftW <= 1) {
         left = '';
       } else if (leftW == 2) {
-        left = '…';
+        left = '...';
       } else {
-        left = left.substring(0, leftW - 1) + '…';
+        left = '${left.substring(0, leftW - 3)}...';
       }
     }
     final line = left.padRight(leftW) + ' ' + right.padLeft(rightW);
@@ -184,7 +208,7 @@ class ImprimirPedidoService {
   ) async {
     final out = <int>[];
     void add(List<int> bytes) => out.addAll(bytes);
-    void addStr(String s) => out.addAll(utf8.encode(s));
+    void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
 
     final margenEsp = _espaciosMargenIzq(config);
     final sep = _lineaSeparadora(config);
@@ -294,7 +318,7 @@ class ImprimirPedidoService {
   ) async {
     final out = <int>[];
     void add(List<int> bytes) => out.addAll(bytes);
-    void addStr(String s) => out.addAll(utf8.encode(s));
+    void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
 
     final margenEsp = _espaciosMargenIzq(config);
     final sep = _lineaSeparadora(config);
@@ -377,7 +401,7 @@ class ImprimirPedidoService {
     addStr(_aplicarMargen('\n', margenEsp));
     addStr(_aplicarMargen('$sep\n', margenEsp));
     if (config.negritaCabecera) add(_escBoldOn);
-    addStr(_aplicarMargen('TOTAL: ${total.toStringAsFixed(2)}€\n', margenEsp));
+    addStr(_aplicarMargen('TOTAL: ${total.toStringAsFixed(2)}\n', margenEsp));
     add(_escBoldOff);
     addStr(_aplicarMargen('$sep\n', margenEsp));
 
@@ -418,7 +442,7 @@ class ImprimirPedidoService {
   ) async {
     final out = <int>[];
     void add(List<int> bytes) => out.addAll(bytes);
-    void addStr(String s) => out.addAll(utf8.encode(s));
+    void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
 
     final margenEsp = _espaciosMargenIzq(config);
     final sep = _lineaSeparadora(config);
@@ -486,17 +510,17 @@ class ImprimirPedidoService {
     addStr(_aplicarMargen('\n', margenEsp));
     addStr(_aplicarMargen('$sep\n', margenEsp));
     addStr(_aplicarMargen(
-      'Subtotal cuenta: ${totalCuenta.toStringAsFixed(2)}€\n',
+      'Subtotal cuenta: ${totalCuenta.toStringAsFixed(2)}\n',
       margenEsp,
     ));
     addStr(_aplicarMargen(
-      '-${importePagado.toStringAsFixed(2)}€ Pago parcial $metodoPagoEtiqueta\n',
+      '-${importePagado.toStringAsFixed(2)} Pago parcial $metodoPagoEtiqueta\n',
       margenEsp,
     ));
     addStr(_aplicarMargen('$sep\n', margenEsp));
     if (config.negritaCabecera) add(_escBoldOn);
     addStr(_aplicarMargen(
-      'Total Restante Pendiente: ${totalRestante.toStringAsFixed(2)}€\n',
+      'Total Restante Pendiente: ${totalRestante.toStringAsFixed(2)}\n',
       margenEsp,
     ));
     add(_escBoldOff);
@@ -668,7 +692,7 @@ class ImprimirPedidoService {
   ) async {
     final out = <int>[];
     void add(List<int> bytes) => out.addAll(bytes);
-    void addStr(String s) => out.addAll(utf8.encode(s));
+    void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
 
     final margenEsp = _espaciosMargenIzq(config);
     final sep = _lineaSeparadora(config);
