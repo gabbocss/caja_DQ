@@ -17,81 +17,86 @@ const PedidoSchema = CollectionSchema(
   name: r'Pedido',
   id: -6371224144056768827,
   properties: {
-    r'esBuffet': PropertySchema(
+    r'dineroCobradoAcumulado': PropertySchema(
       id: 0,
+      name: r'dineroCobradoAcumulado',
+      type: IsarType.double,
+    ),
+    r'esBuffet': PropertySchema(
+      id: 1,
       name: r'esBuffet',
       type: IsarType.bool,
     ),
     r'estado': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'estado',
       type: IsarType.string,
       enumMap: _PedidoestadoEnumValueMap,
     ),
     r'fechaActualizacion': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'fechaActualizacion',
       type: IsarType.dateTime,
     ),
     r'fechaCompletado': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'fechaCompletado',
       type: IsarType.dateTime,
     ),
     r'fechaCreacion': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'fechaCreacion',
       type: IsarType.dateTime,
     ),
     r'fechaInicioPreparacion': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'fechaInicioPreparacion',
       type: IsarType.dateTime,
     ),
     r'fechaListo': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'fechaListo',
       type: IsarType.dateTime,
     ),
     r'items': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'items',
       type: IsarType.objectList,
       target: r'ItemPedido',
     ),
     r'mesaNumero': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'mesaNumero',
       type: IsarType.long,
     ),
     r'notas': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'notas',
       type: IsarType.string,
     ),
     r'numeroComensales': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'numeroComensales',
       type: IsarType.long,
     ),
     r'origen': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'origen',
       type: IsarType.string,
       enumMap: _PedidoorigenEnumValueMap,
     ),
     r'total': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'total',
       type: IsarType.double,
     ),
     r'totalPendiente': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'totalPendiente',
       type: IsarType.double,
     ),
     r'usuarioCamarero': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'usuarioCamarero',
       type: IsarType.string,
     )
@@ -195,26 +200,27 @@ void _pedidoSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeBool(offsets[0], object.esBuffet);
-  writer.writeString(offsets[1], object.estado.name);
-  writer.writeDateTime(offsets[2], object.fechaActualizacion);
-  writer.writeDateTime(offsets[3], object.fechaCompletado);
-  writer.writeDateTime(offsets[4], object.fechaCreacion);
-  writer.writeDateTime(offsets[5], object.fechaInicioPreparacion);
-  writer.writeDateTime(offsets[6], object.fechaListo);
+  writer.writeDouble(offsets[0], object.dineroCobradoAcumulado);
+  writer.writeBool(offsets[1], object.esBuffet);
+  writer.writeString(offsets[2], object.estado.name);
+  writer.writeDateTime(offsets[3], object.fechaActualizacion);
+  writer.writeDateTime(offsets[4], object.fechaCompletado);
+  writer.writeDateTime(offsets[5], object.fechaCreacion);
+  writer.writeDateTime(offsets[6], object.fechaInicioPreparacion);
+  writer.writeDateTime(offsets[7], object.fechaListo);
   writer.writeObjectList<ItemPedido>(
-    offsets[7],
+    offsets[8],
     allOffsets,
     ItemPedidoSchema.serialize,
     object.items,
   );
-  writer.writeLong(offsets[8], object.mesaNumero);
-  writer.writeString(offsets[9], object.notas);
-  writer.writeLong(offsets[10], object.numeroComensales);
-  writer.writeString(offsets[11], object.origen.name);
-  writer.writeDouble(offsets[12], object.total);
-  writer.writeDouble(offsets[13], object.totalPendiente);
-  writer.writeString(offsets[14], object.usuarioCamarero);
+  writer.writeLong(offsets[9], object.mesaNumero);
+  writer.writeString(offsets[10], object.notas);
+  writer.writeLong(offsets[11], object.numeroComensales);
+  writer.writeString(offsets[12], object.origen.name);
+  writer.writeDouble(offsets[13], object.total);
+  writer.writeDouble(offsets[14], object.totalPendiente);
+  writer.writeString(offsets[15], object.usuarioCamarero);
 }
 
 Pedido _pedidoDeserialize(
@@ -224,32 +230,33 @@ Pedido _pedidoDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = Pedido();
-  object.esBuffet = reader.readBool(offsets[0]);
+  object.dineroCobradoAcumulado = reader.readDouble(offsets[0]);
+  object.esBuffet = reader.readBool(offsets[1]);
   object.estado =
-      _PedidoestadoValueEnumMap[reader.readStringOrNull(offsets[1])] ??
+      _PedidoestadoValueEnumMap[reader.readStringOrNull(offsets[2])] ??
           EstadoPedido.pendiente;
-  object.fechaActualizacion = reader.readDateTime(offsets[2]);
-  object.fechaCompletado = reader.readDateTimeOrNull(offsets[3]);
-  object.fechaCreacion = reader.readDateTime(offsets[4]);
-  object.fechaInicioPreparacion = reader.readDateTimeOrNull(offsets[5]);
-  object.fechaListo = reader.readDateTimeOrNull(offsets[6]);
+  object.fechaActualizacion = reader.readDateTime(offsets[3]);
+  object.fechaCompletado = reader.readDateTimeOrNull(offsets[4]);
+  object.fechaCreacion = reader.readDateTime(offsets[5]);
+  object.fechaInicioPreparacion = reader.readDateTimeOrNull(offsets[6]);
+  object.fechaListo = reader.readDateTimeOrNull(offsets[7]);
   object.id = id;
   object.items = reader.readObjectList<ItemPedido>(
-        offsets[7],
+        offsets[8],
         ItemPedidoSchema.deserialize,
         allOffsets,
         ItemPedido(),
       ) ??
       [];
-  object.mesaNumero = reader.readLong(offsets[8]);
-  object.notas = reader.readStringOrNull(offsets[9]);
-  object.numeroComensales = reader.readLongOrNull(offsets[10]);
+  object.mesaNumero = reader.readLong(offsets[9]);
+  object.notas = reader.readStringOrNull(offsets[10]);
+  object.numeroComensales = reader.readLongOrNull(offsets[11]);
   object.origen =
-      _PedidoorigenValueEnumMap[reader.readStringOrNull(offsets[11])] ??
+      _PedidoorigenValueEnumMap[reader.readStringOrNull(offsets[12])] ??
           OrigenPedido.camarero;
-  object.total = reader.readDouble(offsets[12]);
-  object.totalPendiente = reader.readDouble(offsets[13]);
-  object.usuarioCamarero = reader.readString(offsets[14]);
+  object.total = reader.readDouble(offsets[13]);
+  object.totalPendiente = reader.readDouble(offsets[14]);
+  object.usuarioCamarero = reader.readString(offsets[15]);
   return object;
 }
 
@@ -261,21 +268,23 @@ P _pedidoDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 1:
+      return (reader.readBool(offset)) as P;
+    case 2:
       return (_PedidoestadoValueEnumMap[reader.readStringOrNull(offset)] ??
           EstadoPedido.pendiente) as P;
-    case 2:
-      return (reader.readDateTime(offset)) as P;
     case 3:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 4:
       return (reader.readDateTime(offset)) as P;
-    case 5:
+    case 4:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 5:
+      return (reader.readDateTime(offset)) as P;
     case 6:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 7:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 8:
       return (reader.readObjectList<ItemPedido>(
             offset,
             ItemPedidoSchema.deserialize,
@@ -283,20 +292,20 @@ P _pedidoDeserializeProp<P>(
             ItemPedido(),
           ) ??
           []) as P;
-    case 8:
-      return (reader.readLong(offset)) as P;
     case 9:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 10:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
+      return (reader.readLongOrNull(offset)) as P;
+    case 12:
       return (_PedidoorigenValueEnumMap[reader.readStringOrNull(offset)] ??
           OrigenPedido.camarero) as P;
-    case 12:
-      return (reader.readDouble(offset)) as P;
     case 13:
       return (reader.readDouble(offset)) as P;
     case 14:
+      return (reader.readDouble(offset)) as P;
+    case 15:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -704,6 +713,72 @@ extension PedidoQueryWhere on QueryBuilder<Pedido, Pedido, QWhereClause> {
 }
 
 extension PedidoQueryFilter on QueryBuilder<Pedido, Pedido, QFilterCondition> {
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      dineroCobradoAcumuladoEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'dineroCobradoAcumulado',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      dineroCobradoAcumuladoGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'dineroCobradoAcumulado',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      dineroCobradoAcumuladoLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'dineroCobradoAcumulado',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterFilterCondition>
+      dineroCobradoAcumuladoBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'dineroCobradoAcumulado',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QAfterFilterCondition> esBuffetEqualTo(
       bool value) {
     return QueryBuilder.apply(this, (query) {
@@ -1987,6 +2062,19 @@ extension PedidoQueryObject on QueryBuilder<Pedido, Pedido, QFilterCondition> {
 extension PedidoQueryLinks on QueryBuilder<Pedido, Pedido, QFilterCondition> {}
 
 extension PedidoQuerySortBy on QueryBuilder<Pedido, Pedido, QSortBy> {
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByDineroCobradoAcumulado() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dineroCobradoAcumulado', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy>
+      sortByDineroCobradoAcumuladoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dineroCobradoAcumulado', Sort.desc);
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QAfterSortBy> sortByEsBuffet() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'esBuffet', Sort.asc);
@@ -2158,6 +2246,19 @@ extension PedidoQuerySortBy on QueryBuilder<Pedido, Pedido, QSortBy> {
 }
 
 extension PedidoQuerySortThenBy on QueryBuilder<Pedido, Pedido, QSortThenBy> {
+  QueryBuilder<Pedido, Pedido, QAfterSortBy> thenByDineroCobradoAcumulado() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dineroCobradoAcumulado', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Pedido, Pedido, QAfterSortBy>
+      thenByDineroCobradoAcumuladoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dineroCobradoAcumulado', Sort.desc);
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QAfterSortBy> thenByEsBuffet() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'esBuffet', Sort.asc);
@@ -2341,6 +2442,12 @@ extension PedidoQuerySortThenBy on QueryBuilder<Pedido, Pedido, QSortThenBy> {
 }
 
 extension PedidoQueryWhereDistinct on QueryBuilder<Pedido, Pedido, QDistinct> {
+  QueryBuilder<Pedido, Pedido, QDistinct> distinctByDineroCobradoAcumulado() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'dineroCobradoAcumulado');
+    });
+  }
+
   QueryBuilder<Pedido, Pedido, QDistinct> distinctByEsBuffet() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'esBuffet');
@@ -2435,6 +2542,13 @@ extension PedidoQueryProperty on QueryBuilder<Pedido, Pedido, QQueryProperty> {
   QueryBuilder<Pedido, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<Pedido, double, QQueryOperations>
+      dineroCobradoAcumuladoProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'dineroCobradoAcumulado');
     });
   }
 

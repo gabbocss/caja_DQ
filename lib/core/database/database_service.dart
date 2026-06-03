@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../constants/app_constants.dart';
 import '../models/models.dart';
+import '../services/registro_pago_service.dart';
 
 /// Servicio singleton para gestionar la base de datos Isar
 /// 
@@ -72,6 +73,7 @@ class DatabaseService {
           CategoriaSchema,
           CarritoQrMesaSchema,
           BuffetLimiteQrMesaSchema,
+          ReservaSchema,
         ],
         directory: dbPath,
         name: 'restaurante',
@@ -648,6 +650,7 @@ class DatabaseService {
       }
     });
     await actualizarEstadoMesa(numeroMesa, EstadoMesa.libre);
+    await RegistroPagoService.instance.archivarPagosMesa(numeroMesa);
     // No se devuelve stock: es cierre de cuenta (buffet o no), consumo ya realizado
   }
 
@@ -741,12 +744,25 @@ class DatabaseService {
     return mesas.toList()..sort();
   }
 
-  /// Guarda o actualiza un pedido
+  /// Guarda o actualiza un pedido y recalcula pendiente desde Isar.
   Future<int> guardarPedido(Pedido pedido) async {
-    pedido.fechaActualizacion = DateTime.now();
-    pedido.calcularTotal(resetearPendiente: false);
-    pedido.normalizarTotalPendiente();
-    return await isar.writeTxn(() => isar.pedidos.put(pedido));
+    pedido.actualizarPendienteDesdeCobrosAcumulados();
+    final id = await isar.writeTxn(() => isar.pedidos.put(pedido));
+    await sincronizarPendienteMesaDesdeCobros(pedido.mesaNumero);
+    return id;
+  }
+
+  /// totalPendiente = total − dineroCobradoAcumulado (dato vivo en Isar).
+  Future<void> sincronizarPendienteMesaDesdeCobros(int numeroMesa) async {
+    final pedidos = await obtenerCuentaMesa(numeroMesa);
+    if (pedidos.isEmpty) return;
+
+    await isar.writeTxn(() async {
+      for (final pedido in pedidos) {
+        pedido.actualizarPendienteDesdeCobrosAcumulados();
+        await isar.pedidos.put(pedido);
+      }
+    });
   }
 
   /// Suma el importe pendiente de todos los pedidos abiertos de una mesa.
@@ -776,9 +792,9 @@ class DatabaseService {
         final aplicar = restanteCobro < pendientePedido
             ? restanteCobro
             : pendientePedido;
-        pedido.aplicarPago(aplicar);
+        pedido.dineroCobradoAcumulado += aplicar;
+        pedido.actualizarPendienteDesdeCobrosAcumulados();
         restanteCobro -= aplicar;
-        pedido.calcularTotal(resetearPendiente: false);
         await isar.pedidos.put(pedido);
       }
     });
@@ -1405,6 +1421,57 @@ class DatabaseService {
     final config = await obtenerConfiguracionBuffetActiva();
     if (config == null) return null;
     return config.obtenerPrecioPorEdad(edad);
+  }
+
+  // ==================== OPERACIONES DE RESERVAS ====================
+
+  Future<int> guardarReserva(Reserva reserva) async {
+    reserva.fechaActualizacion = DateTime.now();
+    if (reserva.fechaCreacion.millisecondsSinceEpoch == 0) {
+      reserva.fechaCreacion = DateTime.now();
+    }
+    return await isar.writeTxn(() => isar.reservas.put(reserva));
+  }
+
+  Future<Reserva?> obtenerReservaPorId(int id) async {
+    return await isar.reservas.get(id);
+  }
+
+  Future<List<Reserva>> obtenerReservasPendientes() async {
+    return await isar.reservas
+        .filter()
+        .estadoEqualTo(EstadoReserva.pendiente)
+        .sortByFechaHoraLlegada()
+        .findAll();
+  }
+
+  Future<List<Reserva>> obtenerTodasReservas() async {
+    return await isar.reservas.where().sortByFechaHoraLlegada().findAll();
+  }
+
+  /// Upsert de reservas descargadas del servidor central (remoto manda en sync).
+  Future<void> fusionarReservasRemotas(List<Reserva> remotas) async {
+    await isar.writeTxn(() async {
+      for (final remota in remotas) {
+        if (remota.id != null) {
+          final local = await isar.reservas.get(remota.id!);
+          if (local != null) {
+            remota.fechaCreacion = local.fechaCreacion;
+          }
+        }
+        await isar.reservas.put(remota);
+      }
+    });
+  }
+
+  Future<void> actualizarEstadoReserva(int id, EstadoReserva estado,
+      {int? mesaAsignada}) async {
+    final reserva = await isar.reservas.get(id);
+    if (reserva == null) return;
+    reserva.estado = estado;
+    if (mesaAsignada != null) reserva.mesaAsignada = mesaAsignada;
+    reserva.fechaActualizacion = DateTime.now();
+    await isar.writeTxn(() => isar.reservas.put(reserva));
   }
 
   /// Inicializa configuración por defecto del buffet si no existe

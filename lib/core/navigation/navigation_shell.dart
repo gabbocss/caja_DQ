@@ -92,16 +92,17 @@ class NavigationShell extends StatelessWidget {
   }
 
   int _getSelectedIndex(String location) {
-    if (location.startsWith(AppRoutes.cocina)) return _isWebFlow ? 0 : 1;
+    if (location.startsWith(AppRoutes.cocina)) return _isWebFlow ? 0 : 2;
     if (_isMobileFlow) {
       if (location.startsWith(AppRoutes.configurarConexion)) return 2;
       if (location.startsWith(AppRoutes.wifiQr)) return 3;
-      return 0; // Mesas (0), Cocina (1), Servidor (2), WiFi (3)
+      return 0;
     }
-    if (location.startsWith(AppRoutes.configuracion)) return _isWebFlow ? 1 : 2;
-    if (location.startsWith(AppRoutes.wifiQr)) return 3; // desktop: WiFi (4º tab)
-    if (location.startsWith(AppRoutes.estadisticas)) return 4; // desktop: Estadísticas (5º tab)
-    return _isWebFlow ? 0 : 0; // web: cocina=0; desktop: pedidos=0
+    if (location.startsWith(AppRoutes.reservas)) return 1;
+    if (location.startsWith(AppRoutes.configuracion)) return _isWebFlow ? 1 : 3;
+    if (location.startsWith(AppRoutes.wifiQr)) return 4;
+    if (location.startsWith(AppRoutes.estadisticas)) return 5;
+    return _isWebFlow ? 0 : 0;
   }
 
   /// En web solo mostramos Cocina y Config (no hay Pedidos ni DB local).
@@ -141,15 +142,18 @@ class NavigationShell extends StatelessWidget {
         context.go(AppRoutes.pedidos);
         break;
       case 1:
-        context.go(AppRoutes.cocina);
+        context.go(AppRoutes.reservas);
         break;
       case 2:
-        context.go(AppRoutes.configuracion);
+        context.go(AppRoutes.cocina);
         break;
       case 3:
-        context.go(AppRoutes.wifiQr);
+        context.go(AppRoutes.configuracion);
         break;
       case 4:
+        context.go(AppRoutes.wifiQr);
+        break;
+      case 5:
         context.go(AppRoutes.estadisticas);
         break;
     }
@@ -203,6 +207,12 @@ class NavigationShell extends StatelessWidget {
                   icon: Icon(Icons.receipt_long_outlined),
                   selectedIcon: Icon(Icons.receipt_long),
                   label: Text('Pedidos'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.event_seat_outlined),
+                  selectedIcon: Icon(Icons.event_seat),
+                  label: Text('Reservas'),
                   padding: EdgeInsets.symmetric(vertical: 8),
                 ),
                 NavigationRailDestination(
@@ -280,7 +290,7 @@ class NavigationShell extends StatelessWidget {
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
-    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 4); // desktop: 5 tabs (Pedidos,Cocina,Config,WiFi,Estadísticas)
+    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 5);
     final safeIndex = selectedIndex.clamp(0, maxIndex);
 
     return Container(
@@ -313,10 +323,11 @@ class NavigationShell extends StatelessWidget {
                       ]
                     : [
                         _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Pedidos'),
-                        _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
-                        _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
-                        _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi'),
-                        _buildNavItem(context, index: 4, selectedIndex: safeIndex, icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Estadísticas'),
+                        _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.event_seat_outlined, selectedIcon: Icons.event_seat, label: 'Reservas'),
+                        _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina'),
+                        _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
+                        _buildNavItem(context, index: 4, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi'),
+                        _buildNavItem(context, index: 5, selectedIndex: safeIndex, icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Estadísticas'),
                       ],
           ),
         ),

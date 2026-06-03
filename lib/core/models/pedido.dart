@@ -141,6 +141,9 @@ class Pedido {
   /// Al crear o recalcular la cuenta suele coincidir con [total]; los pagos parciales lo reducen.
   late double totalPendiente;
 
+  /// Cobros parciales acumulados en esta sesión de cuenta (persistido en Isar).
+  late double dineroCobradoAcumulado;
+
   /// Identificador o nombre del camarero/mesero
   @Index()
   late String usuarioCamarero;
@@ -189,6 +192,7 @@ class Pedido {
     this.origen = OrigenPedido.camarero,
   })  : total = 0,
         totalPendiente = 0,
+        dineroCobradoAcumulado = 0,
         fechaCreacion = DateTime.now(),
         fechaActualizacion = DateTime.now() {
     if (items.isEmpty) {
@@ -235,6 +239,19 @@ class Pedido {
   bool get tieneSaldoPendiente {
     normalizarTotalPendiente();
     return totalPendiente > 0.009;
+  }
+
+  /// Recalcula [total] como suma estricta de subtotales de ítems.
+  void recalcularTotalDesdeItems() {
+    total = items.fold<double>(0, (sum, item) => sum + item.subtotal);
+    fechaActualizacion = DateTime.now();
+  }
+
+  /// Recalcula [total] y deja [totalPendiente] = total − [dineroCobradoAcumulado].
+  void actualizarPendienteDesdeCobrosAcumulados() {
+    recalcularTotalDesdeItems();
+    totalPendiente =
+        (total - dineroCobradoAcumulado).clamp(0, total).toDouble();
   }
 
   /// Alinea [total] con los ítems y corrige [totalPendiente] (0, NaN, Infinity o > total).
@@ -309,6 +326,7 @@ class Pedido {
       'estado': estado.name,
       'total': total,
       'totalPendiente': totalPendiente,
+      'dineroCobradoAcumulado': dineroCobradoAcumulado,
       'usuarioCamarero': usuarioCamarero,
       'numeroComensales': numeroComensales,
       'notas': notas,
@@ -360,9 +378,11 @@ class Pedido {
           : null;
 
     final totalPedido = pedido.total;
+    pedido.dineroCobradoAcumulado =
+        (json['dineroCobradoAcumulado'] as num?)?.toDouble() ?? 0;
     pedido.totalPendiente =
         (json['totalPendiente'] as num?)?.toDouble() ?? totalPedido;
-    pedido.normalizarTotalPendiente();
+    pedido.actualizarPendienteDesdeCobrosAcumulados();
 
     if (json['id'] != null) {
       final v = json['id'];

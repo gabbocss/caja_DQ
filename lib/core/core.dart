@@ -28,6 +28,9 @@ export 'prefs/server_url_prefs.dart';
 export 'services/imprimir_pedido_service.dart';
 export 'services/configuracion_impresion_service.dart';
 export 'services/beeper/beeper.dart';
+export 'services/reserva_persistence_service.dart';
+export 'services/reserva_sync_service.dart';
+export 'prefs/reservas_central_prefs.dart';
 
 // Navegación
 export 'navigation/app_router.dart';

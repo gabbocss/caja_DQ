@@ -1,0 +1,13 @@
+{
+  "name": "programa-caja-reservas-central",
+  "version": "1.0.0",
+  "description": "API HTTP de reservas 24/7 (compatible con programa_caja ApiClient)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

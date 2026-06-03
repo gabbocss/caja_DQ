@@ -32,6 +32,11 @@ class LineaConsumoEditable {
     return diff > 0 ? diff : 0;
   }
 
+  int get cantidadAnadida {
+    final diff = cantidad - cantidadOriginal;
+    return diff > 0 ? diff : 0;
+  }
+
   bool get huboCambioCantidad => cantidad != cantidadOriginal;
   bool get huboCambioPrecio => (precioUnitario - precioOriginal).abs() > 0.001;
   bool get huboCambio => huboCambioCantidad || huboCambioPrecio;

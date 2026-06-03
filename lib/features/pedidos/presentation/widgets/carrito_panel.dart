@@ -934,17 +934,8 @@ class _ResumenPagosPorMetodoState extends State<_ResumenPagosPorMetodo> {
   }
 
   Future<Map<String, double>> _cargarTotales() {
-    DateTime? desde;
-    if (widget.consumoActual.isNotEmpty) {
-      var min = widget.consumoActual.first.fechaCreacion;
-      for (final p in widget.consumoActual) {
-        if (p.fechaCreacion.isBefore(min)) min = p.fechaCreacion;
-      }
-      desde = min;
-    }
     return RegistroPagoService.instance.totalesPorMetodoEnMesa(
       widget.mesaNumero,
-      desde: desde,
     );
   }
 

@@ -3,16 +3,24 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
+import 'api_endpoints.dart';
+import 'api_http_client_factory_stub.dart'
+    if (dart.library.io) 'api_http_client_factory_io.dart';
 
 /// Cliente para comunicarse con el servidor local del restaurante
-/// 
-/// Proporciona métodos para todas las operaciones CRUD necesarias
+///
+/// En Android/Linux/Windows, las peticiones HTTPS al servidor central 24/7
+/// (IP con certificado autofirmado) usan [createApiHttpClient] con
+/// [HttpClient.badCertificateCallback] limitado al host configurado.
 class ApiClient {
   final String baseUrl;
   final http.Client _client;
 
-  ApiClient(this.baseUrl, {http.Client? client}) 
-      : _client = client ?? http.Client();
+  ApiClient(String baseUrl, {http.Client? client})
+      : baseUrl = ApiEndpoints.normalizeBaseUrl(baseUrl),
+        _client = client ?? createApiHttpClient(ApiEndpoints.normalizeBaseUrl(baseUrl));
+
+  Uri _apiUri(String path) => ApiEndpoints.uri(this.baseUrl, path);
 
   /// Cierra el cliente HTTP
   void dispose() {
@@ -477,17 +485,115 @@ class ApiClient {
     }
   }
 
-  /// Verifica la conexión con el servidor
-  Future<bool> verificarConexion() async {
-    try {
-      final response = await _client.get(
-        Uri.parse('$baseUrl/api/health'),
-      ).timeout(const Duration(seconds: 5));
+  // ==================== RESERVAS ====================
 
-      return response.statusCode == 200;
+  /// Comprueba que la URL apunta al [LocalServer] de programa_caja (GET /api).
+  Future<bool> verificarApiProgramaCaja() async {
+    try {
+      final response = await _client
+          .get(
+            _apiUri(ApiEndpoints.apiRoot),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode != 200) return false;
+      final data = json.decode(response.body);
+      return data is Map<String, dynamic> &&
+          data['endpoints'] is Map<String, dynamic> &&
+          (data['endpoints'] as Map).containsKey('reservas');
     } catch (e) {
-      debugPrint('Error verificando conexión: $e');
+      debugPrint('ApiClient: no es API programa_caja en $baseUrl: $e');
       return false;
     }
+  }
+
+  /// GET /api/reservas — pendientes en el servidor central.
+  Future<List<Reserva>> obtenerReservasPendientes() async {
+    final uri = _apiUri(ApiEndpoints.reservas);
+    try {
+      final response = await _client.get(
+        uri,
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data
+            .map((e) => Reserva.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      throw Exception(
+        'GET $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en obtenerReservasPendientes ($uri): $e');
+      rethrow;
+    }
+  }
+
+  /// POST /api/reservas — crear o actualizar reserva.
+  Future<Reserva> guardarReserva(Reserva reserva) async {
+    try {
+      final response = await _client.post(
+        _apiUri(ApiEndpoints.reservas),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(reserva.toJson()),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Reserva.fromJson(
+          json.decode(response.body) as Map<String, dynamic>,
+        );
+      }
+      throw Exception('Error al guardar reserva: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('Error en guardarReserva: $e');
+      rethrow;
+    }
+  }
+
+  /// PUT /api/reservas/<id>/estado — marcar sentada/cancelada en servidor central.
+  Future<void> actualizarEstadoReserva({
+    required int id,
+    required EstadoReserva estado,
+    int? mesaAsignada,
+  }) async {
+    try {
+      final response = await _client.put(
+        ApiEndpoints.reservasEstado(baseUrl, id),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({
+          'estado': estado.name,
+          if (mesaAsignada != null) 'mesaAsignada': mesaAsignada,
+        }),
+      );
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Error al actualizar estado reserva: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error en actualizarEstadoReserva: $e');
+      rethrow;
+    }
+  }
+
+  /// Verifica la conexión con el servidor ([ApiEndpoints.healthApi] o [ApiEndpoints.health]).
+  Future<bool> verificarConexion() async {
+    for (final path in [ApiEndpoints.healthApi, ApiEndpoints.health]) {
+      try {
+        final response = await _client
+            .get(_apiUri(path))
+            .timeout(const Duration(seconds: 5));
+        if (response.statusCode == 200) return true;
+      } catch (_) {}
+    }
+    debugPrint('Error verificando conexión en $baseUrl');
+    return false;
   }
 }

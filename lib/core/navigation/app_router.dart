@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../di/injection_container.dart';
 import '../utils/platform_utils.dart';
@@ -9,6 +10,7 @@ import '../../features/pedidos/presentation/pages/mesa_categorias_page.dart';
 import '../../features/pedidos/presentation/pages/mesa_platos_page.dart';
 import '../../features/cocina/presentation/pages/cocina_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_page.dart';
+import '../../features/configuracion/presentation/pages/configurar_servidor_central_page.dart';
 import '../../features/configuracion/presentation/pages/configurar_conexion_page.dart';
 import '../../features/configuracion/presentation/pages/wifi_qr_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_impresora_page.dart';
@@ -18,6 +20,8 @@ import '../../features/configuracion/presentation/pages/gestion_mesas_page.dart'
 import '../../features/configuracion/presentation/pages/gestion_categorias_page.dart';
 import '../../features/buffet_sabado/presentation/pages/configuracion_buffet_page.dart';
 import '../../features/estadisticas/presentation/pages/estadisticas_page.dart';
+import '../../features/reservas/presentation/pages/reservas_page.dart';
+import '../../features/reservas/presentation/providers/reservas_provider.dart';
 import 'navigation_shell.dart';
 
 /// Rutas de la aplicación
@@ -25,6 +29,7 @@ class AppRoutes {
   static const String pedidos = '/pedidos';
   static const String mesas = '/mesas';
   static const String configurarConexion = '/configurar-conexion';
+  static const String reservas = '/reservas';
   static const String cocina = '/cocina';
   static const String configuracion = '/configuracion';
   static const String destinos = '/destinos';
@@ -33,6 +38,7 @@ class AppRoutes {
   static const String gestionMesas = '/gestion-mesas';
   static const String gestionCategorias = '/gestion-categorias';
   static const String configuracionImpresora = '/configuracion-impresora';
+  static const String servidorCentralReservas = '/servidor-central-reservas';
   static const String wifiQr = '/wifi-qr';
   static const String estadisticas = '/estadisticas';
 }
@@ -85,6 +91,15 @@ final appRouter = GoRouter(
               },
             ),
           ],
+        ),
+        GoRoute(
+          path: AppRoutes.reservas,
+          pageBuilder: (context, state) => NoTransitionPage(
+            child: ChangeNotifierProvider(
+              create: (_) => ReservasProvider(),
+              child: const ReservasPage(),
+            ),
+          ),
         ),
         GoRoute(
           path: AppRoutes.cocina,
@@ -142,6 +157,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.configuracionImpresora,
       builder: (context, state) => const ConfiguracionImpresoraPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.servidorCentralReservas,
+      builder: (context, state) => const ConfigurarServidorCentralPage(),
     ),
   ],
 );

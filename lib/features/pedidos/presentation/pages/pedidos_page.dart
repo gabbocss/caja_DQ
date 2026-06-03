@@ -11,6 +11,7 @@ import '../widgets/producto_grid.dart';
 import '../widgets/carrito_panel.dart';
 import '../widgets/dialogo_edicion_consumo.dart';
 import '../models/linea_consumo_editable.dart';
+import '../models/modificacion_consumo_rechazada.dart';
 
 /// Forma de pago elegida en el modal de cobro.
 enum MetodoPagoCuenta {
@@ -584,10 +585,65 @@ class _PedidosPageState extends State<PedidosPage> {
     await _cargarMesasConCuentaAbierta();
   }
 
-  /// Aplica cantidades/precios editados e imprime eliminaciones en cocina.
+  double _dineroCobradoAcumuladoMesa() {
+    return _cuentaActual.fold<double>(
+      0,
+      (sum, p) => sum + p.dineroCobradoAcumulado,
+    );
+  }
+
+  double _totalPropuestoTrasModificaciones(List<LineaConsumoEditable> lineas) {
+    return lineas
+        .where((l) => l.cantidad > 0)
+        .fold<double>(0, (sum, l) => sum + l.subtotal);
+  }
+
+  Future<void> _mostrarBloqueoModificacionConsumo({
+    required double totalPropuesto,
+    required double dineroCobrado,
+  }) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 40),
+        title: const Text('Cambios no permitidos'),
+        content: Text(
+          'Error: No se pueden aplicar los cambios. El nuevo total de la mesa '
+          '(${totalPropuesto.toStringAsFixed(2)}€) no puede ser inferior al dinero ya cobrado '
+          'en los pagos parciales (${dineroCobrado.toStringAsFixed(2)}€). '
+          'Por favor, devuelva primero el importe correspondiente antes de eliminar los platos.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Aplica cantidades/precios editados, valida caja, imprime cocina y sincroniza pendiente.
   Future<void> _aplicarModificacionesConsumo(
     List<LineaConsumoEditable> lineas,
   ) async {
+    // --- 1. Total propuesto (líneas de la ventana flotante) ---
+    final totalPropuesto = _totalPropuestoTrasModificaciones(lineas);
+
+    // --- 2. Dinero ya cobrado (vivo en Isar, no histórico JSON) ---
+    final dineroCobrado = _dineroCobradoAcumuladoMesa();
+
+    // --- 3. Validación estricta antes de imprimir o persistir ---
+    if (totalPropuesto < dineroCobrado - 0.009) {
+      await _mostrarBloqueoModificacionConsumo(
+        totalPropuesto: totalPropuesto,
+        dineroCobrado: dineroCobrado,
+      );
+      throw const ModificacionConsumoRechazada();
+    }
+
     for (final linea in lineas) {
       if (linea.cantidadEliminada > 0) {
         await ImprimirPedidoService.instance.imprimirEliminacionCocina(
@@ -597,6 +653,28 @@ class _PedidosPageState extends State<PedidosPage> {
           destinoId: linea.destinoId,
         );
       }
+    }
+
+    final itemsAdicionCocina = <ItemPedido>[];
+    for (final linea in lineas) {
+      if (linea.cantidadAnadida <= 0) continue;
+      itemsAdicionCocina.add(
+        ItemPedido.crear(
+          productoId: linea.productoId,
+          nombreProducto: linea.nombreProducto,
+          precioUnitario: linea.precioUnitario,
+          cantidad: linea.cantidadAnadida,
+          destinoId: linea.destinoId,
+        ),
+      );
+    }
+    if (itemsAdicionCocina.isNotEmpty) {
+      final pedidoImpresion = Pedido.crear(
+        mesaNumero: _mesaSeleccionada,
+        usuarioCamarero: 'Mesero',
+        items: itemsAdicionCocina,
+      );
+      await ImprimirPedidoService.instance.imprimirPedido(pedidoImpresion);
     }
 
     final porPedido = <int, List<LineaConsumoEditable>>{};
@@ -621,8 +699,6 @@ class _PedidosPageState extends State<PedidosPage> {
       }
 
       pedido.items = nuevosItems;
-      pedido.calcularTotal(resetearPendiente: false);
-      pedido.normalizarTotalPendiente();
 
       if (pedido.items.isEmpty) {
         if (sl.isRegistered<ApiClient>()) {
@@ -638,6 +714,12 @@ class _PedidosPageState extends State<PedidosPage> {
       } else {
         await DatabaseService.instance.guardarPedido(pedido);
       }
+    }
+
+    // totalPendiente = total − dineroCobradoAcumulado (Isar)
+    if (!sl.isRegistered<ApiClient>()) {
+      await DatabaseService.instance
+          .sincronizarPendienteMesaDesdeCobros(_mesaSeleccionada);
     }
   }
 
@@ -688,27 +770,40 @@ class _PedidosPageState extends State<PedidosPage> {
           : null;
 
       double pendienteRestante;
+
       if (esTotal) {
+        await RegistroPagoService.instance.registrar(
+          RegistroPago(
+            fecha: DateTime.now(),
+            mesaNumero: numero,
+            metodo: metodo.name,
+            importeCobrado: importeCobrado,
+            esParcial: false,
+            importeRecibido: importeRecibido,
+            vuelto: vuelto,
+            pendienteRestante: 0,
+            cerrado: true,
+          ),
+        );
         await db.liberarMesa(numero, isBuffetClose: _cuentaTieneBuffet());
         pendienteRestante = 0;
         if (mounted) setState(() => _cuentaActual = []);
       } else {
         pendienteRestante = await db.aplicarPagoMesa(numero, importeCobrado);
+        await RegistroPagoService.instance.registrar(
+          RegistroPago(
+            fecha: DateTime.now(),
+            mesaNumero: numero,
+            metodo: metodo.name,
+            importeCobrado: importeCobrado,
+            esParcial: true,
+            importeRecibido: importeRecibido,
+            vuelto: vuelto,
+            pendienteRestante: pendienteRestante,
+          ),
+        );
         await _cargarCuentaMesa(numero);
       }
-
-      await RegistroPagoService.instance.registrar(
-        RegistroPago(
-          fecha: DateTime.now(),
-          mesaNumero: numero,
-          metodo: metodo.name,
-          importeCobrado: importeCobrado,
-          esParcial: !esTotal,
-          importeRecibido: importeRecibido,
-          vuelto: vuelto,
-          pendienteRestante: pendienteRestante,
-        ),
-      );
 
       await _cargarMesasConCuentaAbierta();
       return esTotal;

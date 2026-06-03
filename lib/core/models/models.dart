@@ -10,3 +10,4 @@ export 'configuracion_buffet.dart';
 export 'configuracion_impresion.dart';
 export 'carrito_qr_mesa.dart';
 export 'buffet_limite_qr_mesa.dart';
+export 'reserva.dart';

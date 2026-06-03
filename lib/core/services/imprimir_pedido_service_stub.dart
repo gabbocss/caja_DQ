@@ -41,4 +41,10 @@ class ImprimirPedidoService {
     required double totalRestante,
     required String metodoPagoEtiqueta,
   }) async {}
+
+  /// No-op en web/stub (ticket reserva cocina).
+  Future<void> imprimirTicketReservaCocina({
+    required int mesaNumero,
+    required Reserva reserva,
+  }) async {}
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/models/pedido.dart';
 import '../models/linea_consumo_editable.dart';
+import '../models/modificacion_consumo_rechazada.dart';
 
 /// Ventana flotante redimensionable para editar platos de la cuenta abierta.
 class DialogoEdicionConsumo extends StatefulWidget {
@@ -77,6 +78,8 @@ class _DialogoEdicionConsumoState extends State<DialogoEdicionConsumo> {
     try {
       await widget.onEnviarModificaciones(_lineas);
       if (mounted) Navigator.of(context).pop();
+    } on ModificacionConsumoRechazada {
+      // AlertDialog ya mostrado en pedidos_page; mantener ventana abierta.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

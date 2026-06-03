@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/core.dart';
+import '../widgets/dialogo_contrasena_admin.dart';
 
 /// Pantalla de Configuración del sistema
 /// 
@@ -17,16 +18,38 @@ class ConfiguracionPage extends StatefulWidget {
 class _ConfiguracionPageState extends State<ConfiguracionPage> {
   String? _serverUrl;
   bool _servidorActivo = false;
+  String _estadoServidorCentral = 'No configurado';
 
   @override
   void initState() {
     super.initState();
     _cargarConfiguracion();
+    _cargarEstadoServidorCentral();
   }
 
   void _cargarConfiguracion() {
     _servidorActivo = isServer;
     _serverUrl = serverUrl;
+  }
+
+  Future<void> _cargarEstadoServidorCentral() async {
+    final url = await getReservasCentralUrl();
+    if (!mounted) return;
+    setState(() {
+      _estadoServidorCentral =
+          (url != null && url.isNotEmpty) ? 'Configurado' : 'No configurado';
+    });
+  }
+
+  Future<void> _abrirConfigurarServidorCentral() async {
+    final autorizado = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const DialogoContrasenaAdmin(),
+    );
+    if (autorizado != true || !mounted) return;
+    await context.push(AppRoutes.servidorCentralReservas);
+    if (mounted) await _cargarEstadoServidorCentral();
   }
 
   @override
@@ -108,6 +131,13 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                         Icons.qr_code_2,
                         onTap: () => context.go(AppRoutes.wifiQr),
                         color: const Color(0xFF00D9A5),
+                      ),
+                      _buildAccionTile(
+                        'Configurar Servidor Central',
+                        'Reservas 24/7 · $_estadoServidorCentral · acceso protegido',
+                        Icons.cloud_sync,
+                        onTap: _abrirConfigurarServidorCentral,
+                        color: const Color(0xFF4FC3F7),
                       ),
                     ],
                   ),

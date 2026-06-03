@@ -15,6 +15,8 @@ import '../database/database_service.dart';
 import '../models/models.dart';
 import '../services/imprimir_pedido_service.dart';
 import '../services/registro_pago_service.dart';
+import '../services/reserva_persistence_service.dart';
+import 'api_endpoints.dart';
 
 /// Servidor HTTP local para comunicación entre dispositivos
 /// 
@@ -438,6 +440,7 @@ class LocalServer {
             'productos': '/api/productos',
             'mesas': '/api/mesas',
             'pedidos': '/api/pedidos',
+            'reservas': ApiEndpoints.reservas,
             'destinos': '/api/destinos',
             'pedidos_destino': '/api/pedidos/destino/<id>',
           }
@@ -446,12 +449,16 @@ class LocalServer {
       );
     });
 
-    router.get('/health', (Request request) {
-      return Response.ok(
-        jsonEncode({'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
-        headers: {'Content-Type': 'application/json'},
-      );
-    });
+    Response healthOk() => Response.ok(
+          jsonEncode({
+            'status': 'ok',
+            'timestamp': DateTime.now().toIso8601String(),
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+
+    router.get(ApiEndpoints.health, (Request request) => healthOk());
+    router.get(ApiEndpoints.healthApi, (Request request) => healthOk());
 
     // ==================== LOGIN APP WEB (cocina, etc.) ====================
     router.get('/login', (Request request) {
@@ -674,33 +681,45 @@ class LocalServer {
             ? pendienteAntes
             : importe.clamp(0, pendienteAntes).toDouble();
 
-        double pendienteRestante;
-        if (esPagoTotal) {
-          pendienteRestante = 0;
-          final isBuffetClose = data['isBuffetClose'] as bool? ?? false;
-          await _db.liberarMesa(numero, isBuffetClose: isBuffetClose);
-        } else {
-          pendienteRestante = await _db.aplicarPagoMesa(numero, importeCobrado);
-        }
-
         final double? vuelto = importeRecibido != null && esPagoTotal
             ? (importeRecibido - importeCobrado)
                 .clamp(0, double.infinity)
                 .toDouble()
             : null;
 
-        await RegistroPagoService.instance.registrar(
-          RegistroPago(
-            fecha: DateTime.now(),
-            mesaNumero: numero,
-            metodo: metodo,
-            importeCobrado: importeCobrado,
-            esParcial: !esPagoTotal,
-            importeRecibido: importeRecibido,
-            vuelto: vuelto,
-            pendienteRestante: pendienteRestante,
-          ),
-        );
+        double pendienteRestante;
+        if (esPagoTotal) {
+          await RegistroPagoService.instance.registrar(
+            RegistroPago(
+              fecha: DateTime.now(),
+              mesaNumero: numero,
+              metodo: metodo,
+              importeCobrado: importeCobrado,
+              esParcial: false,
+              importeRecibido: importeRecibido,
+              vuelto: vuelto,
+              pendienteRestante: 0,
+              cerrado: true,
+            ),
+          );
+          pendienteRestante = 0;
+          final isBuffetClose = data['isBuffetClose'] as bool? ?? false;
+          await _db.liberarMesa(numero, isBuffetClose: isBuffetClose);
+        } else {
+          pendienteRestante = await _db.aplicarPagoMesa(numero, importeCobrado);
+          await RegistroPagoService.instance.registrar(
+            RegistroPago(
+              fecha: DateTime.now(),
+              mesaNumero: numero,
+              metodo: metodo,
+              importeCobrado: importeCobrado,
+              esParcial: true,
+              importeRecibido: importeRecibido,
+              vuelto: vuelto,
+              pendienteRestante: pendienteRestante,
+            ),
+          );
+        }
 
         final pedidos = await _db.obtenerCuentaMesa(numero);
         return Response.ok(
@@ -731,6 +750,71 @@ class LocalServer {
         );
       } catch (e) {
         return _errorResponse('Error al liberar mesa: $e');
+      }
+    });
+
+    // ==================== RUTAS DE RESERVAS ====================
+
+    // GET /api/reservas — solo pendientes (servidor central / caja)
+    router.get(ApiEndpoints.reservas, (Request request) async {
+      try {
+        final reservas =
+            await ReservaPersistenceService.instance.obtenerReservasPendientes();
+        return Response.ok(
+          jsonEncode(reservas.map((r) => r.toJson()).toList()),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al obtener reservas: $e');
+      }
+    });
+
+    // POST /api/reservas — crear o modificar (con id en body = actualización)
+    router.post(ApiEndpoints.reservas, (Request request) async {
+      try {
+        final body = await request.readAsString();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        final reserva = Reserva.fromJson(data);
+        await ReservaPersistenceService.instance.guardarReserva(reserva);
+        final id = reserva.id;
+        final guardada = id != null
+            ? await ReservaPersistenceService.instance.obtenerPorId(id)
+            : reserva;
+        return Response.ok(
+          jsonEncode((guardada ?? reserva).toJson()),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al guardar reserva: $e');
+      }
+    });
+
+    // PUT /api/reservas/<id>/estado — p. ej. marcar sentada desde la caja
+    router.put('${ApiEndpoints.reservas}/<id>/estado', (Request request, String id) async {
+      try {
+        final body = await request.readAsString();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        final estado = EstadoReserva.values.firstWhere(
+          (e) => e.name == data['estado'],
+          orElse: () => EstadoReserva.pendiente,
+        );
+        final mesaAsignada = data['mesaAsignada'] as int?;
+        final reservaId = int.parse(id);
+        await _db.actualizarEstadoReserva(
+          reservaId,
+          estado,
+          mesaAsignada: mesaAsignada,
+        );
+        final actualizada = await _db.obtenerReservaPorId(reservaId);
+        if (actualizada != null) {
+          await ReservaPersistenceService.instance.guardarReserva(actualizada);
+        }
+        return Response.ok(
+          jsonEncode(actualizada?.toJson()),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al actualizar estado reserva: $e');
       }
     });
 

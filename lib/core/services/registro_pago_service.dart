@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Registro de un cobro para el cierre de caja.
+/// Registro de un cobro para el cierre de caja (histórico / arqueo).
 class RegistroPago {
   final DateTime fecha;
   final int mesaNumero;
@@ -14,6 +14,8 @@ class RegistroPago {
   final double? importeRecibido;
   final double? vuelto;
   final double pendienteRestante;
+  /// `true` cuando la mesa se liberó o la cuenta se cerró.
+  final bool cerrado;
 
   const RegistroPago({
     required this.fecha,
@@ -24,6 +26,7 @@ class RegistroPago {
     this.importeRecibido,
     this.vuelto,
     this.pendienteRestante = 0,
+    this.cerrado = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -35,6 +38,7 @@ class RegistroPago {
         'importeRecibido': importeRecibido,
         'vuelto': vuelto,
         'pendienteRestante': pendienteRestante,
+        if (cerrado) 'cerrado': cerrado,
       };
 
   factory RegistroPago.fromJson(Map<String, dynamic> json) => RegistroPago(
@@ -46,10 +50,12 @@ class RegistroPago {
         importeRecibido: (json['importeRecibido'] as num?)?.toDouble(),
         vuelto: (json['vuelto'] as num?)?.toDouble(),
         pendienteRestante: (json['pendienteRestante'] as num?)?.toDouble() ?? 0,
+        cerrado: json['cerrado'] as bool? ?? false,
       );
 }
 
-/// Persiste cobros en JSON para el arqueo / cierre de caja.
+/// Persiste cobros en JSON para arqueo. El saldo vivo de la sesión está en Isar
+/// ([Pedido.dineroCobradoAcumulado]), no se recalcula leyendo este archivo.
 class RegistroPagoService {
   static final RegistroPagoService instance = RegistroPagoService._();
   RegistroPagoService._();
@@ -61,25 +67,70 @@ class RegistroPagoService {
     return '${dir.path}/programa_caja_db/registros_pago.json';
   }
 
-  /// Suma cobros de la mesa por método (`efectivo`, `tarjeta`, `otros`).
-  /// Si [desde] no es null, solo cuenta pagos de esa sesión en adelante.
-  Future<Map<String, double>> totalesPorMetodoEnMesa(
-    int mesaNumero, {
-    DateTime? desde,
-  }) async {
-    const metodos = ['efectivo', 'tarjeta', 'otros'];
-    final totales = {for (final m in metodos) m: 0.0};
+  Future<List<RegistroPago>> _leerTodos() async {
     try {
       final path = await _rutaArchivo();
       final file = File(path);
-      if (!await file.exists()) return totales;
+      if (!await file.exists()) return [];
       final raw = jsonDecode(await file.readAsString());
-      if (raw is! List) return totales;
+      if (raw is! List) return [];
+      final lista = <RegistroPago>[];
       for (final e in raw) {
-        if (e is! Map<String, dynamic>) continue;
-        final registro = RegistroPago.fromJson(e);
-        if (registro.mesaNumero != mesaNumero) continue;
-        if (desde != null && registro.fecha.isBefore(desde)) continue;
+        if (e is Map<String, dynamic>) {
+          lista.add(RegistroPago.fromJson(e));
+        }
+      }
+      return lista;
+    } catch (e) {
+      debugPrint('Error leyendo registros de pago: $e');
+      return [];
+    }
+  }
+
+  Future<void> _guardarTodos(List<RegistroPago> lista) async {
+    final path = await _rutaArchivo();
+    await File(path).writeAsString(
+      const JsonEncoder.withIndent('  ')
+          .convert(lista.map((r) => r.toJson()).toList()),
+    );
+  }
+
+  /// Marca como cerrados los cobros activos de la mesa (al liberar o cerrar cuenta).
+  Future<void> archivarPagosMesa(int mesaNumero) async {
+    try {
+      final lista = await _leerTodos();
+      var huboCambios = false;
+      for (var i = 0; i < lista.length; i++) {
+        final r = lista[i];
+        if (r.mesaNumero == mesaNumero && !r.cerrado) {
+          lista[i] = RegistroPago(
+            fecha: r.fecha,
+            mesaNumero: r.mesaNumero,
+            metodo: r.metodo,
+            importeCobrado: r.importeCobrado,
+            esParcial: r.esParcial,
+            importeRecibido: r.importeRecibido,
+            vuelto: r.vuelto,
+            pendienteRestante: r.pendienteRestante,
+            cerrado: true,
+          );
+          huboCambios = true;
+        }
+      }
+      if (huboCambios) await _guardarTodos(lista);
+    } catch (e) {
+      debugPrint('Error archivando pagos de mesa $mesaNumero: $e');
+    }
+  }
+
+  /// Desglose por método solo para UI/arqueo (cobros no archivados de la mesa).
+  Future<Map<String, double>> totalesPorMetodoEnMesa(int mesaNumero) async {
+    const metodos = ['efectivo', 'tarjeta', 'otros'];
+    final totales = {for (final m in metodos) m: 0.0};
+    try {
+      final lista = await _leerTodos();
+      for (final registro in lista) {
+        if (registro.mesaNumero != mesaNumero || registro.cerrado) continue;
         final metodo = registro.metodo.toLowerCase();
         if (totales.containsKey(metodo)) {
           totales[metodo] = totales[metodo]! + registro.importeCobrado;
@@ -93,23 +144,9 @@ class RegistroPagoService {
 
   Future<void> registrar(RegistroPago registro) async {
     try {
-      final path = await _rutaArchivo();
-      final file = File(path);
-      final lista = <RegistroPago>[];
-      if (await file.exists()) {
-        final raw = jsonDecode(await file.readAsString());
-        if (raw is List) {
-          for (final e in raw) {
-            if (e is Map<String, dynamic>) {
-              lista.add(RegistroPago.fromJson(e));
-            }
-          }
-        }
-      }
+      final lista = await _leerTodos();
       lista.add(registro);
-      await file.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(lista.map((r) => r.toJson()).toList()),
-      );
+      await _guardarTodos(lista);
     } catch (e) {
       debugPrint('Error al registrar pago en caja: $e');
     }

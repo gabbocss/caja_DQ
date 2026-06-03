@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:get_it/get_it.dart';
 
 // Stub por defecto; implementación real cuando hay dart.library.io
@@ -8,6 +8,7 @@ import '../network/api_client.dart';
 import '../../features/cocina/domain/repositories/cocina_repository.dart';
 import '../../features/cocina/data/repositories/cocina_repository_impl.dart';
 import '../../features/cocina/data/repositories/cocina_repository_api.dart';
+import '../services/reserva_sync_service.dart';
 
 /// Contenedor de inyección de dependencias usando GetIt
 /// 
@@ -95,6 +96,16 @@ Future<void> initializeAsyncServices() async {
   if (_isServer) {
     final server = sl<LocalServer>();
     await server.start();
+  }
+
+  // Caja: descargar reservas del servidor 24/7 → Isar + reservas_backup.json
+  if (sl.isRegistered<DatabaseService>()) {
+    final sync = await ReservaSyncService.instance.sincronizarAlInicio();
+    if (!sync.exito && sync.usoBackupLocal) {
+      debugPrint(
+        'Reservas: modo degradado (${sync.descargadas} en backup local).',
+      );
+    }
   }
 }
 
