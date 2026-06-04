@@ -23,17 +23,20 @@ class _ReservasPageState extends State<ReservasPage> {
   final Map<int, int> _cantidadesProducto = {};
   Reserva? _reservaSeleccionada;
   bool _guardando = false;
+  ReservasProvider? _provider;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ReservasProvider>().inicializar();
+      _provider = context.read<ReservasProvider>();
+      _provider!.inicializar();
     });
   }
 
   @override
   void dispose() {
+    _provider?.desmontar();
     _nombreCtrl.dispose();
     _notasCtrl.dispose();
     _buscarProductoCtrl.dispose();

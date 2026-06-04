@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../database/database_service.dart';
+import '../models/reserva.dart';
 import '../network/api_client.dart';
 import '../prefs/reservas_central_prefs.dart';
 import 'reserva_persistence_service.dart';
@@ -99,6 +100,27 @@ class ReservaSyncService {
         error: errorCatalogo ?? e.toString(),
         usoBackupLocal: true,
       );
+    }
+  }
+
+  /// Solo descarga reservas del VPS, fusiona en Isar y devuelve la lista remota.
+  Future<List<Reserva>> descargarSoloReservasDesdeRemoto(String baseUrl) async {
+    final client = ApiClient(baseUrl);
+    try {
+      if (!await client.verificarApiProgramaCaja()) {
+        throw Exception(
+          'La URL $baseUrl no expone la API de reservas (GET /api).',
+        );
+      }
+      final remotas = await client.obtenerReservasPendientes();
+      await _persistencia.fusionarReservasRemotas(remotas);
+      debugPrint('✅ Reservas VPS (pull): ${remotas.length} desde $baseUrl');
+      return remotas;
+    } catch (e, st) {
+      debugPrint('⚠️ Fallo pull reservas VPS: $e\n$st');
+      rethrow;
+    } finally {
+      client.dispose();
     }
   }
 

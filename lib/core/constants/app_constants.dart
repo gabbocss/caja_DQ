@@ -26,6 +26,9 @@ class AppConstants {
   /// Intervalo de polling para actualización de datos (en segundos)
   static const int pollingInterval = 5;
 
+  /// Caja (PC): consulta reservas en el VPS en segundo plano y con cualquier pestaña abierta.
+  static const int reservasVpsPollingSeconds = 15;
+
   // ==================== CONFIGURACIÓN DEL BUFFET ====================
   
   /// Precio base del buffet del sábado (por persona)

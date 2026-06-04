@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/core.dart';
@@ -53,6 +55,7 @@ class ReservasProvider extends ChangeNotifier {
   bool get modoBackup => _modoBackup;
 
   bool get _esAndroidNube => PlatformUtils.isAndroid;
+  bool _pollingVinculado = false;
 
   Reserva _reservaParaVistaDesdeCola(ReservaOutboxEntry e) {
     final json = e.reserva.toJson();
@@ -85,6 +88,7 @@ class ReservasProvider extends ChangeNotifier {
     _cargando = true;
     notifyListeners();
     try {
+      _vincularPollingCaja();
       final db = DatabaseService.instance;
       _productos = await db.obtenerProductos();
       _mesas = await db.obtenerMesas();
@@ -154,7 +158,11 @@ class ReservasProvider extends ChangeNotifier {
       _error = result.error;
     }
     await _recargarLocal();
-    await _actualizarPendientesServidor();
+    if (ReservaVpsPollingService.instance.estaActivo) {
+      await ReservaVpsPollingService.instance.refrescarAhora();
+    } else {
+      await _actualizarPendientesServidor();
+    }
     _sincronizando = false;
     notifyListeners();
   }
@@ -240,7 +248,39 @@ class ReservasProvider extends ChangeNotifier {
         await _persistencia.obtenerReservasPendientesConFallback();
   }
 
+  void _vincularPollingCaja() {
+    if (_esAndroidNube || _pollingVinculado) return;
+    ReservaVpsPollingService.instance.addListener(_onActualizacionPollingVps);
+    _pollingVinculado = true;
+    unawaited(_aplicarDatosPollingVps());
+  }
+
+  void desmontar() {
+    if (!_pollingVinculado) return;
+    ReservaVpsPollingService.instance.removeListener(_onActualizacionPollingVps);
+    _pollingVinculado = false;
+  }
+
+  void _onActualizacionPollingVps() {
+    unawaited(_aplicarDatosPollingVps());
+  }
+
+  Future<void> _aplicarDatosPollingVps() async {
+    if (_esAndroidNube) return;
+    _pendientesServidor = List.from(
+      ReservaVpsPollingService.instance.reservasEnServidor,
+    );
+    await _recargarLocal();
+    notifyListeners();
+  }
+
   Future<void> _actualizarPendientesServidor() async {
+    if (!_esAndroidNube && ReservaVpsPollingService.instance.estaActivo) {
+      _pendientesServidor = List.from(
+        ReservaVpsPollingService.instance.reservasEnServidor,
+      );
+      return;
+    }
     final url = await getReservasCentralUrlEfectiva();
     if (url == null || url.isEmpty) {
       _pendientesServidor = [];

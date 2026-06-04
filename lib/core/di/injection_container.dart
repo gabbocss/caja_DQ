@@ -9,6 +9,7 @@ import '../../features/cocina/domain/repositories/cocina_repository.dart';
 import '../../features/cocina/data/repositories/cocina_repository_impl.dart';
 import '../../features/cocina/data/repositories/cocina_repository_api.dart';
 import '../services/reserva_sync_service.dart';
+import '../services/reserva_vps_polling_service.dart';
 
 /// Contenedor de inyección de dependencias usando GetIt
 /// 
@@ -106,11 +107,16 @@ Future<void> initializeAsyncServices() async {
         'Reservas: modo degradado (${sync.descargadas} en backup local).',
       );
     }
+    if (_isServer) {
+      ReservaVpsPollingService.instance.iniciarEnCaja();
+    }
   }
 }
 
 /// Limpia y cierra todos los servicios
 Future<void> disposeDependencies() async {
+  ReservaVpsPollingService.instance.detener();
+
   // Cerrar servidor si está corriendo
   if (_isServer && sl.isRegistered<LocalServer>()) {
     await sl<LocalServer>().stop();

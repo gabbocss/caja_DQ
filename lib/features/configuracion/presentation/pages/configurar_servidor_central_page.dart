@@ -51,6 +51,7 @@ class _ConfigurarServidorCentralPageState
     setState(() => _guardando = true);
     try {
       await saveReservasCentralUrl(url);
+      await ReservaVpsPollingService.instance.refrescarAhora();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
