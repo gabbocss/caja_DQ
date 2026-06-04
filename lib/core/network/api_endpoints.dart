@@ -2,6 +2,8 @@
 abstract final class ApiEndpoints {
   static const String apiRoot = '/api';
   static const String reservas = '/api/reservas';
+  static const String reservasMarcarSincronizadas =
+      '/api/reservas/marcar-sincronizadas';
   static const String productos = '/api/productos';
   static const String health = '/health';
   static const String healthApi = '/api/health';

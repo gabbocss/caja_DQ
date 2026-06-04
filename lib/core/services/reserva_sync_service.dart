@@ -117,8 +117,8 @@ class ReservaSyncService {
       }
 
       final remotas = await client.obtenerReservasPendientes();
+      await _fusionarEnDiscoYConfirmarVps(client, remotas, baseUrl);
       client.dispose();
-      await _persistencia.fusionarReservasRemotas(remotas);
       debugPrint('✅ Reservas sincronizadas: ${remotas.length} desde $baseUrl');
 
       if (errorCatalogo != null) {
@@ -148,7 +148,7 @@ class ReservaSyncService {
     }
   }
 
-  /// Solo descarga reservas del VPS, fusiona en Isar y devuelve la lista remota.
+  /// Solo descarga reservas del VPS, fusiona en disco y confirma al VPS (candado).
   Future<List<Reserva>> descargarSoloReservasDesdeRemoto(String baseUrl) async {
     final client = ApiClient(baseUrl);
     try {
@@ -158,7 +158,7 @@ class ReservaSyncService {
         );
       }
       final remotas = await client.obtenerReservasPendientes();
-      await _persistencia.fusionarReservasRemotas(remotas);
+      await _fusionarEnDiscoYConfirmarVps(client, remotas, baseUrl);
       debugPrint('✅ Reservas VPS (pull): ${remotas.length} desde $baseUrl');
       return remotas;
     } catch (e, st) {
@@ -167,6 +167,21 @@ class ReservaSyncService {
     } finally {
       client.dispose();
     }
+  }
+
+  /// Guarda en Isar + backup JSON; luego POST marcar-sincronizadas en el VPS.
+  Future<void> _fusionarEnDiscoYConfirmarVps(
+    ApiClient client,
+    List<Reserva> remotas,
+    String baseUrl,
+  ) async {
+    await _persistencia.fusionarReservasRemotas(remotas);
+    final ids = remotas.map((r) => r.id).whereType<int>().toList();
+    if (ids.isEmpty) return;
+    await client.marcarReservasSincronizadas(ids);
+    debugPrint(
+      '🔒 Candado VPS: ${ids.length} reserva(s) confirmadas en $baseUrl',
+    );
   }
 
   /// Lee productos de Isar y los publica en el servidor central (POST /api/productos).

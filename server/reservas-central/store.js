@@ -5,6 +5,11 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'reservas.json');
 const PRODUCTOS_FILE = path.join(DATA_DIR, 'productos.json');
 
+/** Tras marcar sincronizadas en caja, el VPS puede purgar pasado este tiempo (ms). */
+const RESERVAS_PURGE_MS = Number(
+  process.env.RESERVAS_PURGE_MS || String(30 * 24 * 60 * 60 * 1000),
+);
+
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -52,14 +57,58 @@ function nextId(reservas) {
   return max + 1;
 }
 
+function purgeSincronizadasAntiguas(reservas) {
+  const cutoff = Date.now() - RESERVAS_PURGE_MS;
+  const kept = reservas.filter((r) => {
+    if (!r.sincronizadaEnCajaAt) return true;
+    const t = new Date(r.sincronizadaEnCajaAt).getTime();
+    if (Number.isNaN(t)) return true;
+    return t > cutoff;
+  });
+  if (kept.length < reservas.length) {
+    writeAll(kept);
+    return reservas.length - kept.length;
+  }
+  return 0;
+}
+
 function getPendientes() {
-  return readAll()
-    .filter((r) => r.estado === 'pendiente')
+  const reservas = readAll();
+  purgeSincronizadasAntiguas(reservas);
+  const actuales = readAll();
+  return actuales
+    .filter((r) => r.estado === 'pendiente' && !r.sincronizadaEnCajaAt)
     .sort(
       (a, b) =>
         new Date(a.fechaHoraLlegada).getTime() -
         new Date(b.fechaHoraLlegada).getTime(),
     );
+}
+
+/**
+ * La caja confirma que ya guardó en disco estos IDs (candado de seguridad).
+ */
+function marcarSincronizadas(ids) {
+  const lista = Array.isArray(ids) ? ids : [];
+  const idSet = new Set(
+    lista.map((x) => Number(x)).filter((n) => !Number.isNaN(n) && n > 0),
+  );
+  const reservas = readAll();
+  const now = new Date().toISOString();
+  let marcadas = 0;
+  for (const r of reservas) {
+    if (idSet.has(Number(r.id))) {
+      r.sincronizadaEnCajaAt = now;
+      marcadas++;
+    }
+  }
+  writeAll(reservas);
+  const purgadas = purgeSincronizadasAntiguas(readAll());
+  return {
+    marcadas,
+    ids: [...idSet],
+    purgadas,
+  };
 }
 
 function upsertReserva(body) {
@@ -78,6 +127,7 @@ function upsertReserva(body) {
         fechaCreacion: reservas[idx].fechaCreacion || now,
         fechaActualizacion: now,
       };
+      delete reserva.sincronizadaEnCajaAt;
       reservas[idx] = reserva;
       writeAll(reservas);
       return reserva;
@@ -117,6 +167,7 @@ module.exports = {
   PRODUCTOS_FILE,
   readAll,
   getPendientes,
+  marcarSincronizadas,
   upsertReserva,
   updateEstado,
   readProductos,

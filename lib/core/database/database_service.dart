@@ -1449,7 +1449,7 @@ class DatabaseService {
     return await isar.reservas.where().sortByFechaHoraLlegada().findAll();
   }
 
-  /// Upsert de reservas descargadas del servidor central (remoto manda en sync).
+  /// Upsert de reservas del VPS; no elimina reservas locales que ya no vienen en el pull.
   Future<void> fusionarReservasRemotas(List<Reserva> remotas) async {
     await isar.writeTxn(() async {
       for (final remota in remotas) {

@@ -55,6 +55,7 @@ function apiIndexPayload() {
     version: '1.0.0',
     endpoints: {
       reservas: '/api/reservas',
+      reservasMarcarSincronizadas: '/api/reservas/marcar-sincronizadas',
       productos: '/api/productos',
       health: '/health',
       healthApi: '/api/health',
@@ -110,6 +111,15 @@ async function handle(req, res) {
       return;
     }
 
+    if (method === 'POST' && path === '/api/reservas/marcar-sincronizadas') {
+      const raw = await readBody(req);
+      const data = JSON.parse(raw || '{}');
+      const ids = data.ids != null ? data.ids : [];
+      const resultado = store.marcarSincronizadas(ids);
+      send(res, 200, resultado);
+      return;
+    }
+
     const estadoMatch = path.match(/^\/api\/reservas\/(\d+)\/estado$/);
     if (method === 'PUT' && estadoMatch) {
       const id = estadoMatch[1];
@@ -145,6 +155,7 @@ server.listen(PORT, HOST, () => {
   );
   console.log(`  GET  /api`);
   console.log(`  GET  /api/reservas`);
+  console.log(`  POST /api/reservas/marcar-sincronizadas`);
   console.log(`  GET/POST /api/productos`);
   console.log(`  Datos: ${store.DATA_FILE}, ${store.PRODUCTOS_FILE}`);
 });

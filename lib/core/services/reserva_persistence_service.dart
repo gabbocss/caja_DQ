@@ -67,7 +67,7 @@ class ReservaPersistenceService {
     return obtenerReservasPendientesConFallback();
   }
 
-  /// Reemplaza/inserta reservas descargadas del servidor central (solo pendientes entrantes).
+  /// Inserta/actualiza reservas del VPS sin borrar el histórico local (sentadas, canceladas, etc.).
   Future<void> fusionarReservasRemotas(List<Reserva> remotas) async {
     if (_db.isInitialized) {
       await _db.fusionarReservasRemotas(remotas);

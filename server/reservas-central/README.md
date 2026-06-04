@@ -57,6 +57,16 @@ Debe devolver JSON con `"endpoints"` y `"reservas": "/api/reservas"`.
 | `PORT` | `8888` | Puerto de escucha |
 | `HOST` | `0.0.0.0` | Interfaz |
 | `DATA_DIR` | `./data` | Carpeta de `reservas.json` |
+| `RESERVAS_PURGE_MS` | `2592000000` (30 días) | Tras confirmar sync en caja, borrar del VPS pasado este tiempo |
+
+### Candado de sincronización (caja → VPS)
+
+1. La caja hace `GET /api/reservas` (solo pendientes aún no confirmadas en disco local).
+2. Fusiona en Isar + `reservas_backup.json` (el histórico local no se borra).
+3. `POST /api/reservas/marcar-sincronizadas` con `{ "ids": [1, 2, 3] }`.
+4. El VPS deja de devolver esas reservas en el GET y, tras `RESERVAS_PURGE_MS`, las elimina de `reservas.json`.
+
+Tras desplegar, reinicia: `pm2 restart reservas-central`.
 
 ## PM2 útiles
 

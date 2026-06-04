@@ -580,6 +580,31 @@ class ApiClient {
     }
   }
 
+  /// POST /api/reservas/marcar-sincronizadas — candado: la caja ya guardó estos IDs.
+  Future<void> marcarReservasSincronizadas(List<int> ids) async {
+    if (ids.isEmpty) return;
+    final uri = _apiUri(ApiEndpoints.reservasMarcarSincronizadas);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({'ids': ids}),
+      );
+      if (response.statusCode != 200) {
+        throw Exception(
+          'POST $uri → ${response.statusCode}. '
+          'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error en marcarReservasSincronizadas ($uri): $e');
+      rethrow;
+    }
+  }
+
   /// PUT /api/reservas/<id>/estado — marcar sentada/cancelada en servidor central.
   Future<void> actualizarEstadoReserva({
     required int id,
