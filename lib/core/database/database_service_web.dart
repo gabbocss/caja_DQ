@@ -55,6 +55,8 @@ class DatabaseService {
       _unsupported();
   Future<List<int>> obtenerMesasConCuentaAbierta() async => _unsupported();
   Future<int> guardarPedido(Pedido pedido) async => _unsupported();
+  /// En web no hay Isar ni cobros locales; la caja nativa sincroniza pendiente en mesa.
+  Future<void> sincronizarPendienteMesaDesdeCobros(int numeroMesa) async {}
   Future<double> obtenerTotalPendienteMesa(int numeroMesa) async =>
       _unsupported();
   Future<double> aplicarPagoMesa(int numeroMesa, double importe) async =>
