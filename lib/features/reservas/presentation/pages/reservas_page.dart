@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/core.dart';
+import '../../../../core/utils/platform_utils.dart';
 import '../providers/reservas_provider.dart';
 
 /// Pantalla de reservas pendientes y alta manual.
@@ -115,7 +116,7 @@ class _ReservasPageState extends State<ReservasPage> {
     }
     setState(() => _guardando = true);
     try {
-      await provider.crearReserva(
+      final resultado = await provider.crearReserva(
         nombreCliente: _nombreCtrl.text,
         numeroPersonas: _personas,
         fechaHoraLlegada: _fechaHora,
@@ -125,7 +126,14 @@ class _ReservasPageState extends State<ReservasPage> {
       if (mounted) {
         _limpiarFormulario();
         setState(() {});
-        _snack('Reserva creada', const Color(0xFF00D9A5));
+        if (resultado == CrearReservaResultado.guardadaParaEnvio) {
+          _snack(
+            'Reserva guardada en el teléfono. Se enviará al VPS cuando haya conexión.',
+            const Color(0xFFFFB74D),
+          );
+        } else {
+          _snack('Reserva creada', const Color(0xFF00D9A5));
+        }
       }
     } catch (e) {
       _snack('Error: $e', Colors.red);
@@ -181,12 +189,24 @@ class _ReservasPageState extends State<ReservasPage> {
             backgroundColor: const Color(0xFF16213E),
             title: const Text('Reservas'),
             actions: [
-              if (provider.modoBackup)
+              if (provider.modoBackup && !PlatformUtils.isAndroid)
                 const Padding(
                   padding: EdgeInsets.only(right: 8),
                   child: Chip(
                     label: Text('Modo offline', style: TextStyle(fontSize: 11)),
                     backgroundColor: Color(0xFFFFB74D),
+                  ),
+                ),
+              if (provider.colaEnvioCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Chip(
+                    avatar: const Icon(Icons.cloud_upload, size: 16, color: Colors.black87),
+                    label: Text(
+                      'Por enviar (${provider.colaEnvioCount})',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    backgroundColor: const Color(0xFFFFB74D),
                   ),
                 ),
               IconButton(
@@ -198,7 +218,9 @@ class _ReservasPageState extends State<ReservasPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.sync),
-                tooltip: 'Sincronizar con servidor 24/7',
+                tooltip: PlatformUtils.isAndroid
+                    ? 'Actualizar carta y reservas desde VPS'
+                    : 'Subir catálogo y sincronizar reservas con VPS',
               ),
             ],
           ),
@@ -208,14 +230,17 @@ class _ReservasPageState extends State<ReservasPage> {
                   ? Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(flex: 4, child: _listaPendientes(provider)),
+                        Expanded(
+                          flex: 4,
+                          child: _panelListasReservas(provider, esMovil: false),
+                        ),
                         const VerticalDivider(width: 1, color: Color(0xFF0F3460)),
                         Expanded(flex: 6, child: _formularioNueva(provider)),
                       ],
                     )
                   : Column(
                       children: [
-                        SizedBox(height: 280, child: _listaPendientes(provider)),
+                        _panelListasReservas(provider, esMovil: true),
                         const Divider(height: 1, color: Color(0xFF0F3460)),
                         Expanded(child: _formularioNueva(provider)),
                       ],
@@ -225,117 +250,248 @@ class _ReservasPageState extends State<ReservasPage> {
     );
   }
 
-  Widget _listaPendientes(ReservasProvider provider) {
-    final lista = provider.pendientes;
-    return Column(
+  Widget _panelListasReservas(ReservasProvider provider, {required bool esMovil}) {
+    final porEnviar = provider.pendientesPorEnviar;
+    final enServidor = provider.reservasEnServidor;
+    final enCaja = provider.pendientesCaja;
+    final maxLista = esMovil ? 220.0 : double.infinity;
+
+    Widget panel = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: esMovil ? MainAxisSize.min : MainAxisSize.max,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text(
-            'Pendientes (${lista.length})',
-            style: const TextStyle(
-              color: Color(0xFF00D9A5),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
         if (provider.error != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: Text(
               provider.error!,
               style: TextStyle(color: Colors.orange.shade300, fontSize: 12),
             ),
           ),
-        Expanded(
-          child: lista.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No hay reservas pendientes',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: lista.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final r = lista[index];
-                    final sel = _reservaSeleccionada?.id == r.id;
-                    return Material(
-                      color: sel ? const Color(0xFF0F3460) : const Color(0xFF16213E),
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        onTap: () => setState(() => _reservaSeleccionada = r),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      r.nombreCliente,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    _formatoFechaHora(r.fechaHoraLlegada),
-                                    style: const TextStyle(
-                                      color: Color(0xFF00D9A5),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '${r.numeroPersonas} personas · '
-                                '${r.itemsReservados.length} plato(s) pre-reservado(s)',
-                                style: const TextStyle(color: Colors.white70, fontSize: 13),
-                              ),
-                              if (r.alergiasNotas.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  r.alergiasNotas,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.orange.shade200,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 10),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: FilledButton.icon(
-                                  onPressed: () => _asignarMesa(provider, r),
-                                  icon: const Icon(Icons.table_restaurant, size: 18),
-                                  label: const Text('Asignar mesa'),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF00D9A5),
-                                    foregroundColor: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+        _seccionReservas(
+          titulo: 'Pendientes por enviar',
+          subtitulo: PlatformUtils.isAndroid
+              ? 'Guardadas en el teléfono sin conexión'
+              : 'Cola local hacia el VPS',
+          icono: Icons.cloud_upload_outlined,
+          cantidad: provider.colaEnvioCount,
+          lista: porEnviar,
+          provider: provider,
+          maxAlturaLista: maxLista,
+          vacio: 'No hay reservas pendientes de envío',
+          mostrarEtiquetaPorEnviar: true,
+          permitirAsignarMesa: false,
+        ),
+        if (!PlatformUtils.isAndroid)
+          _seccionReservas(
+            titulo: 'Pendientes en caja',
+            subtitulo: 'Base de datos local',
+            icono: Icons.storefront_outlined,
+            cantidad: enCaja.length,
+            lista: enCaja,
+            provider: provider,
+            maxAlturaLista: maxLista,
+            vacio: 'No hay reservas pendientes en la caja',
+            mostrarEtiquetaPorEnviar: false,
+            permitirAsignarMesa: true,
+          ),
+        _seccionReservas(
+          titulo: 'En el servidor',
+          subtitulo: 'Reservas ya enviadas al VPS',
+          icono: Icons.cloud_done_outlined,
+          cantidad: provider.reservasEnServidorCount,
+          lista: enServidor,
+          provider: provider,
+          maxAlturaLista: maxLista,
+          vacio: 'No hay reservas en el servidor (pulsa sync)',
+          mostrarEtiquetaPorEnviar: false,
+          permitirAsignarMesa: false,
         ),
       ],
+    );
+
+    if (esMovil) return panel;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: panel,
+    );
+  }
+
+  Widget _seccionReservas({
+    required String titulo,
+    required String subtitulo,
+    required IconData icono,
+    required int cantidad,
+    required List<Reserva> lista,
+    required ReservasProvider provider,
+    required double maxAlturaLista,
+    required String vacio,
+    required bool mostrarEtiquetaPorEnviar,
+    required bool permitirAsignarMesa,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: const Color(0xFF0F3460),
+        splashColor: const Color(0xFF0F3460),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        collapsedBackgroundColor: const Color(0xFF16213E),
+        backgroundColor: const Color(0xFF16213E),
+        iconColor: const Color(0xFF00D9A5),
+        collapsedIconColor: Colors.white54,
+        title: Row(
+          children: [
+            Icon(icono, color: const Color(0xFF00D9A5), size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$titulo ($cantidad)',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    subtitulo,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        children: [
+          if (lista.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Text(vacio, style: const TextStyle(color: Colors.white54)),
+            )
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: maxAlturaLista == double.infinity ? 400 : maxAlturaLista,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                itemCount: lista.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) => _tarjetaReserva(
+                  provider: provider,
+                  reserva: lista[index],
+                  mostrarEtiquetaPorEnviar: mostrarEtiquetaPorEnviar,
+                  permitirAsignarMesa: permitirAsignarMesa,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tarjetaReserva({
+    required ReservasProvider provider,
+    required Reserva reserva,
+    required bool mostrarEtiquetaPorEnviar,
+    required bool permitirAsignarMesa,
+  }) {
+    final sel = _reservaSeleccionada?.id == reserva.id;
+    final mostrarPorEnviar =
+        mostrarEtiquetaPorEnviar && provider.pendienteDeEnvio(reserva);
+
+    return Material(
+      color: sel ? const Color(0xFF0F3460) : const Color(0xFF1A1A2E),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => setState(() => _reservaSeleccionada = reserva),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      reserva.nombreCliente,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  if (mostrarPorEnviar)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFB74D),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Por enviar',
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  Text(
+                    _formatoFechaHora(reserva.fechaHoraLlegada),
+                    style: const TextStyle(
+                      color: Color(0xFF00D9A5),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${reserva.numeroPersonas} personas · '
+                '${reserva.itemsReservados.length} plato(s) pre-reservado(s)',
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              if (reserva.alergiasNotas.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  reserva.alergiasNotas,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.orange.shade200, fontSize: 12),
+                ),
+              ],
+              if (permitirAsignarMesa) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: () => _asignarMesa(provider, reserva),
+                    icon: const Icon(Icons.table_restaurant, size: 18),
+                    label: const Text('Asignar mesa'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D9A5),
+                      foregroundColor: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -350,9 +506,11 @@ class _ReservasPageState extends State<ReservasPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Nueva reserva manual',
-            style: TextStyle(
+          Text(
+            PlatformUtils.isAndroid
+                ? 'Nueva reserva (envío al VPS)'
+                : 'Nueva reserva manual',
+            style: const TextStyle(
               color: Color(0xFF00D9A5),
               fontSize: 16,
               fontWeight: FontWeight.bold,

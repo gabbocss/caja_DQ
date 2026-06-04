@@ -55,6 +55,7 @@ function apiIndexPayload() {
     version: '1.0.0',
     endpoints: {
       reservas: '/api/reservas',
+      productos: '/api/productos',
       health: '/health',
       healthApi: '/api/health',
     },
@@ -85,6 +86,19 @@ async function handle(req, res) {
 
     if (method === 'GET' && path === '/api/reservas') {
       send(res, 200, store.getPendientes());
+      return;
+    }
+
+    if (method === 'GET' && path === '/api/productos') {
+      send(res, 200, store.readProductos());
+      return;
+    }
+
+    if (method === 'POST' && path === '/api/productos') {
+      const raw = await readBody(req);
+      const data = JSON.parse(raw || '[]');
+      const guardados = store.replaceProductos(data);
+      send(res, 200, guardados);
       return;
     }
 
@@ -131,5 +145,6 @@ server.listen(PORT, HOST, () => {
   );
   console.log(`  GET  /api`);
   console.log(`  GET  /api/reservas`);
-  console.log(`  Datos: ${store.DATA_FILE}`);
+  console.log(`  GET/POST /api/productos`);
+  console.log(`  Datos: ${store.DATA_FILE}, ${store.PRODUCTOS_FILE}`);
 });

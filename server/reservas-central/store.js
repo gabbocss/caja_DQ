@@ -3,6 +3,7 @@ const path = require('path');
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'reservas.json');
+const PRODUCTOS_FILE = path.join(DATA_DIR, 'productos.json');
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -24,6 +25,22 @@ function readAll() {
 function writeAll(reservas) {
   ensureDataDir();
   fs.writeFileSync(DATA_FILE, JSON.stringify(reservas, null, 2), 'utf8');
+}
+
+function readProductos() {
+  ensureDataDir();
+  if (!fs.existsSync(PRODUCTOS_FILE)) {
+    return [];
+  }
+  const raw = fs.readFileSync(PRODUCTOS_FILE, 'utf8');
+  if (!raw.trim()) return [];
+  const data = JSON.parse(raw);
+  return Array.isArray(data) ? data : [];
+}
+
+function writeProductos(lista) {
+  ensureDataDir();
+  fs.writeFileSync(PRODUCTOS_FILE, JSON.stringify(lista, null, 2), 'utf8');
 }
 
 function nextId(reservas) {
@@ -88,10 +105,20 @@ function updateEstado(id, estado, mesaAsignada) {
   return reservas[idx];
 }
 
+/** Reemplaza el catálogo completo (POST array desde la caja). */
+function replaceProductos(body) {
+  const lista = Array.isArray(body) ? body : [body];
+  writeProductos(lista);
+  return lista;
+}
+
 module.exports = {
   DATA_FILE,
+  PRODUCTOS_FILE,
   readAll,
   getPendientes,
   upsertReserva,
   updateEstado,
+  readProductos,
+  replaceProductos,
 };

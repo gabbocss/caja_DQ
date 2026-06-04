@@ -8,7 +8,7 @@ import 'app_router.dart';
 
 /// Shell de navegación con barra lateral/inferior
 /// 
-/// En móvil: 2 tabs (Mesas, Cocina). En escritorio: 3 tabs (Pedidos, Cocina, Config).
+/// En móvil: Mesas, Reservas, Servidor, WiFi. En escritorio: Pedidos, Reservas, Cocina, etc.
 /// Usa NavigationRail en pantallas grandes y BottomNavigation en móviles.
 class NavigationShell extends StatelessWidget {
   final Widget child;
@@ -94,6 +94,7 @@ class NavigationShell extends StatelessWidget {
   int _getSelectedIndex(String location) {
     if (location.startsWith(AppRoutes.cocina)) return _isWebFlow ? 0 : 2;
     if (_isMobileFlow) {
+      if (location.startsWith(AppRoutes.reservas)) return 1;
       if (location.startsWith(AppRoutes.configurarConexion)) return 2;
       if (location.startsWith(AppRoutes.wifiQr)) return 3;
       return 0;
@@ -115,7 +116,7 @@ class NavigationShell extends StatelessWidget {
           context.go(AppRoutes.mesas);
           break;
         case 1:
-          context.go(AppRoutes.cocina);
+          context.go(AppRoutes.reservas);
           break;
         case 2:
           context.go(AppRoutes.configurarConexion);
@@ -169,9 +170,9 @@ class NavigationShell extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 8),
             ),
             NavigationRailDestination(
-              icon: Icon(Icons.restaurant_outlined),
-              selectedIcon: Icon(Icons.restaurant),
-              label: Text('Cocina'),
+              icon: Icon(Icons.event_seat_outlined),
+              selectedIcon: Icon(Icons.event_seat),
+              label: Text('Reservas'),
               padding: EdgeInsets.symmetric(vertical: 8),
             ),
             NavigationRailDestination(
@@ -312,7 +313,7 @@ class NavigationShell extends StatelessWidget {
             children: _isMobileFlow
                 ? [
                     Expanded(child: _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.table_restaurant_outlined, selectedIcon: Icons.table_restaurant, label: 'Mesas')),
-                    Expanded(child: _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.restaurant_outlined, selectedIcon: Icons.restaurant, label: 'Cocina')),
+                    Expanded(child: _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.event_seat_outlined, selectedIcon: Icons.event_seat, label: 'Reservas')),
                     Expanded(child: _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.dns_outlined, selectedIcon: Icons.dns, label: 'Servidor')),
                     Expanded(child: _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi')),
                   ]

@@ -12,7 +12,8 @@ class ConfigurarConexionPage extends StatefulWidget {
 }
 
 class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
-  final _controller = TextEditingController();
+  final _cajaController = TextEditingController();
+  final _vpsController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   String? _error;
@@ -20,43 +21,52 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
   @override
   void initState() {
     super.initState();
-    _loadSavedUrl();
+    _loadSavedUrls();
   }
 
-  Future<void> _loadSavedUrl() async {
-    final url = await getSavedServerUrl();
-    if (url != null && url.isNotEmpty && mounted) {
-      _controller.text = url;
+  Future<void> _loadSavedUrls() async {
+    final caja = await getSavedServerUrl();
+    final vps = await getReservasCentralUrl();
+    if (!mounted) return;
+    if (caja != null && caja.isNotEmpty) {
+      _cajaController.text = caja;
+    }
+    if (vps != null && vps.isNotEmpty) {
+      _vpsController.text = vps;
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _cajaController.dispose();
+    _vpsController.dispose();
     super.dispose();
+  }
+
+  String _normalizarUrl(String url) {
+    var urlFinal = url.trim();
+    if (!urlFinal.startsWith('http://') && !urlFinal.startsWith('https://')) {
+      urlFinal = 'http://$urlFinal';
+    }
+    return urlFinal;
   }
 
   Future<void> _guardar() async {
     _error = null;
     if (!_formKey.currentState!.validate()) return;
 
-    final url = _controller.text.trim();
-    if (url.isEmpty) {
-      setState(() => _error = 'Introduce la URL del servidor');
-      return;
-    }
-
-    // Asegurar que tenga protocolo
-    String urlFinal = url;
-    if (!urlFinal.startsWith('http://') && !urlFinal.startsWith('https://')) {
-      urlFinal = 'http://$url';
-    }
+    final urlCaja = _normalizarUrl(_cajaController.text);
+    final urlVpsRaw = _vpsController.text.trim();
+    final urlVps = urlVpsRaw.isEmpty ? null : _normalizarUrl(urlVpsRaw);
 
     setState(() => _loading = true);
 
     try {
-      await saveServerUrl(urlFinal);
-      await registerApiClientWithUrl(urlFinal);
+      await saveServerUrl(urlCaja);
+      if (urlVps != null) {
+        await saveReservasCentralUrl(urlVps);
+      }
+      await registerApiClientWithUrl(urlCaja);
       if (!mounted) return;
       context.go(AppRoutes.mesas);
     } catch (e) {
@@ -86,15 +96,15 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 Icon(
                   Icons.wifi_find,
                   size: 64,
                   color: Colors.white.withValues(alpha: 0.6),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 const Text(
-                  'Introduce la dirección del servidor',
+                  'Servidores del restaurante',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -103,7 +113,7 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'En el PC del restaurante, mira la URL que aparece abajo a la izquierda e introdúcela aquí.',
+                  'La caja local sirve mesas y pedidos. El VPS central guarda las reservas en la nube.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 14,
@@ -111,18 +121,36 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
                 ),
                 const SizedBox(height: 24),
                 TextFormField(
-                  controller: _controller,
+                  controller: _cajaController,
                   decoration: const InputDecoration(
-                    labelText: 'URL del servidor',
+                    labelText: 'URL de la caja (local)',
                     hintText: 'http://192.168.1.100:8080',
-                    prefixIcon: Icon(Icons.link, color: Color(0xFF00D9A5)),
+                    prefixIcon: Icon(Icons.computer, color: Color(0xFF00D9A5)),
                   ),
                   style: const TextStyle(color: Colors.white),
                   keyboardType: TextInputType.url,
                   autocorrect: false,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
-                      return 'Introduce la URL';
+                      return 'Introduce la URL de la caja';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _vpsController,
+                  decoration: const InputDecoration(
+                    labelText: 'URL servidor central / VPS (reservas)',
+                    hintText: 'https://mi-vps.ejemplo:8888',
+                    prefixIcon: Icon(Icons.cloud_outlined, color: Color(0xFFE94560)),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType: TextInputType.url,
+                  autocorrect: false,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Introduce la URL del VPS de reservas';
                     }
                     return null;
                   },
@@ -148,7 +176,10 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.check),
                   label: Text(_loading ? 'Guardando...' : 'Guardar y conectar'),

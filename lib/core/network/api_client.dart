@@ -29,11 +29,37 @@ class ApiClient {
 
   // ==================== PRODUCTOS ====================
 
+  /// Sustituye el catálogo completo en el servidor central (POST array JSON).
+  Future<int> subirCatalogoProductos(List<Producto> productos) async {
+    final uri = _apiUri(ApiEndpoints.productos);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(productos.map((p) => p.toJson()).toList()),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return productos.length;
+      }
+      throw Exception(
+        'POST $uri → ${response.statusCode}. '
+        '${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en subirCatalogoProductos ($uri): $e');
+      rethrow;
+    }
+  }
+
   /// Obtiene todos los productos del servidor
   Future<List<Producto>> obtenerProductos() async {
+    final uri = _apiUri(ApiEndpoints.productos);
     try {
       final response = await _client.get(
-        Uri.parse('$baseUrl/api/productos'),
+        uri,
         headers: {'Accept': 'application/json'},
       );
 
@@ -44,7 +70,7 @@ class ApiClient {
         throw Exception('Error al obtener productos: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('Error en obtenerProductos: $e');
+      debugPrint('Error en obtenerProductos ($uri): $e');
       rethrow;
     }
   }
