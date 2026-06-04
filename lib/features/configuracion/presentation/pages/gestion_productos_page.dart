@@ -21,12 +21,37 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   List<DestinoImpresion> _destinos = [];
   List<Categoria> _categoriasDb = [];
   bool _cargando = true;
+  bool _sincronizandoCatalogo = false;
   String? _filtroCategoria;
 
   @override
   void initState() {
     super.initState();
     _cargarDatos();
+  }
+
+  Future<void> _sincronizarCatalogoConVps() async {
+    setState(() => _sincronizandoCatalogo = true);
+    try {
+      final n = await ReservaSyncService.instance.subirCatalogoAlVpsDesdePrefs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Catálogo subido al VPS ($n productos)'),
+          backgroundColor: const Color(0xFF00D9A5),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al subir catálogo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sincronizandoCatalogo = false);
+    }
   }
 
   Future<void> _cargarDatos() async {
@@ -74,7 +99,17 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
           ],
         ),
         actions: [
-          // Botón añadir producto
+          IconButton(
+            onPressed: _sincronizandoCatalogo ? null : _sincronizarCatalogoConVps,
+            icon: _sincronizandoCatalogo
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.settings, color: Color(0xFF4FC3F7)),
+            tooltip: 'Subir catálogo al VPS',
+          ),
           IconButton(
             onPressed: () => _mostrarFormularioProducto(null),
             icon: const Icon(Icons.add_circle, color: Color(0xFF00D9A5)),

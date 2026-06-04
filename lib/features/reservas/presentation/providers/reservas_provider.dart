@@ -92,7 +92,7 @@ class ReservasProvider extends ChangeNotifier {
       final db = DatabaseService.instance;
       _productos = await db.obtenerProductos();
       _mesas = await db.obtenerMesas();
-      await sincronizar();
+      await _sincronizarSoloReservasCaja();
     } catch (e) {
       _error = e.toString();
       await _recargarLocal();
@@ -141,6 +141,26 @@ class ReservasProvider extends ChangeNotifier {
     } finally {
       client.dispose();
     }
+  }
+
+  /// Al abrir Reservas en caja: solo pull de reservas (el catálogo se sube desde Productos).
+  Future<void> _sincronizarSoloReservasCaja() async {
+    _sincronizando = true;
+    _error = null;
+    notifyListeners();
+    final result = await _sync.sincronizarSoloReservasAlInicio();
+    _modoBackup = result.usoBackupLocal;
+    if (!result.exito && result.error != null) {
+      _error = result.error;
+    }
+    await _recargarLocal();
+    if (ReservaVpsPollingService.instance.estaActivo) {
+      await ReservaVpsPollingService.instance.refrescarAhora();
+    } else {
+      await _actualizarPendientesServidor();
+    }
+    _sincronizando = false;
+    notifyListeners();
   }
 
   Future<void> sincronizar() async {

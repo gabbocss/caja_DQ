@@ -48,6 +48,51 @@ class ReservaSyncService {
     return sincronizarDesdeRemoto(url);
   }
 
+  /// Solo descarga reservas del VPS (sin subir catálogo). Para entrar en Reservas en caja.
+  Future<ReservaSyncResult> sincronizarSoloReservasAlInicio() async {
+    final url = await getReservasCentralUrlEfectiva();
+    if (url == null || url.isEmpty) {
+      debugPrint(
+        'Reservas: sin URL central configurada; se usará backup local si existe.',
+      );
+      final locales = await _persistencia.obtenerReservasPendientesConFallback();
+      return ReservaSyncResult(
+        exito: true,
+        descargadas: locales.length,
+        usoBackupLocal: true,
+      );
+    }
+    try {
+      final remotas = await descargarSoloReservasDesdeRemoto(url);
+      return ReservaSyncResult(
+        exito: true,
+        descargadas: remotas.length,
+      );
+    } catch (e, st) {
+      debugPrint('⚠️ Fallo sync solo reservas: $e\n$st');
+      final locales = await _persistencia.obtenerReservasPendientesConFallback();
+      return ReservaSyncResult(
+        exito: false,
+        descargadas: locales.length,
+        error: e.toString(),
+        usoBackupLocal: true,
+      );
+    }
+  }
+
+  /// Sube el catálogo de Isar al VPS usando la URL configurada.
+  Future<int> subirCatalogoAlVpsDesdePrefs() async {
+    final url = await getReservasCentralUrlEfectiva();
+    if (url == null || url.isEmpty) {
+      throw Exception(
+        'Configura la URL del servidor central de reservas (VPS).',
+      );
+    }
+    final n = await subirCatalogoProductosAlVps(url);
+    debugPrint('✅ Catálogo subido al VPS: $n productos');
+    return n;
+  }
+
   /// Sube todos los productos de Isar al VPS y descarga reservas pendientes.
   Future<ReservaSyncResult> sincronizarDesdeRemoto(String baseUrl) async {
     var productosSubidos = 0;
