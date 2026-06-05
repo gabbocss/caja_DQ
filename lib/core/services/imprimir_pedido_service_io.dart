@@ -204,8 +204,10 @@ class ImprimirPedidoService {
     ConfiguracionImpresion config,
     int mesaNumero,
     int numeroTicket,
-    List<ItemPedido> items,
-  ) async {
+    List<ItemPedido> items, {
+    String? horaLlegada,
+    String? notasReserva,
+  }) async {
     final out = <int>[];
     void add(List<int> bytes) => out.addAll(bytes);
     void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
@@ -282,6 +284,12 @@ class ImprimirPedidoService {
     }
 
     addStr(_aplicarMargen('\n', margenEsp));
+    if (horaLlegada != null && horaLlegada.isNotEmpty) {
+      addStr(_aplicarMargen('Hora llegada: $horaLlegada\n', margenEsp));
+    }
+    if (notasReserva != null && notasReserva.isNotEmpty) {
+      addStr(_aplicarMargen('NOTAS: $notasReserva\n', margenEsp));
+    }
     addStr(_aplicarMargen('$sep\n', margenEsp));
 
     if (config.mostrarFechaHora) {
@@ -728,150 +736,53 @@ class ImprimirPedidoService {
     return out;
   }
 
-  /// Ticket de cocina al sentar una reserva (formato acordado).
+  /// Comandas por destino al sentar una reserva (solo platos pre-reservados).
   Future<void> imprimirTicketReservaCocina({
     required int mesaNumero,
     required Reserva reserva,
   }) async {
-    final config = await ConfiguracionImpresionService.instance.cargar();
+    if (reserva.itemsReservados.isEmpty) return;
+
+    final db = DatabaseService.instance;
     final hora =
         '${reserva.fechaHoraLlegada.hour.toString().padLeft(2, '0')}:'
         '${reserva.fechaHoraLlegada.minute.toString().padLeft(2, '0')}';
-    final buffer = StringBuffer()
-      ..writeln('*** MESA $mesaNumero - RESERVA: ${reserva.nombreCliente} ***')
-      ..writeln('Hora de llegada: $hora');
-    for (final item in reserva.itemsReservados) {
-      buffer.writeln('${item.cantidad}x ${item.nombreProducto}');
-    }
-    buffer
-      ..writeln('----------------------------------------')
-      ..writeln('NOTAS: ${reserva.alergiasNotas.isEmpty ? '-' : reserva.alergiasNotas}');
+    final notas = reserva.alergiasNotas.trim();
 
-    final payload = await _generarPayloadReservaCocina(
-      config,
-      buffer.toString(),
-    );
-
-    final db = DatabaseService.instance;
-    final destinosAImprimir = <({String host, int port})>{};
-    final destinosUsados = <int>{};
-
-    for (final item in reserva.itemsReservados) {
-      final destinoId = item.productoId > 0
-          ? (await db.obtenerProductoPorId(item.productoId))?.destinoId
-          : null;
-      if (destinoId == null || destinosUsados.contains(destinoId)) continue;
-      final destino = await db.obtenerDestinoPorId(destinoId);
-      if (destino == null) continue;
-      if (destino.tipo != TipoDestino.impresora &&
-          destino.tipo != TipoDestino.ambos) {
-        continue;
+    final itemsImpresion = <ItemPedido>[];
+    for (final i in reserva.itemsReservados) {
+      int? destinoId;
+      if (i.productoId > 0) {
+        destinoId = (await db.obtenerProductoPorId(i.productoId))?.destinoId;
       }
-      final ip = destino.direccionImpresora?.trim();
-      if (ip == null || ip.isEmpty) continue;
-      destinosAImprimir.add((
-        host: ip,
-        port: destino.puertoImpresora ?? _puertoPorDefecto,
-      ));
-      destinosUsados.add(destinoId);
-    }
-
-    if (destinosAImprimir.isEmpty) {
-      final todos = await db.obtenerDestinos();
-      for (final destino in todos) {
-        if (destino.tipo != TipoDestino.impresora &&
-            destino.tipo != TipoDestino.ambos) {
-          continue;
-        }
-        final ip = destino.direccionImpresora?.trim();
-        if (ip == null || ip.isEmpty) continue;
-        destinosAImprimir.add((
-          host: ip,
-          port: destino.puertoImpresora ?? _puertoPorDefecto,
-        ));
-      }
-    }
-
-    for (final d in destinosAImprimir) {
-      final ok = await _enviarAImpresora(d.host, d.port, payload);
-      if (!ok) {
-        debugPrint('No se pudo imprimir reserva en ${d.host}:${d.port}');
-      }
-    }
-
-    // Comandas normales por destino para los platos pre-reservados (sin cubiertos).
-    if (reserva.itemsReservados.isNotEmpty) {
-      final itemsImpresion = <ItemPedido>[];
-      for (final i in reserva.itemsReservados) {
-        int? destinoId;
-        if (i.productoId > 0) {
-          destinoId = (await db.obtenerProductoPorId(i.productoId))?.destinoId;
-        }
-        itemsImpresion.add(
-          ItemPedido.crear(
-            productoId: i.productoId,
-            nombreProducto: i.nombreProducto,
-            precioUnitario: i.precioUnitario,
-            cantidad: i.cantidad,
-            destinoId: destinoId,
-          ),
-        );
-      }
-      final pedidoImpresion = Pedido.crear(
-        mesaNumero: mesaNumero,
-        usuarioCamarero: 'Reserva',
-        items: itemsImpresion,
+      itemsImpresion.add(
+        ItemPedido.crear(
+          productoId: i.productoId,
+          nombreProducto: i.nombreProducto,
+          precioUnitario: i.precioUnitario,
+          cantidad: i.cantidad,
+          destinoId: destinoId,
+        ),
       );
-      await imprimirPedido(pedidoImpresion);
     }
+
+    final pedidoImpresion = Pedido.crear(
+      mesaNumero: mesaNumero,
+      usuarioCamarero: 'Reserva',
+      items: itemsImpresion,
+    );
+    await imprimirPedido(
+      pedidoImpresion,
+      horaLlegada: hora,
+      notasReserva: notas.isEmpty ? null : notas,
+    );
   }
 
-  Future<List<int>> _generarPayloadReservaCocina(
-    ConfiguracionImpresion config,
-    String cuerpo,
-  ) async {
-    final out = <int>[];
-    void add(List<int> bytes) => out.addAll(bytes);
-    void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
-
-    final margenEsp = _espaciosMargenIzq(config);
-    add(_escInit);
-    for (var i = 0; i < config.margenSuperiorLineas; i++) addStr('\n');
-
-    final lineas = cuerpo.split('\n');
-    if (lineas.isNotEmpty) {
-      add(_escBoldOn);
-      add(_escSizeDoubleHeight);
-      addStr(_aplicarMargen('${lineas.first}\n', margenEsp));
-      add(_escSizeNormal);
-      add(_escBoldOff);
-      for (var i = 1; i < lineas.length; i++) {
-        addStr(_aplicarMargen('${lineas[i]}\n', margenEsp));
-      }
-    }
-
-    if (config.mostrarFechaHora) {
-      final now = DateTime.now();
-      final imp =
-          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')} '
-          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      addStr(_aplicarMargen('Impreso: $imp\n', margenEsp));
-    }
-    for (var i = 0; i < config.margenInferiorLineas; i++) addStr('\n');
-
-    switch (config.tipoCorte) {
-      case 'parcial':
-        add(_escCutPartial);
-        break;
-      case 'ninguno':
-        break;
-      default:
-        add(_escCutFull);
-    }
-    return out;
-  }
-
-  Future<void> imprimirPedido(Pedido pedido) async {
+  Future<void> imprimirPedido(
+    Pedido pedido, {
+    String? horaLlegada,
+    String? notasReserva,
+  }) async {
     if (pedido.items.isEmpty) return;
     final db = DatabaseService.instance;
     final config = await ConfiguracionImpresionService.instance.cargar();
@@ -893,7 +804,14 @@ class ImprimirPedidoService {
       final ip = destino.direccionImpresora?.trim();
       if (ip == null || ip.isEmpty) continue;
       final port = destino.puertoImpresora ?? _puertoPorDefecto;
-      final payload = await _generarPayloadTicket(config, pedido.mesaNumero, numeroTicket, items);
+      final payload = await _generarPayloadTicket(
+        config,
+        pedido.mesaNumero,
+        numeroTicket,
+        items,
+        horaLlegada: horaLlegada,
+        notasReserva: notasReserva,
+      );
       final ok = await _enviarAImpresora(ip, port, payload);
       if (!ok) {
         debugPrint('No se pudo imprimir en ${destino.nombre} ($ip:$port)');

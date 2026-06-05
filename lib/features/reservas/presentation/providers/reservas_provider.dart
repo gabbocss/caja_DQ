@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/core.dart';
 import '../../../../core/prefs/reservas_central_prefs.dart';
+import '../../../../core/services/reserva_carta_cache_service.dart';
 import '../../../../core/services/reserva_outbox_service.dart';
 import '../../../../core/services/reserva_persistence_service.dart';
 import '../../../../core/services/reserva_sync_service.dart';
@@ -21,6 +22,7 @@ class ReservasProvider extends ChangeNotifier {
   final _sync = ReservaSyncService.instance;
   final _asignacion = ReservaAsignacionService.instance;
   final _outbox = ReservaOutboxService.instance;
+  final _cartaCache = ReservaCartaCacheService.instance;
 
   List<Reserva> _pendientesLocales = [];
   List<Reserva> _pendientesServidor = [];
@@ -56,6 +58,16 @@ class ReservasProvider extends ChangeNotifier {
 
   bool get _esAndroidNube => PlatformUtils.isAndroid;
   bool _pollingVinculado = false;
+
+  DateTime _diaAgenda = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    DateTime.now().day,
+  );
+  List<Reserva> _reservasDelDia = [];
+
+  DateTime get diaAgenda => _diaAgenda;
+  List<Reserva> get reservasDelDia => _reservasDelDia;
 
   Reserva _reservaParaVistaDesdeCola(ReservaOutboxEntry e) {
     final json = e.reserva.toJson();
@@ -107,29 +119,37 @@ class ReservasProvider extends ChangeNotifier {
     _modoBackup = false;
     _error = null;
     _mesas = [];
+    _pendientesServidor = [];
     notifyListeners();
     try {
       await getReservasCentralUrl();
-      _colaEnvio = await _outbox.listar();
-      try {
-        await _cargarProductosDesdeVps();
-      } catch (e) {
-        _error =
-            'Sin conexión al VPS para la carta. Las reservas en cola se enviarán al reconectar.';
-        debugPrint('Reservas Android: carta VPS: $e');
-      }
-      await _refrescarPendientesAndroid(intentarReenvio: true);
+      await _actualizarColaLocal();
+      _productos = await _cartaCache.cargar();
+      _actualizarAvisoCartaAndroid();
     } catch (e) {
       _error = e.toString();
-      _colaEnvio = await _outbox.listar();
-      _pendientesServidor = [];
+      await _actualizarColaLocal();
+      _productos = await _cartaCache.cargar();
     } finally {
       _cargando = false;
       notifyListeners();
     }
   }
 
-  Future<void> _cargarProductosDesdeVps() async {
+  void _actualizarAvisoCartaAndroid() {
+    if (_colaEnvio.isNotEmpty) {
+      _error =
+          '${_colaEnvio.length} reserva(s) pendientes de envío. Pulsa sync para reenviar.';
+      return;
+    }
+    if (_productos.isEmpty) {
+      _error = 'Pulsa sync para cargar la carta de platos desde el VPS.';
+      return;
+    }
+    _error = null;
+  }
+
+  Future<void> _cargarProductosDesdeVpsYCachear() async {
     final client = await _clienteVps();
     try {
       if (!await client.verificarApiProgramaCaja()) {
@@ -137,7 +157,9 @@ class ReservasProvider extends ChangeNotifier {
           'El VPS no expone la API esperada (reservas y productos en GET /api).',
         );
       }
-      _productos = await client.obtenerProductos();
+      final productos = await client.obtenerProductos();
+      await _cartaCache.guardar(productos);
+      _productos = productos;
     } finally {
       client.dispose();
     }
@@ -193,48 +215,39 @@ class ReservasProvider extends ChangeNotifier {
     notifyListeners();
     try {
       try {
-        await _cargarProductosDesdeVps();
+        await _cargarProductosDesdeVpsYCachear();
       } catch (e) {
-        debugPrint('Reservas Android sync carta: $e');
+        debugPrint('Reserva Android sync carta: $e');
+        if (_productos.isEmpty) {
+          _productos = await _cartaCache.cargar();
+        }
+        _error = 'No se pudo actualizar la carta: $e';
       }
-      await _refrescarPendientesAndroid(intentarReenvio: true);
+
+      final enviados = await _intentarReenviarCola();
+      await _actualizarColaLocal();
+
+      if (enviados > 0 && _colaEnvio.isEmpty) {
+        _error = null;
+      } else if (_colaEnvio.isNotEmpty) {
+        _error =
+            '${_colaEnvio.length} reserva(s) siguen pendientes de envío al VPS.';
+      } else if (_productos.isEmpty) {
+        _actualizarAvisoCartaAndroid();
+      } else {
+        _error = null;
+      }
     } catch (e) {
       _error = e.toString();
-      _colaEnvio = await _outbox.listar();
+      await _actualizarColaLocal();
     } finally {
       _sincronizando = false;
       notifyListeners();
     }
   }
 
-  /// Reenvía cola, actualiza lista local y descarga pendientes del VPS.
-  Future<void> _refrescarPendientesAndroid({required bool intentarReenvio}) async {
+  Future<void> _actualizarColaLocal() async {
     _colaEnvio = await _outbox.listar();
-
-    if (intentarReenvio && _colaEnvio.isNotEmpty) {
-      await _intentarReenviarCola();
-      _colaEnvio = await _outbox.listar();
-    }
-
-    try {
-      final client = await _clienteVps();
-      try {
-        if (await client.verificarApiProgramaCaja()) {
-          _pendientesServidor = await client.obtenerReservasPendientes();
-          if (_colaEnvio.isEmpty) _error = null;
-        }
-      } finally {
-        client.dispose();
-      }
-    } catch (e) {
-      debugPrint('Reservas Android: listar VPS: $e');
-      _pendientesServidor = [];
-      if (_colaEnvio.isNotEmpty) {
-        _error = _colaEnvio.isNotEmpty
-            ? '${_colaEnvio.length} reserva(s) esperan conexión al VPS.'
-            : e.toString();
-      }
-    }
   }
 
   Future<int> _intentarReenviarCola() async {
@@ -266,6 +279,86 @@ class ReservasProvider extends ChangeNotifier {
   Future<void> _recargarLocal() async {
     _pendientesLocales =
         await _persistencia.obtenerReservasPendientesConFallback();
+    if (!_esAndroidNube) {
+      await _recargarAgendaDelDia();
+    }
+  }
+
+  Future<void> _recargarAgendaDelDia() async {
+    _reservasDelDia = await _persistencia.obtenerReservasDelDia(_diaAgenda);
+  }
+
+  Future<void> irDiaAnteriorAgenda() async {
+    _diaAgenda = _diaAgenda.subtract(const Duration(days: 1));
+    await _recargarAgendaDelDia();
+    notifyListeners();
+  }
+
+  Future<void> irDiaSiguienteAgenda() async {
+    _diaAgenda = _diaAgenda.add(const Duration(days: 1));
+    await _recargarAgendaDelDia();
+    notifyListeners();
+  }
+
+  Future<void> establecerDiaAgenda(DateTime dia) async {
+    _diaAgenda = DateTime(dia.year, dia.month, dia.day);
+    await _recargarAgendaDelDia();
+    notifyListeners();
+  }
+
+  Future<void> actualizarReserva({
+    required int id,
+    required String nombreCliente,
+    required int numeroPersonas,
+    required DateTime fechaHoraLlegada,
+    required String alergiasNotas,
+    required List<ItemReserva> itemsReservados,
+  }) async {
+    if (_esAndroidNube) {
+      throw StateError('Editar reservas solo está disponible en la caja de escritorio.');
+    }
+    final existente = await _persistencia.obtenerPorId(id);
+    if (existente == null) {
+      throw StateError('Reserva no encontrada');
+    }
+    existente
+      ..nombreCliente = nombreCliente.trim()
+      ..numeroPersonas = numeroPersonas
+      ..fechaHoraLlegada = fechaHoraLlegada
+      ..alergiasNotas = alergiasNotas.trim()
+      ..itemsReservados = List<ItemReserva>.from(itemsReservados)
+      ..fechaActualizacion = DateTime.now();
+    await _persistencia.guardarReserva(existente);
+    await _publicarRemota(existente);
+    await _recargarLocal();
+    notifyListeners();
+  }
+
+  Future<void> eliminarReserva(int id) async {
+    if (_esAndroidNube) {
+      throw StateError('Eliminar reservas solo está disponible en la caja de escritorio.');
+    }
+    final existente = await _persistencia.obtenerPorId(id);
+    await _persistencia.eliminarReserva(id);
+    if (existente != null) {
+      final url = await getReservasCentralUrlEfectiva();
+      if (url != null && url.isNotEmpty) {
+        try {
+          final client = ApiClient(url);
+          if (await client.verificarApiProgramaCaja()) {
+            await client.actualizarEstadoReserva(
+              id: id,
+              estado: EstadoReserva.cancelada,
+            );
+          }
+          client.dispose();
+        } catch (e) {
+          debugPrint('Reserva eliminada en local; VPS no actualizado: $e');
+        }
+      }
+    }
+    await _recargarLocal();
+    notifyListeners();
   }
 
   void _vincularPollingCaja() {
@@ -375,12 +468,14 @@ class ReservasProvider extends ChangeNotifier {
       } finally {
         client.dispose();
       }
-      await _refrescarPendientesAndroid(intentarReenvio: false);
+      await _actualizarColaLocal();
+      _actualizarAvisoCartaAndroid();
       notifyListeners();
       return CrearReservaResultado.enviadaAlVps;
     } catch (e) {
       await _outbox.encolar(reserva, ultimoError: e.toString());
-      await _refrescarPendientesAndroid(intentarReenvio: false);
+      await _actualizarColaLocal();
+      _actualizarAvisoCartaAndroid();
       notifyListeners();
       return CrearReservaResultado.guardadaParaEnvio;
     }

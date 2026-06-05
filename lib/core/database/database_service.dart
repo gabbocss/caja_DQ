@@ -1449,6 +1449,25 @@ class DatabaseService {
     return await isar.reservas.where().sortByFechaHoraLlegada().findAll();
   }
 
+  /// Reservas cuya [fechaHoraLlegada] cae en el día civil [dia] (todas los estados).
+  Future<List<Reserva>> obtenerReservasDelDia(DateTime dia) async {
+    final inicio = DateTime(dia.year, dia.month, dia.day);
+    final fin = inicio.add(const Duration(days: 1));
+    final todas = await obtenerTodasReservas();
+    return todas
+        .where(
+          (r) =>
+              !r.fechaHoraLlegada.isBefore(inicio) &&
+              r.fechaHoraLlegada.isBefore(fin),
+        )
+        .toList()
+      ..sort((a, b) => a.fechaHoraLlegada.compareTo(b.fechaHoraLlegada));
+  }
+
+  Future<bool> eliminarReserva(int id) async {
+    return await isar.writeTxn(() => isar.reservas.delete(id));
+  }
+
   /// Upsert de reservas del VPS; no elimina reservas locales que ya no vienen en el pull.
   Future<void> fusionarReservasRemotas(List<Reserva> remotas) async {
     await isar.writeTxn(() async {

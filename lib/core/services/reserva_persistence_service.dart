@@ -67,6 +67,31 @@ class ReservaPersistenceService {
     return obtenerReservasPendientesConFallback();
   }
 
+  Future<List<Reserva>> obtenerReservasDelDia(DateTime dia) async {
+    if (_db.isInitialized) {
+      return _db.obtenerReservasDelDia(dia);
+    }
+    final inicio = DateTime(dia.year, dia.month, dia.day);
+    final fin = inicio.add(const Duration(days: 1));
+    return (await leerDesdeBackupJson())
+        .where(
+          (r) =>
+              !r.fechaHoraLlegada.isBefore(inicio) &&
+              r.fechaHoraLlegada.isBefore(fin),
+        )
+        .toList()
+      ..sort((a, b) => a.fechaHoraLlegada.compareTo(b.fechaHoraLlegada));
+  }
+
+  Future<bool> eliminarReserva(int id) async {
+    var ok = false;
+    if (_db.isInitialized) {
+      ok = await _db.eliminarReserva(id);
+    }
+    await _refrescarBackupJson();
+    return ok;
+  }
+
   /// Inserta/actualiza reservas del VPS sin borrar el histórico local (sentadas, canceladas, etc.).
   Future<void> fusionarReservasRemotas(List<Reserva> remotas) async {
     if (_db.isInitialized) {
