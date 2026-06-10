@@ -79,6 +79,11 @@ class ImprimirPedidoService {
     return map;
   }
 
+  /// Ítems con precio para tickets de cuenta/cobro (excluye platos a 0 €).
+  List<ItemPedido> _itemsConPrecioParaTicket(List<ItemPedido> items) {
+    return items.where((i) => i.precioUnitario > 0.001).toList();
+  }
+
   /// Texto seguro para impresoras termicas (ASCII): sin euro ni acentos.
   String _textoImpresora(String texto) {
     var s = texto.replaceAll('€', '');
@@ -382,10 +387,11 @@ class ImprimirPedidoService {
     for (final entry in itemsPorOrden.entries) {
       final orden = entry.key;
       final itemsTurno = entry.value;
+      final agrupado = _agruparCantidadesConPrecio(itemsTurno);
+      if (agrupado.isEmpty) continue;
       addStr(_aplicarMargen('\n\n', margenEsp));
       addStr(_aplicarMargen('$orden Plato\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
-      final agrupado = _agruparCantidadesConPrecio(itemsTurno);
       final valores = agrupado.values.toList()
         ..sort((a, b) => a.nombre.compareTo(b.nombre));
       for (final e in valores) {
@@ -491,10 +497,11 @@ class ImprimirPedidoService {
     for (final entry in itemsPorOrden.entries) {
       final orden = entry.key;
       final itemsTurno = entry.value;
+      final agrupado = _agruparCantidadesConPrecio(itemsTurno);
+      if (agrupado.isEmpty) continue;
       addStr(_aplicarMargen('\n\n', margenEsp));
       addStr(_aplicarMargen('$orden Plato\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
-      final agrupado = _agruparCantidadesConPrecio(itemsTurno);
       final valores = agrupado.values.toList()
         ..sort((a, b) => a.nombre.compareTo(b.nombre));
       for (final e in valores) {
@@ -570,7 +577,8 @@ class ImprimirPedidoService {
     required double totalRestante,
     required String metodoPagoEtiqueta,
   }) async {
-    if (items.isEmpty) return;
+    final itemsConPrecio = _itemsConPrecioParaTicket(items);
+    if (itemsConPrecio.isEmpty) return;
     final config = await ConfiguracionImpresionService.instance.cargar();
     if (!config.tieneImpresoraCuenta) return;
     final host = config.impresoraCuentaIp!.trim();
@@ -578,7 +586,7 @@ class ImprimirPedidoService {
     final payload = await _generarPayloadTicketPagoParcial(
       config,
       mesaNumero,
-      items,
+      itemsConPrecio,
       totalCuenta,
       importePagado,
       totalRestante,
@@ -594,12 +602,14 @@ class ImprimirPedidoService {
     List<ItemPedido> items,
     double total,
   ) async {
-    if (items.isEmpty) return;
+    final itemsConPrecio = _itemsConPrecioParaTicket(items);
+    if (itemsConPrecio.isEmpty) return;
     final config = await ConfiguracionImpresionService.instance.cargar();
     if (!config.tieneImpresoraCuenta) return;
     final host = config.impresoraCuentaIp!.trim();
     final port = config.impresoraCuentaPuerto ?? _puertoPorDefecto;
-    final payload = await _generarPayloadTicketCuenta(config, mesaNumero, items, total);
+    final payload =
+        await _generarPayloadTicketCuenta(config, mesaNumero, itemsConPrecio, total);
     await _enviarAImpresora(host, port, payload);
   }
 
