@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/widgets/scroll_horizontal_con_flechas.dart';
 
 /// Widget de selector de categorías con scroll horizontal
 ///
@@ -32,11 +33,10 @@ class CategoriaSelector extends StatelessWidget {
           ),
         ),
       ),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ScrollHorizontalConFlechas(
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         children: [
-          // Botón "Todos"
           _buildCategoriaChip(
             context,
             label: 'TODOS',
@@ -44,10 +44,7 @@ class CategoriaSelector extends StatelessWidget {
             isSelected: categoriaSeleccionada == null,
             onTap: () => onCategoriaChanged(null),
           ),
-          
           const SizedBox(width: 8),
-          
-          // Separador
           Container(
             width: 2,
             margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -56,18 +53,21 @@ class CategoriaSelector extends StatelessWidget {
               borderRadius: BorderRadius.circular(1),
             ),
           ),
-          
-          // Categorías dinámicas
-          ...(categorias?.isNotEmpty == true ? categorias! : CategoriaProducto.todas).map((categoria) => Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _buildCategoriaChip(
-              context,
-              label: categoria.toUpperCase(),
-              icono: _getIconoCategoria(categoria),
-              isSelected: categoriaSeleccionada == categoria,
-              onTap: () => onCategoriaChanged(categoria),
+          ...(categorias?.isNotEmpty == true
+                  ? categorias!
+                  : CategoriaProducto.todas)
+              .map(
+            (categoria) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _buildCategoriaChip(
+                context,
+                label: categoria.toUpperCase(),
+                icono: _getIconoCategoria(categoria),
+                isSelected: categoriaSeleccionada == categoria,
+                onTap: () => onCategoriaChanged(categoria),
+              ),
             ),
-          )),
+          ),
         ],
       ),
     );

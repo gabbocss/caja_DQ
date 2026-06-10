@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/core.dart';
+import '../../../../core/widgets/scroll_horizontal_con_flechas.dart';
 
 /// Pantalla de gestión de productos del menú
 /// 
@@ -142,10 +143,10 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   Widget _buildFiltroCategorias() {
     return Container(
       height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
       color: const Color(0xFF16213E),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+      child: ScrollHorizontalConFlechas(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         children: [
           _CategoriaChip(
             label: 'Todos',
@@ -153,14 +154,16 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
             onTap: () => setState(() => _filtroCategoria = null),
           ),
           const SizedBox(width: 8),
-          ..._categorias.map((cat) => Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _CategoriaChip(
-              label: cat,
-              isSelected: _filtroCategoria == cat,
-              onTap: () => setState(() => _filtroCategoria = cat),
+          ..._categorias.map(
+            (cat) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _CategoriaChip(
+                label: cat,
+                isSelected: _filtroCategoria == cat,
+                onTap: () => setState(() => _filtroCategoria = cat),
+              ),
             ),
-          )),
+          ),
         ],
       ),
     );
