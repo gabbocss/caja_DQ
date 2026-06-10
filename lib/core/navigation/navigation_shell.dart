@@ -103,6 +103,7 @@ class NavigationShell extends StatelessWidget {
     if (location.startsWith(AppRoutes.configuracion)) return _isWebFlow ? 1 : 3;
     if (location.startsWith(AppRoutes.wifiQr)) return 4;
     if (location.startsWith(AppRoutes.estadisticas)) return 5;
+    if (location.startsWith(AppRoutes.caja)) return 6;
     return _isWebFlow ? 0 : 0;
   }
 
@@ -156,6 +157,9 @@ class NavigationShell extends StatelessWidget {
         break;
       case 5:
         context.go(AppRoutes.estadisticas);
+        break;
+      case 6:
+        context.go(AppRoutes.caja);
         break;
     }
   }
@@ -240,6 +244,12 @@ class NavigationShell extends StatelessWidget {
                   label: Text('Estadísticas'),
                   padding: EdgeInsets.symmetric(vertical: 8),
                 ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.point_of_sale_outlined),
+                  selectedIcon: Icon(Icons.point_of_sale),
+                  label: Text('Caja'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
               ];
 
     return Container(
@@ -291,7 +301,7 @@ class NavigationShell extends StatelessWidget {
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
-    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 5);
+    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 6);
     final safeIndex = selectedIndex.clamp(0, maxIndex);
 
     return Container(
@@ -329,6 +339,7 @@ class NavigationShell extends StatelessWidget {
                         _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Config'),
                         _buildNavItem(context, index: 4, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi'),
                         _buildNavItem(context, index: 5, selectedIndex: safeIndex, icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Estadísticas'),
+                        _buildNavItem(context, index: 6, selectedIndex: safeIndex, icon: Icons.point_of_sale_outlined, selectedIcon: Icons.point_of_sale, label: 'Caja'),
                       ],
           ),
         ),

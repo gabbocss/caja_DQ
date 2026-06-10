@@ -20,6 +20,7 @@ import '../../features/configuracion/presentation/pages/gestion_mesas_page.dart'
 import '../../features/configuracion/presentation/pages/gestion_categorias_page.dart';
 import '../../features/buffet_sabado/presentation/pages/configuracion_buffet_page.dart';
 import '../../features/estadisticas/presentation/pages/estadisticas_page.dart';
+import '../../features/caja/presentation/pages/caja_page.dart';
 import '../../features/reservas/presentation/pages/reservas_page.dart';
 import '../../features/reservas/presentation/providers/reservas_provider.dart';
 import 'navigation_shell.dart';
@@ -41,6 +42,7 @@ class AppRoutes {
   static const String servidorCentralReservas = '/servidor-central-reservas';
   static const String wifiQr = '/wifi-qr';
   static const String estadisticas = '/estadisticas';
+  static const String caja = '/caja';
 }
 
 /// Configuración del router de la aplicación
@@ -123,6 +125,12 @@ final appRouter = GoRouter(
           path: AppRoutes.estadisticas,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: EstadisticasPage(),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.caja,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: CajaPage(),
           ),
         ),
         GoRoute(
