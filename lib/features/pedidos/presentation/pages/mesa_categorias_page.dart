@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/core.dart';
+import '../../../../core/services/reserva_carta_cache_service.dart';
 import '../providers/pedidos_mobile_provider.dart';
 import 'pedidos_page.dart' show ItemCarrito;
 
@@ -35,7 +36,7 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
 
   Future<List<Producto>> _obtenerProductos() async {
     if (sl.isRegistered<ApiClient>()) {
-      return sl<ApiClient>().obtenerProductos();
+      return ReservaCartaCacheService.instance.cargar();
     }
     return DatabaseService.instance.obtenerProductos();
   }
