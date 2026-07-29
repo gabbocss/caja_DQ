@@ -307,6 +307,20 @@ class ImprimirPedidoService {
       addStr(_aplicarMargen('${config.textoPie!.trim()}\n', margenEsp));
     }
 
+    if (config.negritaCabecera) add(_escBoldOn);
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCabecera, config.escalaAltoCabecera));
+    } else {
+      add(_escTamanioCabecera(config));
+    }
+    addStr(_aplicarMargen('      MESA $mesaNumero\n', margenEsp));
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      add(_escSizeNormal);
+    }
+    add(_escBoldOff);
+
     for (var i = 0; i < config.margenInferiorLineas; i++) addStr('\n');
 
     switch (config.tipoCorte) {
