@@ -32,6 +32,8 @@ class CarritoPanel extends StatelessWidget {
   final VoidCallback? onEditarConsumo;
   final bool enviando;
   final Set<int> productosAgotados; // IDs de productos agotados
+  /// Si es false, oculta el grid de mesas y muestra solo "Mesa X" (flujo móvil).
+  final bool mostrarSelectorMesas;
 
   const CarritoPanel({
     super.key,
@@ -52,6 +54,7 @@ class CarritoPanel extends StatelessWidget {
     this.onEditarConsumo,
     this.enviando = false,
     this.productosAgotados = const {},
+    this.mostrarSelectorMesas = true,
   });
 
   double get total => items.fold(0, (sum, item) => sum + item.subtotal);
@@ -121,14 +124,16 @@ class CarritoPanel extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'MESA SELECCIONADA',
+                  mostrarSelectorMesas
+                      ? 'MESA SELECCIONADA'
+                      : 'Mesa $mesaSeleccionada',
                   style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 12,
+                    color: mostrarSelectorMesas ? Colors.white60 : Colors.white,
+                    fontSize: mostrarSelectorMesas ? 12 : 16,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
+                    letterSpacing: mostrarSelectorMesas ? 1 : 0,
                   ),
                 ),
               ),
@@ -141,17 +146,18 @@ class CarritoPanel extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
-          
-          // Selector de mesas con paginación (usa mesas configuradas en Config > Mesas)
-          _MesaSelectorPaginado(
-            mesaSeleccionada: mesaSeleccionada,
-            numerosMesas: numerosMesas,
-            mesasConCuentaAbierta: mesasConCuentaAbierta,
-            onMesaChanged: onMesaChanged,
-            onMesaTap: onMesaTap,
-            onMostrarQrMesa: onMostrarQrMesa,
-          ),
+          if (mostrarSelectorMesas) ...[
+            const SizedBox(height: 12),
+            // Selector de mesas con paginación (usa mesas configuradas en Config > Mesas)
+            _MesaSelectorPaginado(
+              mesaSeleccionada: mesaSeleccionada,
+              numerosMesas: numerosMesas,
+              mesasConCuentaAbierta: mesasConCuentaAbierta,
+              onMesaChanged: onMesaChanged,
+              onMesaTap: onMesaTap,
+              onMostrarQrMesa: onMostrarQrMesa,
+            ),
+          ],
         ],
       ),
     );
@@ -164,6 +170,51 @@ class CarritoPanel extends StatelessWidget {
       todosLosItems.addAll(pedido.items);
     }
     if (todosLosItems.isEmpty) return const SizedBox.shrink();
+
+    // App móvil: solo el botón "CONSUMO ACTUAL" (sin totales), un toque para ver platos.
+    if (!mostrarSelectorMesas) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onEditarConsumo,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F3460),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF00D9A5).withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.receipt_long, color: Color(0xFF00D9A5), size: 18),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'CONSUMO ACTUAL',
+                    style: TextStyle(
+                      color: Color(0xFF00D9A5),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Colors.white.withValues(alpha: 0.45),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     final subtotalCuenta = todosLosItems.fold<double>(
       0,
@@ -342,8 +393,22 @@ class CarritoPanel extends StatelessWidget {
   }
 
   Widget _buildResumen() {
+    // En la app móvil (sin selector de mesas) el bloque es ~25% más bajo.
+    final compacto = !mostrarSelectorMesas;
+    final padding = compacto ? 12.0 : 16.0;
+    final gapResumen = compacto ? 12.0 : 16.0;
+    final alturaBoton = compacto ? 44.0 : 52.0;
+    final fontProducto = compacto ? 11.0 : 14.0;
+    final fontTotalLabel = compacto ? 11.0 : 14.0;
+    final fontTotal = compacto ? 18.0 : 24.0;
+    final fontBoton = compacto ? 12.0 : 16.0;
+    final gapBotones = compacto ? 9.0 : 12.0;
+    final paddingBoton = compacto
+        ? const EdgeInsets.symmetric(horizontal: 8, vertical: 0)
+        : null;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(padding),
       decoration: BoxDecoration(
         color: const Color(0xFF0F3460),
         boxShadow: [
@@ -362,26 +427,26 @@ class CarritoPanel extends StatelessWidget {
             children: [
               Text(
                 '${items.length} producto${items.length != 1 ? 's' : ''}',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white60,
-                  fontSize: 14,
+                  fontSize: fontProducto,
                 ),
               ),
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'TOTAL: ',
                     style: TextStyle(
                       color: Colors.white60,
-                      fontSize: 14,
+                      fontSize: fontTotalLabel,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
                     '\$${total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Color(0xFF00D9A5),
-                      fontSize: 24,
+                    style: TextStyle(
+                      color: const Color(0xFF00D9A5),
+                      fontSize: fontTotal,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -389,13 +454,13 @@ class CarritoPanel extends StatelessWidget {
               ),
             ],
           ),
-          
-          const SizedBox(height: 16),
+
+          SizedBox(height: gapResumen),
 
           // Botones LIBERAR e IMPRIMIR (solo si la mesa tiene consumo actual)
           if (consumoActual.isNotEmpty && (onLiberar != null || onImprimirCuenta != null)) ...[
             SizedBox(
-              height: 52,
+              height: alturaBoton,
               child: Row(
                 children: [
                   if (onLiberar != null)
@@ -408,18 +473,24 @@ class CarritoPanel extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          padding: paddingBoton,
+                          minimumSize: Size(0, alturaBoton),
+                          tapTargetSize: compacto
+                              ? MaterialTapTargetSize.shrinkWrap
+                              : MaterialTapTargetSize.padded,
                         ),
-                        child: const Text(
+                        child: Text(
                           'LIBERAR',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: fontBoton,
                             letterSpacing: 1,
                           ),
                         ),
                       ),
                     ),
-                  if (onLiberar != null && onImprimirCuenta != null) const SizedBox(width: 12),
+                  if (onLiberar != null && onImprimirCuenta != null)
+                    SizedBox(width: gapBotones),
                   if (onImprimirCuenta != null)
                     Expanded(
                       child: OutlinedButton(
@@ -430,12 +501,17 @@ class CarritoPanel extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          padding: paddingBoton,
+                          minimumSize: Size(0, alturaBoton),
+                          tapTargetSize: compacto
+                              ? MaterialTapTargetSize.shrinkWrap
+                              : MaterialTapTargetSize.padded,
                         ),
-                        child: const Text(
+                        child: Text(
                           'IMPRIMIR',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: fontBoton,
                             letterSpacing: 1,
                           ),
                         ),
@@ -444,12 +520,12 @@ class CarritoPanel extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: gapBotones),
           ],
 
           // Botones ENVIAR y PAGOS (misma altura que LIBERAR / IMPRIMIR)
           SizedBox(
-            height: 52,
+            height: alturaBoton,
             child: Row(
               children: [
                 Expanded(
@@ -463,29 +539,34 @@ class CarritoPanel extends StatelessWidget {
                       ),
                       elevation: 4,
                       shadowColor: const Color(0xFFE94560).withValues(alpha: 0.5),
+                      padding: paddingBoton,
+                      minimumSize: Size(0, alturaBoton),
+                      tapTargetSize: compacto
+                          ? MaterialTapTargetSize.shrinkWrap
+                          : MaterialTapTargetSize.padded,
                     ),
                     child: enviando
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
+                        ? SizedBox(
+                            width: compacto ? 18 : 22,
+                            height: compacto ? 18 : 22,
+                            child: const CircularProgressIndicator(
                               strokeWidth: 2.5,
                               valueColor: AlwaysStoppedAnimation(Colors.white),
                             ),
                           )
-                        : const Text(
+                        : Text(
                             'ENVIAR',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: fontBoton,
                               letterSpacing: 1,
                             ),
                           ),
                   ),
                 ),
                 if (onPagos != null) ...[
-                  const SizedBox(width: 12),
+                  SizedBox(width: gapBotones),
                   Expanded(
                     child: OutlinedButton(
                       onPressed: enviando || consumoActual.isEmpty
@@ -497,12 +578,17 @@ class CarritoPanel extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        padding: paddingBoton,
+                        minimumSize: Size(0, alturaBoton),
+                        tapTargetSize: compacto
+                            ? MaterialTapTargetSize.shrinkWrap
+                            : MaterialTapTargetSize.padded,
                       ),
-                      child: const Text(
+                      child: Text(
                         'PAGOS',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: fontBoton,
                           letterSpacing: 1,
                         ),
                       ),

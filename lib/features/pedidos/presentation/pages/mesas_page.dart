@@ -27,8 +27,13 @@ class _MesasPageState extends State<MesasPage> {
 
   Future<void> _onMesaTap(int numeroMesa) async {
     final provider = context.read<PedidosMobileProvider>();
-    if (provider.mesasConCuentaAbierta.contains(numeroMesa)) {
-      await provider.loadCuentaMesa(numeroMesa);
+    // Siempre refrescar cuenta al entrar (tras hot reload o cambio en caja).
+    await provider.loadCuentaMesa(numeroMesa);
+    await provider.loadMesasConCuentaAbierta();
+    if (!mounted) return;
+
+    if (provider.mesasConCuentaAbierta.contains(numeroMesa) ||
+        provider.cuentaMesa(numeroMesa).isNotEmpty) {
       if (mounted) context.push('/mesas/categorias/$numeroMesa');
       return;
     }
@@ -293,10 +298,10 @@ class _MesasPageState extends State<MesasPage> {
             child: GridView.builder(
               padding: const EdgeInsets.all(16),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.1,
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1.0,
               ),
               itemCount: listaMesas.length,
               itemBuilder: (context, index) {
@@ -332,26 +337,26 @@ class _MesasPageState extends State<MesasPage> {
                       children: [
                         Icon(
                           Icons.table_restaurant,
-                          size: 48,
+                          size: 32,
                           color: tieneCuenta ? const Color(0xFF00D9A5) : Colors.white70,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         Text(
                           'Mesa $numero',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         if (tieneCuenta)
                           Padding(
-                            padding: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.only(top: 2),
                             child: Text(
                               'Con cuenta',
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 12,
+                                fontSize: 10,
                               ),
                             ),
                           ),

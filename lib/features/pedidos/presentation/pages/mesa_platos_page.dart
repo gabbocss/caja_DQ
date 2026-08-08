@@ -6,6 +6,7 @@ import '../../../../core/services/reserva_carta_cache_service.dart';
 import '../providers/pedidos_mobile_provider.dart';
 import '../widgets/producto_grid.dart';
 import '../widgets/carrito_panel.dart';
+import '../widgets/dialogo_consumo_actual_lectura.dart';
 import 'pedidos_page.dart' show ItemCarrito;
 
 /// Pantalla de platos de una categoría para una mesa.
@@ -27,11 +28,28 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Producto> _productos = [];
   bool _cargandoProductos = true;
+  /// Id del plato cuyo borde se ilumina brevemente al añadirlo.
+  int? _flashProductoId;
 
   @override
   void initState() {
     super.initState();
     _cargarProductos();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<PedidosMobileProvider>().loadCuentaMesa(widget.numeroMesa);
+    });
+  }
+
+  void _iluminarBordeBreve(int? productoId) {
+    if (productoId == null || productoId <= 0) return;
+    setState(() => _flashProductoId = productoId);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      if (_flashProductoId == productoId) {
+        setState(() => _flashProductoId = null);
+      }
+    });
   }
 
   /// En móvil cliente usa la carta cacheada (sync de Reservas); en local, Isar.
@@ -57,7 +75,10 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
     }
   }
 
-  void _openCarrito() {
+  Future<void> _openCarrito() async {
+    final provider = context.read<PedidosMobileProvider>();
+    await provider.loadCuentaMesa(widget.numeroMesa);
+    if (!mounted) return;
     _scaffoldKey.currentState?.openEndDrawer();
   }
 
@@ -290,6 +311,12 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
         final items = mobileProvider.carritoMesa(widget.numeroMesa);
         final cuenta = mobileProvider.cuentaMesa(widget.numeroMesa);
         final mesasCuenta = mobileProvider.mesasConCuentaAbierta;
+        final cantidadesEnCarrito = <int, int>{};
+        for (final item in items) {
+          final id = item.producto.id;
+          if (id == null || id <= 0) continue;
+          cantidadesEnCarrito[id] = (cantidadesEnCarrito[id] ?? 0) + item.cantidad;
+        }
 
         return Scaffold(
           key: _scaffoldKey,
@@ -346,6 +373,10 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
                   child: ProductoGrid(
                     categoriaFiltro: widget.categoriaNombre,
                     productos: _productos,
+                    crossAxisCount: 2,
+                    gridAltoFraccion: 0.5,
+                    cantidadesEnCarrito: cantidadesEnCarrito,
+                    productoIdBordeIluminado: _flashProductoId,
                     onProductoTap: (producto) {
                       if (!producto.isAvailable) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -358,14 +389,7 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
                         return;
                       }
                       mobileProvider.addToCart(widget.numeroMesa, producto);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${producto.nombre} agregado'),
-                          backgroundColor: const Color(0xFF00D9A5),
-                          duration: const Duration(milliseconds: 800),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
+                      _iluminarBordeBreve(producto.id);
                     },
                   ),
                 ),
@@ -378,7 +402,17 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
                 items: items,
                 consumoActual: cuenta,
                 mesasConCuentaAbierta: mesasCuenta,
+                mostrarSelectorMesas: false,
                 onMesaChanged: (_) {},
+                onEditarConsumo: cuenta.isEmpty
+                    ? null
+                    : () {
+                        DialogoConsumoActualLectura.mostrar(
+                          context: context,
+                          mesaNumero: widget.numeroMesa,
+                          pedidos: cuenta,
+                        );
+                      },
                 onItemRemoved: (index) => mobileProvider.removeFromCart(widget.numeroMesa, index),
                 onOrdenChanged: (index, orden) => mobileProvider.changeOrder(widget.numeroMesa, index, orden),
                 onEnviar: () async {

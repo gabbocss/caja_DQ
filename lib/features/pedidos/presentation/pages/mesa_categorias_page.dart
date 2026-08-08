@@ -6,6 +6,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/core.dart';
 import '../../../../core/services/reserva_carta_cache_service.dart';
 import '../providers/pedidos_mobile_provider.dart';
+import '../widgets/carrito_panel.dart';
+import '../widgets/dialogo_consumo_actual_lectura.dart';
 import 'pedidos_page.dart' show ItemCarrito;
 
 enum _DecisionSalidaMesa {
@@ -27,6 +29,7 @@ class MesaCategoriasPage extends StatefulWidget {
 }
 
 class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<String> _categorias = [];
   bool _cargando = true;
   String? _qrUrl;
@@ -221,6 +224,17 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
     super.initState();
     _cargarCategorias();
     _cargarUrlQr();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<PedidosMobileProvider>().loadCuentaMesa(widget.numeroMesa);
+    });
+  }
+
+  Future<void> _openCarrito() async {
+    final provider = context.read<PedidosMobileProvider>();
+    await provider.loadCuentaMesa(widget.numeroMesa);
+    if (!mounted) return;
+    _scaffoldKey.currentState?.openEndDrawer();
   }
 
   Future<void> _cargarUrlQr() async {
@@ -329,36 +343,161 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
           _manejandoSalida = false;
         }
       },
-      child: Scaffold(
-        backgroundColor: const Color(0xFF1A1A2E),
-        appBar: AppBar(
-          title: Text('Mesa ${widget.numeroMesa} - Categorías'),
-          backgroundColor: const Color(0xFF16213E),
-          foregroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () async {
-              final mobileProvider = context.read<PedidosMobileProvider>();
-              final ok = await _mostrarDialogoSalidaMesa(
-                context: context,
-                mobileProvider: mobileProvider,
-                numeroMesa: widget.numeroMesa,
-              );
-              if (!context.mounted) return;
-              if (ok) context.pop();
-            },
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.qr_code_2),
-              onPressed: _mostrarDialogoQrMesa,
-              tooltip: 'Ver QR para pedir buffet',
+      child: Consumer<PedidosMobileProvider>(
+        builder: (context, mobileProvider, _) {
+          final items = mobileProvider.carritoMesa(widget.numeroMesa);
+          final cuenta = mobileProvider.cuentaMesa(widget.numeroMesa);
+          final mesasCuenta = mobileProvider.mesasConCuentaAbierta;
+
+          return Scaffold(
+            key: _scaffoldKey,
+            backgroundColor: const Color(0xFF1A1A2E),
+            appBar: AppBar(
+              title: Text(
+                'Mesa ${widget.numeroMesa} - Categorías',
+                style: const TextStyle(fontSize: 16),
+              ),
+              backgroundColor: const Color(0xFF16213E),
+              foregroundColor: Colors.white,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () async {
+                  final ok = await _mostrarDialogoSalidaMesa(
+                    context: context,
+                    mobileProvider: mobileProvider,
+                    numeroMesa: widget.numeroMesa,
+                  );
+                  if (!context.mounted) return;
+                  if (ok) context.pop();
+                },
+              ),
+              actions: [
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.shopping_cart),
+                      onPressed: _openCarrito,
+                      tooltip: 'Ver carrito',
+                    ),
+                    if (items.isNotEmpty)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFE94560),
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          child: Text(
+                            '${items.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.qr_code_2),
+                  onPressed: _mostrarDialogoQrMesa,
+                  tooltip: 'Ver QR para pedir buffet',
+                ),
+              ],
             ),
-          ],
-        ),
-        body: _cargando
-            ? const Center(child: CircularProgressIndicator())
-            : _buildListaCategorias(),
+            body: _cargando
+                ? const Center(child: CircularProgressIndicator())
+                : _buildListaCategorias(),
+            endDrawer: Drawer(
+              backgroundColor: const Color(0xFF1A1A2E),
+              width: MediaQuery.of(context).size.width * 0.9,
+              child: SafeArea(
+                child: CarritoPanel(
+                  mesaSeleccionada: widget.numeroMesa,
+                  items: items,
+                  consumoActual: cuenta,
+                  mesasConCuentaAbierta: mesasCuenta,
+                  mostrarSelectorMesas: false,
+                  onMesaChanged: (_) {},
+                  onEditarConsumo: cuenta.isEmpty
+                      ? null
+                      : () {
+                          DialogoConsumoActualLectura.mostrar(
+                            context: context,
+                            mesaNumero: widget.numeroMesa,
+                            pedidos: cuenta,
+                          );
+                        },
+                  onItemRemoved: (index) =>
+                      mobileProvider.removeFromCart(widget.numeroMesa, index),
+                  onOrdenChanged: (index, orden) =>
+                      mobileProvider.changeOrder(widget.numeroMesa, index, orden),
+                  onEnviar: () async {
+                    final itemsCarrito = mobileProvider.carritoMesa(widget.numeroMesa);
+                    final productos = await _obtenerProductos();
+                    final result = _validarStockCarrito(itemsCarrito, productos);
+                    if (result.ajustes.isNotEmpty || result.agotados.isNotEmpty) {
+                      if (!context.mounted) return;
+                      await showDialog<void>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: const Color(0xFF16213E),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          title: const Text(
+                            'No se puede enviar',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          content: const Text(
+                            'Hay productos sin stock suficiente o agotados. Revisa el carrito.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                          actions: [
+                            FilledButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFFE94560),
+                              ),
+                              child: const Text('ENTENDIDO'),
+                            ),
+                          ],
+                        ),
+                      );
+                      return;
+                    }
+                    final ok = await mobileProvider.sendOrder(widget.numeroMesa);
+                    if (!context.mounted) return;
+                    if (ok) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Pedido enviado'),
+                          backgroundColor: Color(0xFF00D9A5),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(mobileProvider.error ?? 'Error al enviar'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  enviando: mobileProvider.enviando,
+                  productosAgotados: const {},
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

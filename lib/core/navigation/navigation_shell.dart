@@ -10,7 +10,7 @@ import 'app_router.dart';
 /// 
 /// En móvil: Mesas, Reservas, Servidor, WiFi. En escritorio: Pedidos, Reservas, Cocina, etc.
 /// Usa NavigationRail en pantallas grandes y BottomNavigation en móviles.
-class NavigationShell extends StatelessWidget {
+class NavigationShell extends StatefulWidget {
   final Widget child;
 
   const NavigationShell({
@@ -18,7 +18,26 @@ class NavigationShell extends StatelessWidget {
     required this.child,
   });
 
+  @override
+  State<NavigationShell> createState() => _NavigationShellState();
+}
+
+class _NavigationShellState extends State<NavigationShell> {
+  /// En escritorio: rail extendido (etiquetas) vs compacto (solo iconos).
+  bool _railExtended = true;
+  bool _railPreferenceInitialized = false;
+
   bool get _isMobileFlow => PlatformUtils.isMobile;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Valor inicial según el ancho; luego lo controla el botón del usuario.
+    if (!_railPreferenceInitialized) {
+      _railExtended = MediaQuery.of(context).size.width > 1200;
+      _railPreferenceInitialized = true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,57 +56,21 @@ class NavigationShell extends StatelessWidget {
               ? Row(
                   children: [
                     _buildNavigationRail(context, selectedIndex),
-                    Expanded(child: child),
+                    Expanded(child: widget.child),
                   ],
                 )
-              : child,
-          if (showServerUrl) _buildServerUrlBadge(context),
+              : widget.child,
+          if (showServerUrl)
+            _ServerUrlBadge(
+              url: LocalServer.instance.serverUrl!,
+              // Si hay barra inferior, dejar margen para que el badge no quede tapado
+              bottom: isWideScreen ? 12.0 : 72.0,
+            ),
         ],
       ),
       bottomNavigationBar: isWideScreen
           ? null
           : _buildBottomNavigation(context, selectedIndex),
-    );
-  }
-
-  /// Badge abajo a la izquierda con la URL para conectar la app móvil
-  Widget _buildServerUrlBadge(BuildContext context) {
-    final url = LocalServer.instance.serverUrl!;
-    final isWideScreen = MediaQuery.of(context).size.width > 800;
-    // Si hay barra inferior, dejar margen para que el badge no quede tapado
-    final bottom = isWideScreen ? 12.0 : 72.0;
-    return Positioned(
-      left: 12,
-      bottom: bottom,
-      child: Material(
-        color: const Color(0xFF0F3460),
-        borderRadius: BorderRadius.circular(8),
-        elevation: 4,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Conectar la app a:',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 11,
-                ),
-              ),
-              SelectableText(
-                url,
-                style: const TextStyle(
-                  color: Color(0xFF00D9A5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -252,7 +235,9 @@ class NavigationShell extends StatelessWidget {
                 ),
               ];
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
       decoration: BoxDecoration(
         color: const Color(0xFF16213E),
         boxShadow: [
@@ -267,12 +252,11 @@ class NavigationShell extends StatelessWidget {
         selectedIndex: selectedIndex.clamp(0, destinations.length - 1),
         onDestinationSelected: (index) => _onDestinationSelected(context, index),
         backgroundColor: Colors.transparent,
-        extended: MediaQuery.of(context).size.width > 1200,
+        extended: _railExtended,
         minWidth: 80,
         minExtendedWidth: 200,
-        labelType: MediaQuery.of(context).size.width > 1200
-            ? NavigationRailLabelType.none
-            : NavigationRailLabelType.all,
+        // Extendido: etiquetas al lado. Compacto: solo iconos.
+        labelType: NavigationRailLabelType.none,
         indicatorColor: const Color(0xFFE94560).withValues(alpha: 0.2),
         selectedIconTheme: const IconThemeData(
           color: Color(0xFFE94560),
@@ -293,7 +277,7 @@ class NavigationShell extends StatelessWidget {
         ),
         leading: Padding(
           padding: const EdgeInsets.symmetric(vertical: 20),
-          child: _buildLogo(MediaQuery.of(context).size.width > 1200),
+          child: _buildLogo(_railExtended),
         ),
         destinations: destinations,
       ),
@@ -317,7 +301,7 @@ class NavigationShell extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: _isMobileFlow
@@ -365,8 +349,8 @@ class NavigationShell extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: EdgeInsets.symmetric(
-            horizontal: _isMobileFlow ? 8 : 20,
-            vertical: 12,
+            horizontal: _isMobileFlow ? 7 : 18,
+            vertical: 11,
           ),
           decoration: BoxDecoration(
             color: isSelected
@@ -380,14 +364,14 @@ class NavigationShell extends StatelessWidget {
               Icon(
                 isSelected ? selectedIcon : icon,
                 color: isSelected ? const Color(0xFFE94560) : Colors.white54,
-                size: 28,
+                size: 25,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 label,
                 style: TextStyle(
                   color: isSelected ? const Color(0xFFE94560) : Colors.white54,
-                  fontSize: _isMobileFlow ? 11 : 12,
+                  fontSize: _isMobileFlow ? 10 : 11,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -425,8 +409,24 @@ class NavigationShell extends StatelessWidget {
             size: 28,
           ),
         ),
+        const SizedBox(height: 8),
+        IconButton(
+          tooltip: extended ? 'Compactar menú' : 'Desplegar menú',
+          onPressed: () => setState(() => _railExtended = !_railExtended),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          icon: const Text(
+            '<>',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
+          ),
+        ),
         if (extended) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           const Text(
             'SISTEMA',
             style: TextStyle(
@@ -453,6 +453,102 @@ class NavigationShell extends StatelessWidget {
           color: const Color(0xFF0F3460),
         ),
       ],
+    );
+  }
+}
+
+/// Badge abajo a la izquierda: icono cuadrado; al pulsar se expande y muestra la URL.
+class _ServerUrlBadge extends StatefulWidget {
+  final String url;
+  final double bottom;
+
+  const _ServerUrlBadge({
+    required this.url,
+    required this.bottom,
+  });
+
+  @override
+  State<_ServerUrlBadge> createState() => _ServerUrlBadgeState();
+}
+
+class _ServerUrlBadgeState extends State<_ServerUrlBadge> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 12,
+      bottom: widget.bottom,
+      child: Material(
+        color: const Color(0xFF0F3460),
+        borderRadius: BorderRadius.circular(8),
+        elevation: 4,
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.centerLeft,
+          child: _expanded
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Conectar la app a:',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 11,
+                            ),
+                          ),
+                          SelectableText(
+                            widget.url,
+                            style: const TextStyle(
+                              color: Color(0xFF00D9A5),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: () => setState(() => _expanded = false),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : InkWell(
+                  onTap: () => setState(() => _expanded = true),
+                  borderRadius: BorderRadius.circular(8),
+                  child: const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(
+                      Icons.link,
+                      color: Color(0xFF00D9A5),
+                      size: 20,
+                    ),
+                  ),
+                ),
+        ),
+      ),
     );
   }
 }

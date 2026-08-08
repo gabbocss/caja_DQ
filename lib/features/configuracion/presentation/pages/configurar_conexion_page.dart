@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/core.dart';
+import '../../../../core/services/reserva_carta_cache_service.dart';
 
 /// Pantalla para configurar la URL del servidor (móvil, primera vez o cambio de red).
 class ConfigurarConexionPage extends StatefulWidget {
@@ -16,7 +17,16 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
   final _vpsController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+  bool _sincronizandoCaja = false;
+  bool _sincronizandoVps = false;
   String? _error;
+
+  static const _inputDecorationTheme = InputDecoration(
+    isDense: true,
+    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    labelStyle: TextStyle(fontSize: 13),
+    hintStyle: TextStyle(fontSize: 12),
+  );
 
   @override
   void initState() {
@@ -79,6 +89,122 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
     }
   }
 
+  /// Descarga el menú desde [url] y lo guarda en la caché local del móvil.
+  /// No modifica la base de datos de la caja de escritorio.
+  Future<void> _sincronizarMenuDesdeUrl({
+    required String urlRaw,
+    required String origenLabel,
+    required void Function(bool) setSincronizando,
+  }) async {
+    final trimmed = urlRaw.trim();
+    if (trimmed.isEmpty) {
+      _mostrarSnack(
+        'Introduce primero la URL de $origenLabel',
+        error: true,
+      );
+      return;
+    }
+
+    final url = _normalizarUrl(trimmed);
+    setSincronizando(true);
+    ApiClient? client;
+    try {
+      client = ApiClient(url);
+      if (!await client.verificarApiProgramaCaja()) {
+        throw Exception(
+          'La URL no responde con la API esperada (GET /api/productos).',
+        );
+      }
+      final productos = await client.obtenerProductos();
+      if (productos.isEmpty) {
+        throw Exception('No se recibieron productos desde $origenLabel.');
+      }
+      await ReservaCartaCacheService.instance.guardar(productos);
+      if (!mounted) return;
+      _mostrarSnack(
+        'Menú sincronizado desde $origenLabel (${productos.length} productos)',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarSnack('Error al sincronizar desde $origenLabel: $e', error: true);
+    } finally {
+      client?.dispose();
+      if (mounted) setSincronizando(false);
+    }
+  }
+
+  void _mostrarSnack(String mensaje, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: error ? Colors.red : const Color(0xFF00D9A5),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _sincronizarDesdeCaja() async {
+    await _sincronizarMenuDesdeUrl(
+      urlRaw: _cajaController.text,
+      origenLabel: 'la caja',
+      setSincronizando: (v) => setState(() => _sincronizandoCaja = v),
+    );
+  }
+
+  Future<void> _sincronizarDesdeVps() async {
+    await _sincronizarMenuDesdeUrl(
+      urlRaw: _vpsController.text,
+      origenLabel: 'el servidor',
+      setSincronizando: (v) => setState(() => _sincronizandoVps = v),
+    );
+  }
+
+  Widget _buildCampoConSync({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    required IconData prefixIcon,
+    required Color prefixColor,
+    required bool sincronizando,
+    required VoidCallback onSync,
+    String? Function(String?)? validator,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: controller,
+            decoration: _inputDecorationTheme.copyWith(
+              labelText: labelText,
+              hintText: hintText,
+              prefixIcon: Icon(prefixIcon, color: prefixColor, size: 20),
+            ),
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            validator: validator,
+          ),
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          onPressed: (sincronizando || _loading) ? null : onSync,
+          tooltip: 'Sincronizar menú',
+          icon: sincronizando
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF00D9A5),
+                  ),
+                )
+              : const Icon(Icons.sync, color: Color(0xFF00D9A5)),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -113,23 +239,22 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'La caja local sirve mesas y pedidos. El VPS central guarda las reservas en la nube.',
+                  'La caja local sirve mesas y pedidos. El VPS central guarda las reservas en la nube. '
+                  'Usa el icono de sync para descargar el menú a este móvil.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 24),
-                TextFormField(
+                _buildCampoConSync(
                   controller: _cajaController,
-                  decoration: const InputDecoration(
-                    labelText: 'URL de la caja (local)',
-                    hintText: 'http://192.168.1.100:8080',
-                    prefixIcon: Icon(Icons.computer, color: Color(0xFF00D9A5)),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
+                  labelText: 'URL de la caja (local)',
+                  hintText: 'http://192.168.1.100:8080',
+                  prefixIcon: Icons.computer,
+                  prefixColor: const Color(0xFF00D9A5),
+                  sincronizando: _sincronizandoCaja,
+                  onSync: _sincronizarDesdeCaja,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
                       return 'Introduce la URL de la caja';
@@ -137,23 +262,15 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
-                TextFormField(
+                const SizedBox(height: 16),
+                _buildCampoConSync(
                   controller: _vpsController,
-                  decoration: const InputDecoration(
-                    labelText: 'URL servidor central / VPS (reservas)',
-                    hintText: 'https://mi-vps.ejemplo:8888',
-                    prefixIcon: Icon(Icons.cloud_outlined, color: Color(0xFFE94560)),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Introduce la URL del VPS de reservas';
-                    }
-                    return null;
-                  },
+                  labelText: 'URL servidor central / VPS (opcional)',
+                  hintText: 'https://mi-vps.ejemplo:8888',
+                  prefixIcon: Icons.cloud_outlined,
+                  prefixColor: const Color(0xFFE94560),
+                  sincronizando: _sincronizandoVps,
+                  onSync: _sincronizarDesdeVps,
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),

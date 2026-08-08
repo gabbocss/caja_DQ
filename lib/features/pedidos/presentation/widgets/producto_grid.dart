@@ -9,6 +9,8 @@ import '../../../../core/core.dart';
 /// [factorTamanoTarjeta]: 1.0 = tamaño camarero; 0.7 ≈ tarjeta ~30 % más pequeña en ancho/alto/contenido (UI servidor).
 /// [gridAnchoFactor]: multiplica el ancho máximo de celda (1.1 = +10 % horizontal).
 /// [gridAltoFraccion]: fracción de la altura “natural” (ratio 0.85); 0.4 = celdas ~40 % de alto.
+/// [crossAxisCount]: si no es null, fuerza ese número de columnas (p. ej. 2 en app móvil).
+/// [cantidadesEnCarrito]: productoId → unidades en el carrito pendiente (badge en app).
 class ProductoGrid extends StatelessWidget {
   final String? categoriaFiltro;
   final List<Producto> productos;
@@ -18,6 +20,10 @@ class ProductoGrid extends StatelessWidget {
   final double factorTamanoTarjeta;
   final double gridAnchoFactor;
   final double gridAltoFraccion;
+  final int? crossAxisCount;
+  final Map<int, int> cantidadesEnCarrito;
+  /// Producto cuyo borde se ilumina un instante al añadirlo (app).
+  final int? productoIdBordeIluminado;
 
   const ProductoGrid({
     super.key,
@@ -28,6 +34,9 @@ class ProductoGrid extends StatelessWidget {
     this.factorTamanoTarjeta = 1.0,
     this.gridAnchoFactor = 1.0,
     this.gridAltoFraccion = 1.0,
+    this.crossAxisCount,
+    this.cantidadesEnCarrito = const {},
+    this.productoIdBordeIluminado,
   });
 
   @override
@@ -87,22 +96,35 @@ class ProductoGrid extends StatelessWidget {
     final altoFrac = gridAltoFraccion.clamp(0.25, 1.0);
     final aspectRatio = ratioBase * ancho / altoFrac;
 
+    final SliverGridDelegate gridDelegate = crossAxisCount != null
+        ? SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount!,
+            childAspectRatio: aspectRatio,
+            crossAxisSpacing: 12 * f,
+            mainAxisSpacing: 12 * f,
+          )
+        : SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 180 * f * ancho,
+            childAspectRatio: aspectRatio,
+            crossAxisSpacing: 12 * f,
+            mainAxisSpacing: 12 * f,
+          );
+
     return GridView.builder(
       padding: EdgeInsets.all(16 * f),
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 180 * f * ancho,
-        childAspectRatio: aspectRatio,
-        crossAxisSpacing: 12 * f,
-        mainAxisSpacing: 12 * f,
-      ),
+      gridDelegate: gridDelegate,
       itemCount: productosFiltrados.length,
       itemBuilder: (context, index) {
         final producto = productosFiltrados[index];
+        final id = producto.id ?? 0;
+        final cantidad = id > 0 ? (cantidadesEnCarrito[id] ?? 0) : 0;
         return ProductoCard(
           producto: producto,
           onTap: () => onProductoTap(producto),
           esSabado: esSabado,
           factorTamanoTarjeta: f,
+          cantidadEnCarrito: cantidad,
+          iluminarBorde: id > 0 && id == productoIdBordeIluminado,
         );
       },
     );
@@ -116,6 +138,10 @@ class ProductoCard extends StatelessWidget {
   final bool esSabado;
   /// 1.0 = tamaño estándar; 0.7 escala tarjeta (padding, tipografía, badges).
   final double factorTamanoTarjeta;
+  /// Unidades pendientes en el carrito de la mesa (solo app).
+  final int cantidadEnCarrito;
+  /// Flash breve del borde al añadir al carrito.
+  final bool iluminarBorde;
 
   const ProductoCard({
     super.key,
@@ -123,6 +149,8 @@ class ProductoCard extends StatelessWidget {
     required this.onTap,
     this.esSabado = false,
     this.factorTamanoTarjeta = 1.0,
+    this.cantidadEnCarrito = 0,
+    this.iluminarBorde = false,
   });
 
   @override
@@ -163,19 +191,33 @@ class ProductoCard extends StatelessWidget {
             border: Border.all(
               color: estaAgotado
                   ? Colors.grey.shade700
-                  : esBuffetYSabado
-                      ? const Color(0xFFFFD700)
-                      : const Color(0xFF0F3460),
-              width: (esBuffetYSabado ? 2.5 : 1.5) * f,
+                  : iluminarBorde
+                      ? const Color(0xFF00D9A5)
+                      : esBuffetYSabado
+                          ? const Color(0xFFFFD700)
+                          : const Color(0xFF0F3460),
+              width: (iluminarBorde
+                      ? 3.0
+                      : esBuffetYSabado
+                          ? 2.5
+                          : 1.5) *
+                  f,
             ),
             boxShadow: [
               BoxShadow(
                 color: estaAgotado
                     ? Colors.transparent
-                    : esBuffetYSabado
-                        ? const Color(0xFFFFD700).withValues(alpha: 0.3)
-                        : Colors.black.withValues(alpha: 0.2),
-                blurRadius: (esBuffetYSabado ? 12.0 : 8.0) * f,
+                    : iluminarBorde
+                        ? const Color(0xFF00D9A5).withValues(alpha: 0.55)
+                        : esBuffetYSabado
+                            ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                            : Colors.black.withValues(alpha: 0.2),
+                blurRadius: (iluminarBorde
+                        ? 16.0
+                        : esBuffetYSabado
+                            ? 12.0
+                            : 8.0) *
+                    f,
                 offset: Offset(0, 4 * f),
               ),
             ],
@@ -311,6 +353,43 @@ class ProductoCard extends StatelessWidget {
                         fontSize: 9 * f * escalaTexto,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5 * f,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Cantidad pendiente en el carrito (app móvil)
+              if (cantidadEnCarrito > 0 && !estaAgotado)
+                Positioned(
+                  top: 6 * f,
+                  right: 6 * f,
+                  child: Container(
+                    constraints: BoxConstraints(
+                      minWidth: 22 * f,
+                      minHeight: 22 * f,
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 6 * f,
+                      vertical: 2 * f,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE94560),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFE94560).withValues(alpha: 0.45),
+                          blurRadius: 6 * f,
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$cantidadEnCarrito',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12 * f * escalaTexto,
+                        fontWeight: FontWeight.bold,
+                        height: 1.1,
                       ),
                     ),
                   ),
