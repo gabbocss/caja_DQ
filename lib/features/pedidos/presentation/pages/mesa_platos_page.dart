@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/core.dart';
@@ -431,6 +432,7 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
                   if (!context.mounted) return;
                   if (ok) {
                     Navigator.of(context).pop();
+                    context.go(AppRoutes.mesas);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Pedido enviado'),

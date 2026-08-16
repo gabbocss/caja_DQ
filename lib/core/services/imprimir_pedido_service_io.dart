@@ -205,6 +205,7 @@ class ImprimirPedidoService {
   }
 
   /// Genera el payload completo del ticket (ESC/POS + texto) según la configuración.
+  /// [etiquetaCabecera] sustituye "MESA N" (p. ej. "ASPORTO").
   Future<List<int>> _generarPayloadTicket(
     ConfiguracionImpresion config,
     int mesaNumero,
@@ -212,7 +213,12 @@ class ImprimirPedidoService {
     List<ItemPedido> items, {
     String? horaLlegada,
     String? notasReserva,
+    String? etiquetaCabecera,
   }) async {
+    final cabeceraMesa =
+        (etiquetaCabecera != null && etiquetaCabecera.trim().isNotEmpty)
+            ? etiquetaCabecera.trim()
+            : 'MESA $mesaNumero';
     final out = <int>[];
     void add(List<int> bytes) => out.addAll(bytes);
     void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
@@ -246,7 +252,7 @@ class ImprimirPedidoService {
     } else {
       add(_escTamanioCabecera(config));
     }
-    addStr(_aplicarMargen('      MESA $mesaNumero\n', margenEsp));
+    addStr(_aplicarMargen('      $cabeceraMesa\n', margenEsp));
     addStr(_aplicarMargen('   Ticket #$numeroTicket\n', margenEsp));
     if (usarNumerico) {
       add(_gsSize(1, 1));
@@ -313,7 +319,7 @@ class ImprimirPedidoService {
     } else {
       add(_escTamanioCabecera(config));
     }
-    addStr(_aplicarMargen('      MESA $mesaNumero\n', margenEsp));
+    addStr(_aplicarMargen('      $cabeceraMesa\n', margenEsp));
     if (usarNumerico) {
       add(_gsSize(1, 1));
     } else {
@@ -337,12 +343,18 @@ class ImprimirPedidoService {
   }
 
   /// Genera el payload del ticket de cuenta de mesa (platos + total).
+  /// [etiquetaCabecera] sustituye "CUENTA MESA N" (p. ej. "CUENTA ASPORTO").
   Future<List<int>> _generarPayloadTicketCuenta(
     ConfiguracionImpresion config,
     int mesaNumero,
     List<ItemPedido> items,
-    double total,
-  ) async {
+    double total, {
+    String? etiquetaCabecera,
+  }) async {
+    final cabecera =
+        (etiquetaCabecera != null && etiquetaCabecera.trim().isNotEmpty)
+            ? etiquetaCabecera.trim()
+            : 'CUENTA MESA $mesaNumero';
     final out = <int>[];
     void add(List<int> bytes) => out.addAll(bytes);
     void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
@@ -376,7 +388,7 @@ class ImprimirPedidoService {
     } else {
       add(_escTamanioCabecera(config));
     }
-    addStr(_aplicarMargen('   CUENTA MESA $mesaNumero\n', margenEsp));
+    addStr(_aplicarMargen('   $cabecera\n', margenEsp));
     if (usarNumerico) {
       add(_gsSize(1, 1));
     } else {
@@ -614,16 +626,22 @@ class ImprimirPedidoService {
   Future<void> imprimirTicketCuentaMesa(
     int mesaNumero,
     List<ItemPedido> items,
-    double total,
-  ) async {
+    double total, {
+    String? etiquetaCabecera,
+  }) async {
     final itemsConPrecio = _itemsConPrecioParaTicket(items);
     if (itemsConPrecio.isEmpty) return;
     final config = await ConfiguracionImpresionService.instance.cargar();
     if (!config.tieneImpresoraCuenta) return;
     final host = config.impresoraCuentaIp!.trim();
     final port = config.impresoraCuentaPuerto ?? _puertoPorDefecto;
-    final payload =
-        await _generarPayloadTicketCuenta(config, mesaNumero, itemsConPrecio, total);
+    final payload = await _generarPayloadTicketCuenta(
+      config,
+      mesaNumero,
+      itemsConPrecio,
+      total,
+      etiquetaCabecera: etiquetaCabecera,
+    );
     await _enviarAImpresora(host, port, payload);
   }
 
@@ -760,10 +778,111 @@ class ImprimirPedidoService {
     return out;
   }
 
+  /// Ticket resumen: título fijo "Lista paellas" + una línea por plato reservado.
+  Future<void> imprimirListaPaellas(List<String> lineas) async {
+    if (lineas.isEmpty) return;
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    final payload = await _generarPayloadListaPaellas(config, lineas);
+    await _enviarATodasImpresorasCocina(payload);
+  }
+
+  Future<List<int>> _generarPayloadListaPaellas(
+    ConfiguracionImpresion config,
+    List<String> lineas,
+  ) async {
+    final out = <int>[];
+    void add(List<int> bytes) => out.addAll(bytes);
+    void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
+
+    final margenEsp = _espaciosMargenIzq(config);
+    final sep = _lineaSeparadora(config);
+    final usarNumerico = config.modoTamanio == 'numerico';
+
+    add(_escInit);
+    for (var i = 0; i < config.margenSuperiorLineas; i++) addStr('\n');
+
+    if (config.negritaCabecera) add(_escBoldOn);
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCabecera, config.escalaAltoCabecera));
+    } else {
+      add(_escTamanioCabecera(config));
+    }
+    addStr(_aplicarMargen('Lista paellas\n', margenEsp));
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      add(_escSizeNormal);
+    }
+    add(_escBoldOff);
+
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCuerpo, config.escalaAltoCuerpo));
+    } else {
+      _aplicarTamanioCuerpo(config, add);
+    }
+    if (config.negritaCuerpo) add(_escBoldOn);
+
+    for (final linea in lineas) {
+      addStr(_aplicarMargen('$linea\n', margenEsp));
+    }
+
+    if (config.negritaCuerpo) add(_escBoldOff);
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      _resetTamanioCuerpo(add);
+    }
+
+    addStr(_aplicarMargen('\n$sep\n', margenEsp));
+    if (config.mostrarFechaHora) {
+      final now = DateTime.now();
+      final fechaHora =
+          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')} '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      addStr(_aplicarMargen('$fechaHora\n', margenEsp));
+    }
+
+    for (var i = 0; i < config.margenInferiorLineas; i++) addStr('\n');
+
+    switch (config.tipoCorte) {
+      case 'parcial':
+        add(_escCutPartial);
+        break;
+      case 'ninguno':
+        break;
+      default:
+        add(_escCutFull);
+    }
+    return out;
+  }
+
+  Future<void> _enviarATodasImpresorasCocina(List<int> payload) async {
+    final db = DatabaseService.instance;
+    final todos = await db.obtenerDestinos();
+    for (final destino in todos) {
+      if (destino.tipo != TipoDestino.impresora &&
+          destino.tipo != TipoDestino.ambos) {
+        continue;
+      }
+      final ip = destino.direccionImpresora?.trim();
+      if (ip == null || ip.isEmpty) continue;
+      final port = destino.puertoImpresora ?? _puertoPorDefecto;
+      final ok = await _enviarAImpresora(ip, port, payload);
+      if (!ok) {
+        debugPrint(
+          'No se pudo imprimir lista paellas en ${destino.nombre} ($ip:$port)',
+        );
+      }
+    }
+  }
+
   /// Comandas por destino al sentar una reserva (solo platos pre-reservados).
   Future<void> imprimirTicketReservaCocina({
     required int mesaNumero,
     required Reserva reserva,
+    String? etiquetaCabecera,
   }) async {
     if (reserva.itemsReservados.isEmpty) return;
 
@@ -799,6 +918,7 @@ class ImprimirPedidoService {
       pedidoImpresion,
       horaLlegada: hora,
       notasReserva: notas.isEmpty ? null : notas,
+      etiquetaCabecera: etiquetaCabecera,
     );
   }
 
@@ -806,6 +926,7 @@ class ImprimirPedidoService {
     Pedido pedido, {
     String? horaLlegada,
     String? notasReserva,
+    String? etiquetaCabecera,
   }) async {
     if (pedido.items.isEmpty) return;
     final db = DatabaseService.instance;
@@ -835,6 +956,7 @@ class ImprimirPedidoService {
         items,
         horaLlegada: horaLlegada,
         notasReserva: notasReserva,
+        etiquetaCabecera: etiquetaCabecera,
       );
       final ok = await _enviarAImpresora(ip, port, payload);
       if (!ok) {

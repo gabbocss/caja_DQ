@@ -227,7 +227,13 @@ class _PedidosPageState extends State<PedidosPage> {
             children: [
               const Icon(Icons.star, color: Color(0xFFFFD700)),
               const SizedBox(width: 8),
-              Text('Abrir mesa $mesa - Buffet', style: const TextStyle(color: Colors.white)),
+              Expanded(
+                child: Text(
+                  'Abrir mesa $mesa - Buffet',
+                  style: const TextStyle(color: Colors.white),
+                  softWrap: true,
+                ),
+              ),
             ],
           ),
           content: SingleChildScrollView(
@@ -356,7 +362,13 @@ class _PedidosPageState extends State<PedidosPage> {
             children: [
               const Icon(Icons.restaurant, color: Color(0xFF00D9A5)),
               const SizedBox(width: 8),
-              Text('Abrir mesa $mesa - Cubiertos', style: const TextStyle(color: Colors.white)),
+              Expanded(
+                child: Text(
+                  'Abrir mesa $mesa - Cubiertos',
+                  style: const TextStyle(color: Colors.white),
+                  softWrap: true,
+                ),
+              ),
             ],
           ),
           content: SingleChildScrollView(
@@ -451,7 +463,13 @@ class _PedidosPageState extends State<PedidosPage> {
           children: [
             Icon(Icons.meeting_room, color: Colors.orange.shade300),
             const SizedBox(width: 8),
-            Text('¿Liberar Mesa $numero?', style: const TextStyle(color: Colors.white)),
+            Expanded(
+              child: Text(
+                '¿Liberar Mesa $numero?',
+                style: const TextStyle(color: Colors.white),
+                softWrap: true,
+              ),
+            ),
           ],
         ),
         content: const Text(

@@ -215,100 +215,107 @@ class _ConfigurarConexionPageState extends State<ConfigurarConexionPage> {
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 16),
-                Icon(
-                  Icons.wifi_find,
-                  size: 64,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Servidores del restaurante',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'La caja local sirve mesas y pedidos. El VPS central guarda las reservas en la nube. '
-                  'Usa el icono de sync para descargar el menú a este móvil.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _buildCampoConSync(
-                  controller: _cajaController,
-                  labelText: 'URL de la caja (local)',
-                  hintText: 'http://192.168.1.100:8080',
-                  prefixIcon: Icons.computer,
-                  prefixColor: const Color(0xFF00D9A5),
-                  sincronizando: _sincronizandoCaja,
-                  onSync: _sincronizarDesdeCaja,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Introduce la URL de la caja';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildCampoConSync(
-                  controller: _vpsController,
-                  labelText: 'URL servidor central / VPS (opcional)',
-                  hintText: 'https://mi-vps.ejemplo:8888',
-                  prefixIcon: Icons.cloud_outlined,
-                  prefixColor: const Color(0xFFE94560),
-                  sincronizando: _sincronizandoVps,
-                  onSync: _sincronizarDesdeVps,
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: _loading ? null : _guardar,
-                  icon: _loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 16),
+                      Icon(
+                        Icons.wifi_find,
+                        size: 64,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Servidores del restaurante',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'La caja local sirve mesas y pedidos. El VPS central guarda las reservas en la nube. '
+                        'Usa el icono de sync para descargar el menú a este móvil.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildCampoConSync(
+                        controller: _cajaController,
+                        labelText: 'URL de la caja (local)',
+                        hintText: 'http://192.168.1.100:8080',
+                        prefixIcon: Icons.computer,
+                        prefixColor: const Color(0xFF00D9A5),
+                        sincronizando: _sincronizandoCaja,
+                        onSync: _sincronizarDesdeCaja,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Introduce la URL de la caja';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildCampoConSync(
+                        controller: _vpsController,
+                        labelText: 'URL servidor central / VPS (opcional)',
+                        hintText: 'https://mi-vps.ejemplo:8888',
+                        prefixIcon: Icons.cloud_outlined,
+                        prefixColor: const Color(0xFFE94560),
+                        sincronizando: _sincronizandoVps,
+                        onSync: _sincronizarDesdeVps,
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        )
-                      : const Icon(Icons.check),
-                  label: Text(_loading ? 'Guardando...' : 'Guardar y conectar'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF00D9A5),
-                    foregroundColor: Colors.black87,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(color: Colors.red, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      FilledButton.icon(
+                        onPressed: _loading ? null : _guardar,
+                        icon: _loading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.check),
+                        label: Text(_loading ? 'Guardando...' : 'Guardar y conectar'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF00D9A5),
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

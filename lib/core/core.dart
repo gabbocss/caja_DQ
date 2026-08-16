@@ -32,6 +32,9 @@ export 'services/reserva_persistence_service.dart';
 export 'services/reserva_sync_service.dart';
 export 'services/reserva_vps_polling_service.dart';
 export 'prefs/reservas_central_prefs.dart';
+export 'prefs/horarios_reservas_prefs.dart';
+export 'prefs/lista_paellas_prefs.dart';
+export 'services/lista_paellas_auto_service.dart';
 
 // Navegación
 export 'navigation/app_router.dart';

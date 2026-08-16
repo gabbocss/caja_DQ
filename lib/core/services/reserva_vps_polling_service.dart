@@ -9,6 +9,7 @@ import '../di/injection_container.dart' show isServer, sl;
 import '../models/reserva.dart';
 import '../prefs/reservas_central_prefs.dart';
 import '../utils/platform_utils.dart';
+import 'lista_paellas_auto_service.dart';
 import 'reserva_sync_service.dart';
 
 /// Polling del VPS de reservas en la caja (Windows/Linux).
@@ -82,6 +83,8 @@ class ReservaVpsPollingService extends ChangeNotifier {
       _ultimoError = null;
       _ultimaOk = DateTime.now();
       notifyListeners();
+      // Tras sync OK: lista paellas 1h antes (con catch-up si se encendió tarde).
+      unawaited(ListaPaellasAutoService.instance.evaluarTrasSync());
     } catch (e, st) {
       _ultimoError = e.toString();
       debugPrint('ReservaVpsPolling: $e\n$st');

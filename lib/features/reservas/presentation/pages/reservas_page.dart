@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/core.dart';
 import '../../../../core/utils/platform_utils.dart';
+import '../../domain/franja_reserva.dart';
 import '../providers/reservas_provider.dart';
 
 /// Pantalla de reservas pendientes y alta manual.
@@ -17,7 +18,8 @@ class ReservasPage extends StatefulWidget {
   State<ReservasPage> createState() => _ReservasPageState();
 }
 
-class _ReservasPageState extends State<ReservasPage> {
+class _ReservasPageState extends State<ReservasPage>
+    with SingleTickerProviderStateMixin {
   final _nombreCtrl = TextEditingController();
   final _notasCtrl = TextEditingController();
   final _buscarProductoCtrl = TextEditingController();
@@ -29,6 +31,20 @@ class _ReservasPageState extends State<ReservasPage> {
   int? _reservaEditandoId;
   bool _guardando = false;
   ReservasProvider? _provider;
+
+  FranjaReserva _franjaActiva = FranjaReserva.comida;
+  HorariosReservas _horarios = HorariosReservas.defaults;
+  late final AnimationController _asportoBlinkCtrl;
+
+  /// Proporción del panel agenda (0–1) en layout horizontal escritorio.
+  double _ratioAgendaHorizontal = 0.6;
+
+  /// Proporción del panel agenda (0–1) en layout vertical escritorio.
+  double _ratioAgendaVertical = 0.55;
+
+  static const double _ratioMin = 0.28;
+  static const double _ratioMax = 0.78;
+  static const double _grosorDivisor = 6;
 
   static final _formatoHora = DateFormat('HH:mm');
   bool _localeEsListo = false;
@@ -45,19 +61,31 @@ class _ReservasPageState extends State<ReservasPage> {
   @override
   void initState() {
     super.initState();
+    _asportoBlinkCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
     unawaited(
       initializeDateFormatting('es', null).then((_) {
         if (mounted) setState(() => _localeEsListo = true);
       }),
     );
+    unawaited(_cargarHorarios());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _provider = context.read<ReservasProvider>();
       _provider!.inicializar();
     });
   }
 
+  Future<void> _cargarHorarios() async {
+    final h = await getHorariosReservas();
+    if (!mounted) return;
+    setState(() => _horarios = h);
+  }
+
   @override
   void dispose() {
+    _asportoBlinkCtrl.dispose();
     _provider?.desmontar();
     _nombreCtrl.dispose();
     _notasCtrl.dispose();
@@ -281,6 +309,95 @@ class _ReservasPageState extends State<ReservasPage> {
     }
   }
 
+  Future<void> _imprimirAsporto(Reserva reserva) async {
+    if (reserva.itemsReservados.isEmpty) {
+      _snack('No hay productos para imprimir', Colors.orange);
+      return;
+    }
+    try {
+      await ImprimirPedidoService.instance.imprimirTicketReservaCocina(
+        mesaNumero: 0,
+        reserva: reserva,
+        etiquetaCabecera: 'ASPORTO',
+      );
+      if (mounted) {
+        _snack('Ticket asporto enviado a cocina', const Color(0xFF00D9A5));
+      }
+    } catch (e) {
+      _snack('Error al imprimir: $e', Colors.red);
+    }
+  }
+
+  Future<void> _cobrarAsporto(
+    ReservasProvider provider,
+    Reserva reserva,
+  ) async {
+    if (reserva.itemsReservados.isEmpty) {
+      _snack('No hay productos para cobrar', Colors.orange);
+      return;
+    }
+    final total = reserva.totalItemsReservados;
+    if (total <= 0) {
+      _snack('El total es 0; revisa los precios', Colors.orange);
+      return;
+    }
+
+    final resultado = await showDialog<_ResultadoCobroAsporto>(
+      context: context,
+      builder: (ctx) => _DialogoCobroAsporto(
+        nombreCliente: reserva.nombreCliente,
+        total: total,
+      ),
+    );
+    if (resultado == null || !mounted) return;
+
+    try {
+      await provider.cobrarAsporto(
+        reserva: reserva,
+        metodo: resultado.metodo,
+        importeRecibido: resultado.importeRecibido,
+      );
+      if (_reservaEditandoId == reserva.id) {
+        _limpiarFormulario();
+      }
+      if (mounted) {
+        setState(() {});
+        _snack(
+          'Asporto cobrado: €${total.toStringAsFixed(2)} (${resultado.metodo})',
+          const Color(0xFF00D9A5),
+        );
+      }
+    } catch (e) {
+      _snack('Error al cobrar: $e', Colors.red);
+    }
+  }
+
+  Future<void> _abrirConfigHorarios() async {
+    final actualizado = await showDialog<HorariosReservas>(
+      context: context,
+      builder: (ctx) => _DialogoHorariosReservas(inicial: _horarios),
+    );
+    if (actualizado == null || !mounted) return;
+    await saveHorariosReservas(actualizado);
+    setState(() => _horarios = actualizado);
+  }
+
+  List<Reserva> _filtrarPorFranja(List<Reserva> lista) {
+    return lista
+        .where((r) => clasificarReserva(r, _horarios) == _franjaActiva)
+        .toList();
+  }
+
+  String _textoCubiertos(Reserva reserva) {
+    if (reserva.numeroPersonas <= 0) {
+      final total = reserva.totalItemsReservados;
+      return 'Asporto · ${reserva.itemsReservados.length} plato(s)'
+          '${total > 0 ? ' · €${total.toStringAsFixed(2)}' : ''}';
+    }
+    return '${reserva.numeroPersonas} personas · '
+        '${reserva.itemsReservados.length} plato(s)';
+  }
+
   void _snack(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: color),
@@ -328,6 +445,11 @@ class _ReservasPageState extends State<ReservasPage> {
                   ),
                 ),
               IconButton(
+                onPressed: _abrirConfigHorarios,
+                icon: const Icon(Icons.settings),
+                tooltip: 'Configurar horarios comida / cena',
+              ),
+              IconButton(
                 onPressed: provider.sincronizando ? null : provider.sincronizar,
                 icon: provider.sincronizando
                     ? const SizedBox(
@@ -368,38 +490,140 @@ class _ReservasPageState extends State<ReservasPage> {
                           ],
                         ))
                   : (esAncho
-                      ? Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              flex: 6,
-                              child: _panelAgendaCaja(provider),
-                            ),
-                            const VerticalDivider(
-                              width: 1,
-                              color: Color(0xFF0F3460),
-                            ),
-                            Expanded(flex: 4, child: _formularioNueva(provider)),
-                          ],
-                        )
-                      : Column(
-                          children: [
-                            Expanded(flex: 3, child: _panelAgendaCaja(provider)),
-                            const Divider(height: 1, color: Color(0xFF0F3460)),
-                            Expanded(flex: 2, child: _formularioNueva(provider)),
-                          ],
-                        )),
+                      ? _layoutEscritorioHorizontal(provider)
+                      : _layoutEscritorioVertical(provider)),
         );
       },
     );
   }
 
+  /// Agenda | divisor arrastrable | formulario (ancho).
+  Widget _layoutEscritorioHorizontal(ReservasProvider provider) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final total = constraints.maxWidth;
+        final agendaW =
+            ((total - _grosorDivisor) * _ratioAgendaHorizontal)
+                .clamp(160.0, total - _grosorDivisor - 160);
+        final formW = total - _grosorDivisor - agendaW;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: agendaW,
+              child: _panelAgendaCaja(provider),
+            ),
+            _divisorHorizontalArrastrable(
+              onDrag: (dx) {
+                setState(() {
+                  _ratioAgendaHorizontal = (_ratioAgendaHorizontal +
+                          dx / (total - _grosorDivisor))
+                      .clamp(_ratioMin, _ratioMax);
+                });
+              },
+            ),
+            SizedBox(
+              width: formW,
+              child: _formularioNueva(provider),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Agenda / divisor arrastrable / formulario (alto, pantallas estrechas).
+  Widget _layoutEscritorioVertical(ReservasProvider provider) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final total = constraints.maxHeight;
+        final agendaH =
+            ((total - _grosorDivisor) * _ratioAgendaVertical)
+                .clamp(120.0, total - _grosorDivisor - 120);
+        final formH = total - _grosorDivisor - agendaH;
+        return Column(
+          children: [
+            SizedBox(
+              height: agendaH,
+              child: _panelAgendaCaja(provider),
+            ),
+            _divisorVerticalArrastrable(
+              onDrag: (dy) {
+                setState(() {
+                  _ratioAgendaVertical = (_ratioAgendaVertical +
+                          dy / (total - _grosorDivisor))
+                      .clamp(_ratioMin, _ratioMax);
+                });
+              },
+            ),
+            SizedBox(
+              height: formH,
+              child: _formularioNueva(provider),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _divisorHorizontalArrastrable({
+    required void Function(double dx) onDrag,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragUpdate: (d) => onDrag(d.delta.dx),
+        child: SizedBox(
+          width: _grosorDivisor,
+          child: Center(
+            child: Container(
+              width: 2,
+              color: const Color(0xFF0F3460),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _divisorVerticalArrastrable({
+    required void Function(double dy) onDrag,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeRow,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: (d) => onDrag(d.delta.dy),
+        child: SizedBox(
+          height: _grosorDivisor,
+          child: Center(
+            child: Container(
+              height: 2,
+              color: const Color(0xFF0F3460),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _panelAgendaCaja(ReservasProvider provider) {
-    final lista = provider.reservasDelDia;
+    final lista = _filtrarPorFranja(provider.reservasDelDia);
     final tituloCapitalizado = _tituloDiaAgenda(provider.diaAgenda);
     final totalPersonas =
         lista.fold<int>(0, (s, r) => s + r.numeroPersonas);
     final totalMesas = lista.length;
+    final resumenFranja = _franjaActiva == FranjaReserva.asporto
+        ? '$totalMesas asporto${totalMesas == 1 ? '' : 's'}'
+        : '$totalPersonas persona${totalPersonas == 1 ? '' : 's'}, '
+            '$totalMesas mesa${totalMesas == 1 ? '' : 's'}';
+    final hayAsporto = provider.reservasDelDia.any(
+      (r) =>
+          r.estaPendiente &&
+          clasificarReserva(r, _horarios) == FranjaReserva.asporto,
+    );
+    _sincronizarParpadeoAsporto(hayAsporto);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -443,8 +667,7 @@ class _ReservasPageState extends State<ReservasPage> {
                           ),
                         ),
                         Text(
-                          '$totalPersonas persona${totalPersonas == 1 ? '' : 's'}, '
-                          '$totalMesas mesa${totalMesas == 1 ? '' : 's'}',
+                          resumenFranja,
                           style: const TextStyle(
                             color: Colors.white54,
                             fontSize: 12,
@@ -465,26 +688,154 @@ class _ReservasPageState extends State<ReservasPage> {
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: _botonFranja(
+                  franja: FranjaReserva.comida,
+                  color: const Color(0xFF00D9A5),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _botonFranja(
+                  franja: FranjaReserva.cena,
+                  color: const Color(0xFFE94560),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _botonFranja(
+                  franja: FranjaReserva.asporto,
+                  color: const Color(0xFFFFB74D),
+                  parpadear: hayAsporto,
+                ),
+              ),
+            ],
+          ),
+        ),
         const Divider(height: 1, color: Color(0xFF0F3460)),
         Expanded(
           child: lista.isEmpty
               ? Center(
                   child: Text(
-                    'No hay reservas este día',
+                    'No hay reservas de ${_franjaActiva.etiqueta} este día',
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
                   ),
                 )
-              : ListView.separated(
+              : ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: lista.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) => _tarjetaAgendaReserva(
-                    provider: provider,
-                    reserva: lista[i],
-                  ),
+                  itemCount: (lista.length + 1) ~/ 2,
+                  itemBuilder: (context, fila) {
+                    final i = fila * 2;
+                    final izq = lista[i];
+                    final der = i + 1 < lista.length ? lista[i + 1] : null;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: fila < (lista.length + 1) ~/ 2 - 1 ? 8 : 0,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: _tarjetaAgendaReserva(
+                                provider: provider,
+                                reserva: izq,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: der != null
+                                  ? _tarjetaAgendaReserva(
+                                      provider: provider,
+                                      reserva: der,
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
         ),
       ],
+    );
+  }
+
+  void _sincronizarParpadeoAsporto(bool hayAsporto) {
+    final debeParpadear =
+        hayAsporto && _franjaActiva != FranjaReserva.asporto;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (debeParpadear) {
+        if (!_asportoBlinkCtrl.isAnimating) {
+          unawaited(_asportoBlinkCtrl.repeat(reverse: true));
+        }
+      } else if (_asportoBlinkCtrl.isAnimating) {
+        _asportoBlinkCtrl
+          ..stop()
+          ..value = 1;
+      }
+    });
+  }
+
+  Widget _botonFranja({
+    required FranjaReserva franja,
+    required Color color,
+    bool parpadear = false,
+  }) {
+    final activo = _franjaActiva == franja;
+    final debeParpadear = parpadear && !activo;
+
+    Widget boton({required Color fondo, required Color texto}) {
+      return Material(
+        color: fondo,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: () => setState(() => _franjaActiva = franja),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+              franja.etiqueta,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: texto,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!debeParpadear) {
+      return boton(
+        fondo: activo ? color : color.withValues(alpha: 0.18),
+        texto: activo ? Colors.black87 : color,
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _asportoBlinkCtrl,
+      builder: (context, _) {
+        final t = _asportoBlinkCtrl.value;
+        // Pico más brillante: mezcla hacia blanco y alpha alto.
+        final fondo = Color.lerp(
+          color.withValues(alpha: 0.45),
+          Color.lerp(color, Colors.white, 0.55)!,
+          t,
+        )!;
+        return boton(
+          fondo: fondo,
+          texto: Color.lerp(Colors.black87, Colors.black, t) ?? Colors.black87,
+        );
+      },
     );
   }
 
@@ -507,6 +858,10 @@ class _ReservasPageState extends State<ReservasPage> {
         colorEstado = const Color(0xFFE94560);
         textoEstado = 'Cancelada';
         break;
+      case EstadoReserva.cobrada:
+        colorEstado = const Color(0xFF81C784);
+        textoEstado = 'Cobrada';
+        break;
       case EstadoReserva.pendiente:
         colorEstado = const Color(0xFFFFB74D);
         textoEstado = 'Pendiente';
@@ -515,16 +870,18 @@ class _ReservasPageState extends State<ReservasPage> {
     return Material(
       color: sel ? const Color(0xFF0F3460) : const Color(0xFF16213E),
       borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => setState(() => _cargarReservaEnFormulario(reserva)),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
           child: Column(
+            mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     _formatoHora.format(reserva.fechaHoraLlegada),
@@ -540,7 +897,7 @@ class _ReservasPageState extends State<ReservasPage> {
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 4,
+                        vertical: 2,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF00D9A5),
@@ -558,7 +915,7 @@ class _ReservasPageState extends State<ReservasPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
-                      vertical: 4,
+                      vertical: 2,
                     ),
                     decoration: BoxDecoration(
                       color: colorEstado.withValues(alpha: 0.25),
@@ -573,13 +930,18 @@ class _ReservasPageState extends State<ReservasPage> {
                   const Spacer(),
                   IconButton(
                     visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     onPressed: () => _confirmarEliminarReserva(provider, reserva),
                     icon: const Icon(Icons.delete_outline, color: Color(0xFFE94560)),
                     tooltip: 'Eliminar',
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 reserva.nombreCliente,
                 style: const TextStyle(
@@ -588,14 +950,14 @@ class _ReservasPageState extends State<ReservasPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
-                '${reserva.numeroPersonas} personas · '
-                '${reserva.itemsReservados.length} plato(s)',
+                _textoCubiertos(reserva),
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
+              _previewPlatosReserva(reserva),
               if (reserva.alergiasNotas.isNotEmpty) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   reserva.alergiasNotas,
                   maxLines: 2,
@@ -604,18 +966,64 @@ class _ReservasPageState extends State<ReservasPage> {
                 ),
               ],
               if (reserva.estaPendiente) ...[
-                const SizedBox(height: 10),
+                const Spacer(),
+                const SizedBox(height: 6),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    onPressed: () => _asignarMesa(provider, reserva),
-                    icon: const Icon(Icons.table_restaurant, size: 18),
-                    label: const Text('Asignar mesa'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF00D9A5),
-                      foregroundColor: Colors.black87,
-                    ),
-                  ),
+                  child: reserva.numeroPersonas <= 0
+                      ? Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: () => _imprimirAsporto(reserva),
+                              icon: const Icon(Icons.print, size: 16),
+                              label: const Text('Imprimir'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFFFFB74D),
+                                foregroundColor: Colors.black87,
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                            FilledButton.icon(
+                              onPressed: () =>
+                                  _cobrarAsporto(provider, reserva),
+                              icon: const Icon(Icons.payments, size: 16),
+                              label: const Text('Cobrar'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF00D9A5),
+                                foregroundColor: Colors.black87,
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ],
+                        )
+                      : FilledButton.icon(
+                          onPressed: () => _asignarMesa(provider, reserva),
+                          icon: const Icon(Icons.table_restaurant, size: 16),
+                          label: const Text('Asignar mesa'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF00D9A5),
+                            foregroundColor: Colors.black87,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
                 ),
               ],
             ],
@@ -836,10 +1244,13 @@ class _ReservasPageState extends State<ReservasPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                '${reserva.numeroPersonas} personas · '
-                '${reserva.itemsReservados.length} plato(s) pre-reservado(s)',
+                reserva.numeroPersonas <= 0
+                    ? 'Asporto · ${reserva.itemsReservados.length} plato(s) pre-reservado(s)'
+                    : '${reserva.numeroPersonas} personas · '
+                        '${reserva.itemsReservados.length} plato(s) pre-reservado(s)',
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
+              _previewPlatosReserva(reserva),
               if (reserva.alergiasNotas.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -849,7 +1260,7 @@ class _ReservasPageState extends State<ReservasPage> {
                   style: TextStyle(color: Colors.orange.shade200, fontSize: 12),
                 ),
               ],
-              if (permitirAsignarMesa) ...[
+              if (permitirAsignarMesa && reserva.numeroPersonas > 0) ...[
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
@@ -861,6 +1272,39 @@ class _ReservasPageState extends State<ReservasPage> {
                       backgroundColor: const Color(0xFF00D9A5),
                       foregroundColor: Colors.black87,
                     ),
+                  ),
+                ),
+              ],
+              if (permitirAsignarMesa &&
+                  reserva.numeroPersonas <= 0 &&
+                  reserva.estaPendiente) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.end,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () => _imprimirAsporto(reserva),
+                        icon: const Icon(Icons.print, size: 18),
+                        label: const Text('Imprimir pedido'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFB74D),
+                          foregroundColor: Colors.black87,
+                        ),
+                      ),
+                      FilledButton.icon(
+                        onPressed: () => _cobrarAsporto(provider, reserva),
+                        icon: const Icon(Icons.payments, size: 18),
+                        label: const Text('Cobrar'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF00D9A5),
+                          foregroundColor: Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -876,6 +1320,21 @@ class _ReservasPageState extends State<ReservasPage> {
     final productosFiltrados = provider.productos
         .where((p) => p.isAvailable && p.nombre.toLowerCase().contains(filtro))
         .toList();
+
+    final itemsComanda = <({Producto producto, int cantidad})>[];
+    for (final entry in _cantidadesProducto.entries) {
+      if (entry.value <= 0) continue;
+      final p = provider.productos.where((x) => x.id == entry.key).firstOrNull;
+      if (p == null) continue;
+      itemsComanda.add((producto: p, cantidad: entry.value));
+    }
+    itemsComanda.sort(
+      (a, b) => a.producto.nombre.compareTo(b.producto.nombre),
+    );
+    final totalComanda = itemsComanda.fold<double>(
+      0,
+      (s, e) => s + e.producto.precio * e.cantidad,
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -916,13 +1375,15 @@ class _ReservasPageState extends State<ReservasPage> {
             children: [
               Expanded(
                 child: Text(
-                  'Personas: $_personas',
+                  _personas <= 0
+                      ? 'Cubiertos: 0 (asporto)'
+                      : 'Personas: $_personas',
                   style: const TextStyle(color: Colors.white, fontSize: 15),
                 ),
               ),
               IconButton.filled(
                 onPressed: () => setState(
-                  () => _personas = (_personas - 1).clamp(1, 99),
+                  () => _personas = (_personas - 1).clamp(0, 99),
                 ),
                 icon: const Icon(Icons.remove),
                 style: IconButton.styleFrom(
@@ -962,10 +1423,134 @@ class _ReservasPageState extends State<ReservasPage> {
               'Alergias / notas (celíaco, trona, etc.)',
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Platos de esta reserva',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (itemsComanda.isNotEmpty)
+                Text(
+                  '€${totalComanda.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Color(0xFF00D9A5),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (itemsComanda.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F3460),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF16213E)),
+              ),
+              child: const Text(
+                'Ningún plato aún. Añade desde el catálogo abajo.',
+                style: TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+            )
+          else
+            ...itemsComanda.map((e) {
+              final id = e.producto.id ?? 0;
+              final qty = e.cantidad;
+              final sub = e.producto.precio * qty;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F3460),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF00D9A5).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            e.producto.nombre,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            '€${e.producto.precio.toStringAsFixed(2)} · '
+                            'subtotal €${sub.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() {
+                        if (qty <= 1) {
+                          _cantidadesProducto.remove(id);
+                        } else {
+                          _cantidadesProducto[id] = qty - 1;
+                        }
+                      }),
+                      icon: const Icon(Icons.remove_circle, size: 26),
+                      color: const Color(0xFFE94560),
+                    ),
+                    Text(
+                      '$qty',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() {
+                        _cantidadesProducto[id] = qty + 1;
+                      }),
+                      icon: const Icon(Icons.add_circle, size: 26),
+                      color: const Color(0xFF00D9A5),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Quitar',
+                      onPressed: () => setState(() {
+                        _cantidadesProducto.remove(id);
+                      }),
+                      icon: const Icon(Icons.delete_outline, size: 22),
+                      color: Colors.white38,
+                    ),
+                  ],
+                ),
+              );
+            }),
+          const SizedBox(height: 20),
           const Text(
-            'Platos con preparación anticipada',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+            'Añadir del catálogo',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           if (PlatformUtils.isAndroid && provider.productos.isEmpty)
@@ -985,12 +1570,12 @@ class _ReservasPageState extends State<ReservasPage> {
           const SizedBox(height: 8),
           ...productosFiltrados.take(12).map((p) {
             final id = p.id ?? 0;
-            final qty = _cantidadesProducto[id] ?? 0;
+            final qtyEnComanda = _cantidadesProducto[id] ?? 0;
             return Container(
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F3460),
+                color: const Color(0xFF16213E),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -1003,31 +1588,38 @@ class _ReservasPageState extends State<ReservasPage> {
                   ),
                   Text(
                     '€${p.precio.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Color(0xFF00D9A5), fontSize: 13),
+                    style: const TextStyle(
+                      color: Color(0xFF00D9A5),
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    onPressed: qty > 0
-                        ? () => setState(() {
-                              if (qty <= 1) {
-                                _cantidadesProducto.remove(id);
-                              } else {
-                                _cantidadesProducto[id] = qty - 1;
-                              }
-                            })
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline, size: 22),
-                    color: const Color(0xFFE94560),
-                  ),
-                  Text('$qty', style: const TextStyle(color: Colors.white)),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
+                  if (qtyEnComanda > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Text(
+                        'x$qtyEnComanda',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  FilledButton(
                     onPressed: () => setState(() {
-                      _cantidadesProducto[id] = qty + 1;
+                      _cantidadesProducto[id] = qtyEnComanda + 1;
                     }),
-                    icon: const Icon(Icons.add_circle_outline, size: 22),
-                    color: const Color(0xFF00D9A5),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D9A5),
+                      foregroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Añadir'),
                   ),
                 ],
               ),
@@ -1056,6 +1648,37 @@ class _ReservasPageState extends State<ReservasPage> {
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Líneas cortas de platos para preview en tarjetas.
+  Widget _previewPlatosReserva(Reserva reserva) {
+    if (reserva.itemsReservados.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final lineas = reserva.itemsReservados
+        .map((i) => '${i.nombreProducto} x${i.cantidad}')
+        .toList();
+    final mostrar = lineas.take(4).toList();
+    final resto = lineas.length - mostrar.length;
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final l in mostrar)
+            Text(
+              l,
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+          if (resto > 0)
+            Text(
+              '+$resto más…',
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ),
         ],
       ),
     );
@@ -1149,6 +1772,357 @@ class _DialogoSelectorMesa extends StatelessWidget {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Diálogo simple para ajustar franjas de comida y cena.
+class _DialogoHorariosReservas extends StatefulWidget {
+  const _DialogoHorariosReservas({required this.inicial});
+
+  final HorariosReservas inicial;
+
+  @override
+  State<_DialogoHorariosReservas> createState() =>
+      _DialogoHorariosReservasState();
+}
+
+class _DialogoHorariosReservasState extends State<_DialogoHorariosReservas> {
+  late int _comidaInicio;
+  late int _comidaFin;
+  late int _cenaInicio;
+  late int _cenaFin;
+
+  @override
+  void initState() {
+    super.initState();
+    _comidaInicio = widget.inicial.comidaInicioMin;
+    _comidaFin = widget.inicial.comidaFinMin;
+    _cenaInicio = widget.inicial.cenaInicioMin;
+    _cenaFin = widget.inicial.cenaFinMin;
+  }
+
+  Future<void> _elegir(String titulo, int actual, ValueChanged<int> onOk) async {
+    final tod = TimeOfDay(hour: actual ~/ 60, minute: actual % 60);
+    final elegido = await showTimePicker(
+      context: context,
+      initialTime: tod,
+      helpText: titulo,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFF00D9A5),
+            surface: Color(0xFF16213E),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (elegido == null) return;
+    onOk(minutosDesdeTimeOfDay(hour: elegido.hour, minute: elegido.minute));
+  }
+
+  Widget _fila(String label, int minutos, VoidCallback onTap) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(label, style: const TextStyle(color: Colors.white70)),
+      trailing: TextButton(
+        onPressed: onTap,
+        child: Text(
+          formatoMinutosDelDia(minutos),
+          style: const TextStyle(
+            color: Color(0xFF00D9A5),
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF16213E),
+      title: const Text(
+        'Horarios comida / cena',
+        style: TextStyle(color: Colors.white),
+      ),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Asporto = reserva con 0 cubiertos',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _fila(
+              'Comida desde',
+              _comidaInicio,
+              () => _elegir('Comida desde', _comidaInicio, (v) {
+                setState(() => _comidaInicio = v);
+              }),
+            ),
+            _fila(
+              'Comida hasta',
+              _comidaFin,
+              () => _elegir('Comida hasta', _comidaFin, (v) {
+                setState(() => _comidaFin = v);
+              }),
+            ),
+            const Divider(color: Color(0xFF0F3460)),
+            _fila(
+              'Cena desde',
+              _cenaInicio,
+              () => _elegir('Cena desde', _cenaInicio, (v) {
+                setState(() => _cenaInicio = v);
+              }),
+            ),
+            _fila(
+              'Cena hasta',
+              _cenaFin,
+              () => _elegir('Cena hasta', _cenaFin, (v) {
+                setState(() => _cenaFin = v);
+              }),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).pop(
+              HorariosReservas(
+                comidaInicioMin: _comidaInicio,
+                comidaFinMin: _comidaFin,
+                cenaInicioMin: _cenaInicio,
+                cenaFinMin: _cenaFin,
+              ),
+            );
+          },
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00D9A5),
+            foregroundColor: Colors.black87,
+          ),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ResultadoCobroAsporto {
+  const _ResultadoCobroAsporto({
+    required this.metodo,
+    this.importeRecibido,
+  });
+
+  final String metodo;
+  final double? importeRecibido;
+}
+
+/// Diálogo de cobro total para asporto (efectivo / tarjeta / otros).
+class _DialogoCobroAsporto extends StatefulWidget {
+  const _DialogoCobroAsporto({
+    required this.nombreCliente,
+    required this.total,
+  });
+
+  final String nombreCliente;
+  final double total;
+
+  @override
+  State<_DialogoCobroAsporto> createState() => _DialogoCobroAsportoState();
+}
+
+class _DialogoCobroAsportoState extends State<_DialogoCobroAsporto> {
+  String? _metodo;
+  final _importeCtrl = TextEditingController();
+  var _procesando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _importeCtrl.text = widget.total.toStringAsFixed(2);
+  }
+
+  @override
+  void dispose() {
+    _importeCtrl.dispose();
+    super.dispose();
+  }
+
+  double? _parseImporte() {
+    final t = _importeCtrl.text.replaceAll(',', '.').trim();
+    if (t.isEmpty) return null;
+    final v = double.tryParse(t);
+    if (v == null || v.isNaN || v.isInfinite || v < 0) return null;
+    return v;
+  }
+
+  Future<void> _confirmar() async {
+    if (_metodo == null) return;
+    final recibido = _parseImporte();
+    if (_metodo == 'efectivo') {
+      if (recibido == null || recibido + 0.009 < widget.total) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Importe recibido insuficiente'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+    }
+    setState(() => _procesando = true);
+    Navigator.of(context).pop(
+      _ResultadoCobroAsporto(
+        metodo: _metodo!,
+        importeRecibido: _metodo == 'efectivo' ? recibido : null,
+      ),
+    );
+  }
+
+  Widget _botonMetodo(String id, String label, IconData icon) {
+    final sel = _metodo == id;
+    return Expanded(
+      child: Material(
+        color: sel ? const Color(0xFF00D9A5) : const Color(0xFF0F3460),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: _procesando
+              ? null
+              : () => setState(() {
+                    _metodo = id;
+                    if (id != 'efectivo') {
+                      _importeCtrl.text = widget.total.toStringAsFixed(2);
+                    }
+                  }),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Column(
+              children: [
+                Icon(
+                  icon,
+                  color: sel ? Colors.black87 : Colors.white70,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: sel ? Colors.black87 : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recibido = _parseImporte() ?? 0;
+    final vuelto = _metodo == 'efectivo' && recibido >= widget.total
+        ? recibido - widget.total
+        : null;
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF16213E),
+      title: Text(
+        'Cobrar asporto — ${widget.nombreCliente}',
+        style: const TextStyle(color: Colors.white, fontSize: 18),
+      ),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Total: €${widget.total.toStringAsFixed(2)}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF00D9A5),
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _botonMetodo('efectivo', 'Efectivo', Icons.payments),
+                const SizedBox(width: 8),
+                _botonMetodo('tarjeta', 'Tarjeta', Icons.credit_card),
+                const SizedBox(width: 8),
+                _botonMetodo('otros', 'Otros', Icons.more_horiz),
+              ],
+            ),
+            if (_metodo == 'efectivo') ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _importeCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Importe recibido',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: const Color(0xFF0F3460),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              if (vuelto != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Vuelto: €${vuelto.toStringAsFixed(2)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ],
+            if (_metodo == 'tarjeta') ...[
+              const SizedBox(height: 12),
+              Text(
+                'Cobre €${widget.total.toStringAsFixed(2)} en el datáfono',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.orange.shade200, fontSize: 13),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _procesando ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _procesando || _metodo == null ? null : _confirmar,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00D9A5),
+            foregroundColor: Colors.black87,
+          ),
+          child: const Text('Confirmar cobro'),
         ),
       ],
     );

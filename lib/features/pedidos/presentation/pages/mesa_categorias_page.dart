@@ -476,6 +476,7 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
                     if (!context.mounted) return;
                     if (ok) {
                       Navigator.of(context).pop();
+                      context.go(AppRoutes.mesas);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Pedido enviado'),

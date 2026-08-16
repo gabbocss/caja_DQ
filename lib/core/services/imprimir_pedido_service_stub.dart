@@ -8,7 +8,12 @@ class ImprimirPedidoService {
   ImprimirPedidoService._();
 
   /// No-op en web/stub.
-  Future<void> imprimirPedido(Pedido pedido) async {}
+  Future<void> imprimirPedido(
+    Pedido pedido, {
+    String? horaLlegada,
+    String? notasReserva,
+    String? etiquetaCabecera,
+  }) async {}
 
   /// No-op en web/stub (impresora buffet).
   Future<void> imprimirPedidoEnImpresora(
@@ -21,8 +26,9 @@ class ImprimirPedidoService {
   Future<void> imprimirTicketCuentaMesa(
     int mesaNumero,
     List<ItemPedido> items,
-    double total,
-  ) async {}
+    double total, {
+    String? etiquetaCabecera,
+  }) async {}
 
   /// No-op en web/stub (aviso eliminación cocina).
   Future<void> imprimirEliminacionCocina({
@@ -46,5 +52,9 @@ class ImprimirPedidoService {
   Future<void> imprimirTicketReservaCocina({
     required int mesaNumero,
     required Reserva reserva,
+    String? etiquetaCabecera,
   }) async {}
+
+  /// No-op en web/stub (lista paellas).
+  Future<void> imprimirListaPaellas(List<String> lineas) async {}
 }

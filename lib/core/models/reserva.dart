@@ -7,6 +7,8 @@ enum EstadoReserva {
   pendiente,
   sentada,
   cancelada,
+  /// Asporto cobrado y entregado (sin mesa).
+  cobrada,
 }
 
 /// Plato con preparación anticipada (paella, etc.).
@@ -88,6 +90,11 @@ class Reserva {
   }
 
   bool get estaPendiente => estado == EstadoReserva.pendiente;
+
+  bool get estaCobrada => estado == EstadoReserva.cobrada;
+
+  double get totalItemsReservados =>
+      itemsReservados.fold<double>(0, (s, i) => s + i.subtotal);
 
   Map<String, dynamic> toJson() => {
         if (id != null) 'id': id,

@@ -225,11 +225,13 @@ const _ReservaestadoEnumValueMap = {
   r'pendiente': r'pendiente',
   r'sentada': r'sentada',
   r'cancelada': r'cancelada',
+  r'cobrada': r'cobrada',
 };
 const _ReservaestadoValueEnumMap = {
   r'pendiente': EstadoReserva.pendiente,
   r'sentada': EstadoReserva.sentada,
   r'cancelada': EstadoReserva.cancelada,
+  r'cobrada': EstadoReserva.cobrada,
 };
 
 Id _reservaGetId(Reserva object) {

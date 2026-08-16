@@ -9,6 +9,7 @@ import '../../../../core/services/reserva_outbox_service.dart';
 import '../../../../core/services/reserva_persistence_service.dart';
 import '../../../../core/services/reserva_sync_service.dart';
 import '../../data/services/reserva_asignacion_service.dart';
+import '../../data/services/reserva_cobro_asporto_service.dart';
 
 /// Resultado al crear una reserva en móvil (VPS o cola offline).
 enum CrearReservaResultado {
@@ -504,6 +505,26 @@ class ReservasProvider extends ChangeNotifier {
     }
     await _asignacion.asignarMesa(reserva: reserva, mesaNumero: mesaNumero);
     _mesas = await DatabaseService.instance.obtenerMesas();
+    await _recargarLocal();
+    notifyListeners();
+  }
+
+  /// Cobra un asporto pendiente (registro caja + ticket + estado cobrada).
+  Future<void> cobrarAsporto({
+    required Reserva reserva,
+    required String metodo,
+    double? importeRecibido,
+  }) async {
+    if (_esAndroidNube) {
+      throw StateError(
+        'Cobrar asporto solo está disponible en la caja de escritorio.',
+      );
+    }
+    await ReservaCobroAsportoService.instance.cobrar(
+      reserva: reserva,
+      metodo: metodo,
+      importeRecibido: importeRecibido,
+    );
     await _recargarLocal();
     notifyListeners();
   }
