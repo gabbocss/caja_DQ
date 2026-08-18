@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +9,7 @@ import '../providers/pedidos_mobile_provider.dart';
 import '../widgets/producto_grid.dart';
 import '../widgets/carrito_panel.dart';
 import '../widgets/dialogo_consumo_actual_lectura.dart';
+import '../widgets/dialogo_orden_plato.dart';
 import 'pedidos_page.dart' show ItemCarrito;
 
 /// Pantalla de platos de una categoría para una mesa.
@@ -81,6 +83,48 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
     await provider.loadCuentaMesa(widget.numeroMesa);
     if (!mounted) return;
     _scaffoldKey.currentState?.openEndDrawer();
+  }
+
+  /// Long-press: reparte las unidades del plato entre 1º / 2º / 3º.
+  Future<void> _mostrarDialogoOrdenPlato(
+    Producto producto,
+    PedidosMobileProvider provider,
+  ) async {
+    final id = producto.id;
+    if (id == null || id <= 0 || !producto.isAvailable) return;
+
+    HapticFeedback.mediumImpact();
+
+    final dist = provider.distribucionOrdenPlato(widget.numeroMesa, id);
+    if (dist.total <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Añade ${producto.nombre} al pedido antes de asignar el turno',
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final result = await DialogoOrdenPlato.mostrar(
+      context: context,
+      nombrePlato: producto.nombre,
+      total: dist.total,
+      segundoInicial: dist.segundo,
+      terceroInicial: dist.tercero,
+    );
+    if (result == null || !mounted) return;
+
+    provider.aplicarDistribucionOrdenPlato(
+      numeroMesa: widget.numeroMesa,
+      productoId: id,
+      segundo: result.segundo,
+      tercero: result.tercero,
+    );
   }
 
   /// Valida stock del carrito frente a la lista de productos (misma lógica que UI servidor).
@@ -391,6 +435,9 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
                       }
                       mobileProvider.addToCart(widget.numeroMesa, producto);
                       _iluminarBordeBreve(producto.id);
+                    },
+                    onProductoLongPress: (producto) {
+                      _mostrarDialogoOrdenPlato(producto, mobileProvider);
                     },
                   ),
                 ),

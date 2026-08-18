@@ -15,6 +15,8 @@ class ProductoGrid extends StatelessWidget {
   final String? categoriaFiltro;
   final List<Producto> productos;
   final ValueChanged<Producto> onProductoTap;
+  /// Mantener pulsado un plato (app móvil: asignar 1º / 2º / 3º).
+  final ValueChanged<Producto>? onProductoLongPress;
   /// productoId → unidades pedidas en histórico; null = orden solo por campo orden (camarero).
   final Map<int, int>? popularidadPorProductoId;
   final double factorTamanoTarjeta;
@@ -30,6 +32,7 @@ class ProductoGrid extends StatelessWidget {
     this.categoriaFiltro,
     required this.productos,
     required this.onProductoTap,
+    this.onProductoLongPress,
     this.popularidadPorProductoId,
     this.factorTamanoTarjeta = 1.0,
     this.gridAnchoFactor = 1.0,
@@ -121,6 +124,9 @@ class ProductoGrid extends StatelessWidget {
         return ProductoCard(
           producto: producto,
           onTap: () => onProductoTap(producto),
+          onLongPress: onProductoLongPress == null
+              ? null
+              : () => onProductoLongPress!(producto),
           esSabado: esSabado,
           factorTamanoTarjeta: f,
           cantidadEnCarrito: cantidad,
@@ -135,6 +141,7 @@ class ProductoGrid extends StatelessWidget {
 class ProductoCard extends StatelessWidget {
   final Producto producto;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool esSabado;
   /// 1.0 = tamaño estándar; 0.7 escala tarjeta (padding, tipografía, badges).
   final double factorTamanoTarjeta;
@@ -147,6 +154,7 @@ class ProductoCard extends StatelessWidget {
     super.key,
     required this.producto,
     required this.onTap,
+    this.onLongPress,
     this.esSabado = false,
     this.factorTamanoTarjeta = 1.0,
     this.cantidadEnCarrito = 0,
@@ -170,6 +178,7 @@ class ProductoCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: estaAgotado ? null : onTap, // Deshabilitar si está agotado
+        onLongPress: estaAgotado ? null : onLongPress,
         borderRadius: BorderRadius.circular(r),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),

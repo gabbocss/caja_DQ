@@ -138,6 +138,74 @@ class PedidosMobileProvider extends ChangeNotifier {
     }
   }
 
+  /// Cuenta unidades de un plato en el carrito por turno (1º / 2º / 3º).
+  /// Cualquier orden distinto de 2 o 3 se considera primero.
+  ({int primero, int segundo, int tercero, int total}) distribucionOrdenPlato(
+    int numeroMesa,
+    int productoId,
+  ) {
+    var primero = 0;
+    var segundo = 0;
+    var tercero = 0;
+    for (final item in carritoMesa(numeroMesa)) {
+      if (item.producto.id != productoId) continue;
+      switch (item.orden) {
+        case 2:
+          segundo += item.cantidad;
+          break;
+        case 3:
+          tercero += item.cantidad;
+          break;
+        default:
+          primero += item.cantidad;
+          break;
+      }
+    }
+    return (
+      primero: primero,
+      segundo: segundo,
+      tercero: tercero,
+      total: primero + segundo + tercero,
+    );
+  }
+
+  /// Deja exactamente [segundo] unidades en 2º y [tercero] en 3º.
+  /// El resto de ese producto vuelve a 1º. No supera el total del carrito.
+  void aplicarDistribucionOrdenPlato({
+    required int numeroMesa,
+    required int productoId,
+    required int segundo,
+    required int tercero,
+  }) {
+    final lista = _carritoByMesa[numeroMesa];
+    if (lista == null) return;
+
+    final indices = <int>[];
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i].producto.id == productoId) indices.add(i);
+    }
+    if (indices.isEmpty) return;
+
+    final total = indices.fold<int>(0, (sum, i) => sum + lista[i].cantidad);
+    final n2 = segundo.clamp(0, total);
+    final n3 = tercero.clamp(0, total - n2);
+
+    var asignados2 = 0;
+    var asignados3 = 0;
+    for (final i in indices) {
+      if (asignados2 < n2) {
+        lista[i].orden = 2;
+        asignados2 += lista[i].cantidad;
+      } else if (asignados3 < n3) {
+        lista[i].orden = 3;
+        asignados3 += lista[i].cantidad;
+      } else {
+        lista[i].orden = 1;
+      }
+    }
+    notifyListeners();
+  }
+
   /// Elimina los platos pendientes de la mesa (carrito) y cancela la apertura
   /// para que [sendOrder] no envíe nada aunque haya apertura.
   /// No toca el consumo ya existente cargado en [_cuentaByMesa].
