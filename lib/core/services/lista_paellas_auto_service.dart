@@ -12,6 +12,8 @@ import 'reserva_persistence_service.dart';
 /// - Mesas («Lista paellas»): solo reservas **nuevas** (aún no enviadas), hasta
 ///   **30 min antes** de la apertura.
 /// - Asporto: mismo inicio; tickets individuales de los nuevos hasta **fin de servicio**.
+/// - Barra: desde **60 min antes** hasta fin de servicio, aviso «NUEVA RESERVA» /
+///   «NUEVO ASPORTO» (hora + cubiertos) solo para altas creadas en esa ventana.
 ///
 /// Se evalúa tras cada sync OK del VPS (~15 s).
 class ListaPaellasAutoService {
@@ -20,6 +22,7 @@ class ListaPaellasAutoService {
 
   static const Duration _antesInicio = Duration(hours: 1, minutes: 30);
   static const Duration _corteMesasAntesApertura = Duration(minutes: 30);
+  static const Duration _avisoBarraAntesApertura = Duration(hours: 1);
 
   bool _enCurso = false;
 
@@ -161,6 +164,88 @@ class ListaPaellasAutoService {
         ids: idsOk,
       );
     }
+
+    // Barra: desde 60 min antes de la apertura hasta fin de servicio.
+    final inicioBarra = apertura.subtract(_avisoBarraAntesApertura);
+    final enVentanaBarra =
+        !ahora.isBefore(inicioBarra) && !ahora.isAfter(finServicio);
+    if (enVentanaBarra) {
+      await _avisarBarraReservasNuevas(
+        dia: dia,
+        esComida: esComida,
+        inicioBarra: inicioBarra,
+        mesas: reservas.where((r) {
+          if (r.id == null) return false;
+          if (r.estado == EstadoReserva.cancelada ||
+              r.estado == EstadoReserva.cobrada) {
+            return false;
+          }
+          if (r.numeroPersonas <= 0) return false;
+          return _esDelServicio(r, esComida: esComida, horarios: horarios);
+        }).toList(),
+        asportos: reservas.where((r) {
+          if (r.id == null) return false;
+          if (r.estado == EstadoReserva.cancelada ||
+              r.estado == EstadoReserva.cobrada) {
+            return false;
+          }
+          if (r.numeroPersonas > 0) return false;
+          return _enRangoLlegada(r, inicioMin, finMin);
+        }).toList(),
+      );
+    }
+  }
+
+  Future<void> _avisarBarraReservasNuevas({
+    required DateTime dia,
+    required bool esComida,
+    required DateTime inicioBarra,
+    required List<Reserva> mesas,
+    required List<Reserva> asportos,
+  }) async {
+    final yaAvisados = await idsBarraYaAvisados(dia, esComida: esComida);
+    final idsMarcados = <int>[];
+
+    for (final r in mesas) {
+      final id = r.id!;
+      if (yaAvisados.contains(id)) continue;
+      if (!r.fechaCreacion.isBefore(inicioBarra)) {
+        await ImprimirPedidoService.instance.imprimirAvisoBarra(
+          titulo: 'NUEVA RESERVA',
+          lineas: _lineasAvisoBarra(r),
+        );
+        debugPrint(
+          'ListaPaellasAuto: aviso barra reserva "${r.nombreCliente}"',
+        );
+      }
+      idsMarcados.add(id);
+    }
+
+    for (final r in asportos) {
+      final id = r.id!;
+      if (yaAvisados.contains(id)) continue;
+      if (!r.fechaCreacion.isBefore(inicioBarra)) {
+        await ImprimirPedidoService.instance.imprimirAvisoBarra(
+          titulo: 'NUEVO ASPORTO',
+          lineas: _lineasAvisoBarra(r),
+        );
+        debugPrint(
+          'ListaPaellasAuto: aviso barra asporto "${r.nombreCliente}"',
+        );
+      }
+      idsMarcados.add(id);
+    }
+
+    await marcarBarraAvisados(dia, esComida: esComida, ids: idsMarcados);
+  }
+
+  List<String> _lineasAvisoBarra(Reserva r) {
+    final hora =
+        '${r.fechaHoraLlegada.hour.toString().padLeft(2, '0')}:'
+        '${r.fechaHoraLlegada.minute.toString().padLeft(2, '0')}';
+    final n = r.numeroPersonas;
+    final cubiertos = n == 1 ? '1 cubierto' : '$n cubiertos';
+    return [hora, cubiertos];
   }
 
   DateTime _instanteDelDia(DateTime dia, int minutosDelDia) {

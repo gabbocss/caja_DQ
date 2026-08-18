@@ -10,6 +10,10 @@ String _claveAsportos(DateTime dia, {required bool esComida}) =>
     'lista_paellas_ids_asporto_${esComida ? 'comida' : 'cena'}_'
     '${dia.year}-${dia.month}-${dia.day}';
 
+String _claveBarra(DateTime dia, {required bool esComida}) =>
+    'lista_paellas_ids_barra_${esComida ? 'comida' : 'cena'}_'
+    '${dia.year}-${dia.month}-${dia.day}';
+
 Future<Set<int>> idsMesasYaEnviados(
   DateTime dia, {
   required bool esComida,
@@ -52,6 +56,30 @@ Future<void> marcarAsportosEnviados(
   if (ids.isEmpty) return;
   final prefs = await SharedPreferences.getInstance();
   final clave = _claveAsportos(dia, esComida: esComida);
+  final actual = {...(prefs.getStringList(clave) ?? [])};
+  for (final id in ids) {
+    actual.add('$id');
+  }
+  await prefs.setStringList(clave, actual.toList()..sort());
+}
+
+Future<Set<int>> idsBarraYaAvisados(
+  DateTime dia, {
+  required bool esComida,
+}) async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getStringList(_claveBarra(dia, esComida: esComida)) ?? [];
+  return raw.map(int.tryParse).whereType<int>().toSet();
+}
+
+Future<void> marcarBarraAvisados(
+  DateTime dia, {
+  required bool esComida,
+  required Iterable<int> ids,
+}) async {
+  if (ids.isEmpty) return;
+  final prefs = await SharedPreferences.getInstance();
+  final clave = _claveBarra(dia, esComida: esComida);
   final actual = {...(prefs.getStringList(clave) ?? [])};
   for (final id in ids) {
     actual.add('$id');

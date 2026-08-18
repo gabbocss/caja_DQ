@@ -57,4 +57,10 @@ class ImprimirPedidoService {
 
   /// No-op en web/stub (lista paellas).
   Future<void> imprimirListaPaellas(List<String> lineas) async {}
+
+  /// No-op en web/stub (aviso barra).
+  Future<void> imprimirAvisoBarra({
+    required String titulo,
+    List<String> lineas = const [],
+  }) async {}
 }

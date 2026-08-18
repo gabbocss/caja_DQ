@@ -738,8 +738,9 @@ class ImprimirPedidoService {
 
   Future<List<int>> _generarPayloadAvisoCocina(
     ConfiguracionImpresion config,
-    String lineaPrincipal,
-  ) async {
+    String lineaPrincipal, {
+    List<String> lineasExtra = const [],
+  }) async {
     final out = <int>[];
     void add(List<int> bytes) => out.addAll(bytes);
     void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
@@ -757,6 +758,13 @@ class ImprimirPedidoService {
     add(_escBoldOff);
 
     addStr(_aplicarMargen('\n$sep\n', margenEsp));
+    for (final linea in lineasExtra) {
+      add(_escBoldOn);
+      add(_escSizeDoubleHeight);
+      addStr(_aplicarMargen('$linea\n', margenEsp));
+      add(_escSizeNormal);
+      add(_escBoldOff);
+    }
     if (config.mostrarFechaHora) {
       final now = DateTime.now();
       final fechaHora =
@@ -776,6 +784,47 @@ class ImprimirPedidoService {
         add(_escCutFull);
     }
     return out;
+  }
+
+  /// Aviso corto solo en la impresora del destino «Barra».
+  Future<void> imprimirAvisoBarra({
+    required String titulo,
+    List<String> lineas = const [],
+  }) async {
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    final payload = await _generarPayloadAvisoCocina(
+      config,
+      titulo,
+      lineasExtra: lineas,
+    );
+    await _enviarAImpresorasBarra(payload);
+  }
+
+  Future<void> _enviarAImpresorasBarra(List<int> payload) async {
+    final db = DatabaseService.instance;
+    final todos = await db.obtenerDestinos();
+    var enviada = false;
+    for (final destino in todos) {
+      if (!destino.activo) continue;
+      if (destino.nombre.toLowerCase().trim() != 'barra') continue;
+      if (destino.tipo != TipoDestino.impresora &&
+          destino.tipo != TipoDestino.ambos) {
+        continue;
+      }
+      final ip = destino.direccionImpresora?.trim();
+      if (ip == null || ip.isEmpty) continue;
+      final port = destino.puertoImpresora ?? _puertoPorDefecto;
+      final ok = await _enviarAImpresora(ip, port, payload);
+      enviada = true;
+      if (!ok) {
+        debugPrint(
+          'No se pudo imprimir aviso barra en ${destino.nombre} ($ip:$port)',
+        );
+      }
+    }
+    if (!enviada) {
+      debugPrint('Aviso barra: no hay destino Barra con impresora configurada');
+    }
   }
 
   /// Ticket resumen: título fijo "Lista paellas" + una línea por plato reservado.
