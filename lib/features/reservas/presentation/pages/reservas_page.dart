@@ -10,6 +10,9 @@ import '../../../../core/utils/platform_utils.dart';
 import '../../domain/franja_reserva.dart';
 import '../providers/reservas_provider.dart';
 
+/// Flujo de la pantalla Reservas en Android (menú → nueva / editar).
+enum _VistaAndroidReservas { menu, nueva, editar }
+
 /// Pantalla de reservas pendientes y alta manual.
 class ReservasPage extends StatefulWidget {
   const ReservasPage({super.key});
@@ -31,6 +34,7 @@ class _ReservasPageState extends State<ReservasPage>
   int? _reservaEditandoId;
   bool _guardando = false;
   ReservasProvider? _provider;
+  _VistaAndroidReservas _vistaAndroid = _VistaAndroidReservas.menu;
 
   FranjaReserva _franjaActiva = FranjaReserva.comida;
   HorariosReservas _horarios = HorariosReservas.defaults;
@@ -184,7 +188,7 @@ class _ReservasPageState extends State<ReservasPage>
     setState(() => _guardando = true);
     try {
       final items = _itemsDesdeFormulario(provider.productos);
-      if (_reservaEditandoId != null && !PlatformUtils.isAndroid) {
+      if (_reservaEditandoId != null) {
         await provider.actualizarReserva(
           id: _reservaEditandoId!,
           nombreCliente: _nombreCtrl.text,
@@ -226,6 +230,23 @@ class _ReservasPageState extends State<ReservasPage>
     }
   }
 
+  void _volverMenuAndroid() {
+    _limpiarFormulario();
+    setState(() => _vistaAndroid = _VistaAndroidReservas.menu);
+  }
+
+  String get _tituloAppBar {
+    if (!PlatformUtils.isAndroid) return 'Reservas';
+    switch (_vistaAndroid) {
+      case _VistaAndroidReservas.menu:
+        return 'Reservas';
+      case _VistaAndroidReservas.nueva:
+        return 'Nueva reserva';
+      case _VistaAndroidReservas.editar:
+        return 'Editar reserva';
+    }
+  }
+
   Future<void> _elegirDiaAgenda(ReservasProvider provider) async {
     final fecha = await showDatePicker(
       context: context,
@@ -255,20 +276,21 @@ class _ReservasPageState extends State<ReservasPage>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF16213E),
-        title: const Text('Eliminar reserva', style: TextStyle(color: Colors.white)),
+        title: const Text('Cancelar reserva', style: TextStyle(color: Colors.white)),
         content: Text(
-          '¿Eliminar la reserva de ${reserva.nombreCliente}?',
+          '¿Cancelar la reserva de ${reserva.nombreCliente}? '
+          'Pasará a la pestaña canceladas.',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: const Text('No'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE94560)),
-            child: const Text('Eliminar'),
+            child: const Text('Cancelar reserva'),
           ),
         ],
       ),
@@ -281,10 +303,32 @@ class _ReservasPageState extends State<ReservasPage>
       }
       if (mounted) {
         setState(() {});
-        _snack('Reserva eliminada', const Color(0xFF00D9A5));
+        _snack('Reserva cancelada', const Color(0xFF00D9A5));
       }
     } catch (e) {
-      _snack('Error al eliminar: $e', Colors.red);
+      _snack('Error al cancelar: $e', Colors.red);
+    }
+  }
+
+  Future<void> _reactivarReserva(
+    ReservasProvider provider,
+    Reserva reserva,
+  ) async {
+    if (reserva.id == null) return;
+    try {
+      await provider.reactivarReserva(reserva.id!);
+      if (_reservaEditandoId == reserva.id) {
+        _limpiarFormulario();
+      }
+      if (mounted) {
+        setState(() {});
+        _snack(
+          'Reserva reactivada: ${reserva.nombreCliente}',
+          const Color(0xFF00D9A5),
+        );
+      }
+    } catch (e) {
+      _snack('Error al reactivar: $e', Colors.red);
     }
   }
 
@@ -417,12 +461,28 @@ class _ReservasPageState extends State<ReservasPage>
       builder: (context, provider, _) {
         final ancho = MediaQuery.of(context).size.width;
         final esAncho = ancho > 900;
+        final enSubvistaAndroid = PlatformUtils.isAndroid &&
+            _vistaAndroid != _VistaAndroidReservas.menu;
 
         return Scaffold(
           backgroundColor: const Color(0xFF1A1A2E),
           appBar: AppBar(
             backgroundColor: const Color(0xFF16213E),
-            title: const Text('Reservas'),
+            title: Text(_tituloAppBar),
+            leading: enSubvistaAndroid
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      if (_vistaAndroid == _VistaAndroidReservas.editar &&
+                          _reservaEditandoId != null) {
+                        setState(_limpiarFormulario);
+                      } else {
+                        _volverMenuAndroid();
+                      }
+                    },
+                    tooltip: 'Volver',
+                  )
+                : null,
             actions: [
               if (provider.modoBackup && !PlatformUtils.isAndroid)
                 const Padding(
@@ -444,11 +504,13 @@ class _ReservasPageState extends State<ReservasPage>
                     backgroundColor: const Color(0xFFFFB74D),
                   ),
                 ),
-              IconButton(
-                onPressed: _abrirConfigHorarios,
-                icon: const Icon(Icons.settings),
-                tooltip: 'Configurar horarios comida / cena',
-              ),
+              if (!PlatformUtils.isAndroid ||
+                  _vistaAndroid != _VistaAndroidReservas.menu)
+                IconButton(
+                  onPressed: _abrirConfigHorarios,
+                  icon: const Icon(Icons.settings),
+                  tooltip: 'Configurar horarios comida / cena',
+                ),
               IconButton(
                 onPressed: provider.sincronizando ? null : provider.sincronizar,
                 icon: provider.sincronizando
@@ -459,7 +521,7 @@ class _ReservasPageState extends State<ReservasPage>
                       )
                     : const Icon(Icons.sync),
                 tooltip: PlatformUtils.isAndroid
-                    ? 'Actualizar carta y reenviar reservas pendientes'
+                    ? 'Actualizar carta, reservas del VPS y reenviar pendientes'
                     : 'Subir catálogo y sincronizar reservas con VPS',
               ),
             ],
@@ -467,33 +529,256 @@ class _ReservasPageState extends State<ReservasPage>
           body: provider.cargando
               ? const Center(child: CircularProgressIndicator())
               : PlatformUtils.isAndroid
-                  ? (esAncho
-                      ? Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              flex: 4,
-                              child: _panelListasReservas(provider, esMovil: false),
-                            ),
-                            const VerticalDivider(
-                              width: 1,
-                              color: Color(0xFF0F3460),
-                            ),
-                            Expanded(flex: 6, child: _formularioNueva(provider)),
-                          ],
-                        )
-                      : Column(
-                          children: [
-                            _panelListasReservas(provider, esMovil: true),
-                            const Divider(height: 1, color: Color(0xFF0F3460)),
-                            Expanded(child: _formularioNueva(provider)),
-                          ],
-                        ))
+                  ? _cuerpoAndroid(provider, esAncho: esAncho)
                   : (esAncho
                       ? _layoutEscritorioHorizontal(provider)
                       : _layoutEscritorioVertical(provider)),
         );
       },
+    );
+  }
+
+  Widget _cuerpoAndroid(ReservasProvider provider, {required bool esAncho}) {
+    switch (_vistaAndroid) {
+      case _VistaAndroidReservas.menu:
+        return _menuAndroidReservas(provider);
+      case _VistaAndroidReservas.nueva:
+        return esAncho
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: _panelListasReservas(provider, esMovil: false),
+                  ),
+                  const VerticalDivider(
+                    width: 1,
+                    color: Color(0xFF0F3460),
+                  ),
+                  Expanded(flex: 6, child: _formularioNueva(provider)),
+                ],
+              )
+            : Column(
+                children: [
+                  _panelListasReservas(provider, esMovil: true),
+                  const Divider(height: 1, color: Color(0xFF0F3460)),
+                  Expanded(child: _formularioNueva(provider)),
+                ],
+              );
+      case _VistaAndroidReservas.editar:
+        if (_reservaEditandoId != null) {
+          return _formularioNueva(provider);
+        }
+        return _panelEditarReservasAndroid(provider);
+    }
+  }
+
+  Widget _menuAndroidReservas(ReservasProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (provider.error != null) ...[
+            Text(
+              provider.error!,
+              style: TextStyle(color: Colors.orange.shade300, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+          ],
+          const Text(
+            '¿Qué quieres hacer?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Las reservas se envían al servidor y llegan a la caja.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 28),
+          _tarjetaMenuAndroid(
+            icono: Icons.add_circle_outline,
+            titulo: 'Nueva reserva',
+            subtitulo: 'Crear y enviar una reserva al VPS',
+            onTap: () {
+              _limpiarFormulario();
+              setState(() => _vistaAndroid = _VistaAndroidReservas.nueva);
+            },
+          ),
+          const SizedBox(height: 16),
+          _tarjetaMenuAndroid(
+            icono: Icons.edit_calendar_outlined,
+            titulo: 'Editar reserva',
+            subtitulo: provider.reservasEnServidorCount > 0
+                ? '${provider.reservasEnServidorCount} pendiente(s) en el servidor'
+                : 'Ver y modificar reservas del VPS (también las de la caja)',
+            onTap: () async {
+              _limpiarFormulario();
+              setState(() => _vistaAndroid = _VistaAndroidReservas.editar);
+              await provider.sincronizar();
+            },
+          ),
+          if (provider.colaEnvioCount > 0) ...[
+            const SizedBox(height: 24),
+            Text(
+              '${provider.colaEnvioCount} reserva(s) guardadas sin conexión. '
+              'Pulsa sync para enviarlas.',
+              style: const TextStyle(color: Color(0xFFFFB74D), fontSize: 13),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _tarjetaMenuAndroid({
+    required IconData icono,
+    required String titulo,
+    required String subtitulo,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFF16213E),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00D9A5).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icono, color: const Color(0xFF00D9A5), size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitulo,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.white38),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _panelEditarReservasAndroid(ReservasProvider provider) {
+    final enServidor = provider.reservasEnServidor;
+    final porEnviar = provider.pendientesPorEnviar;
+
+    return RefreshIndicator(
+      color: const Color(0xFF00D9A5),
+      onRefresh: provider.sincronizar,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          if (provider.error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                provider.error!,
+                style: TextStyle(color: Colors.orange.shade300, fontSize: 12),
+              ),
+            ),
+          const Text(
+            'Toca una reserva para editarla. Incluye las ya descargadas '
+            'en la caja de escritorio.',
+            style: TextStyle(color: Colors.white54, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          if (porEnviar.isNotEmpty) ...[
+            Text(
+              'Pendientes por enviar (${porEnviar.length})',
+              style: const TextStyle(
+                color: Color(0xFFFFB74D),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Estas aún no están en el servidor: pulsa sync para enviarlas. '
+              'No se pueden editar hasta entonces.',
+              style: TextStyle(color: Colors.white38, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            for (final r in porEnviar) ...[
+              _tarjetaReserva(
+                provider: provider,
+                reserva: r,
+                mostrarEtiquetaPorEnviar: true,
+                permitirAsignarMesa: false,
+                permitirEditar: false,
+              ),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 12),
+          ],
+          Text(
+            'Pendientes (${enServidor.length})',
+            style: const TextStyle(
+              color: Color(0xFF00D9A5),
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (enServidor.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'No hay reservas pendientes.\n'
+                'Pulsa sync o crea una nueva reserva.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54),
+              ),
+            )
+          else
+            for (final r in enServidor) ...[
+              _tarjetaReserva(
+                provider: provider,
+                reserva: r,
+                mostrarEtiquetaPorEnviar: false,
+                permitirAsignarMesa: false,
+                permitirEditar: true,
+              ),
+              const SizedBox(height: 8),
+            ],
+        ],
+      ),
     );
   }
 
@@ -614,16 +899,24 @@ class _ReservasPageState extends State<ReservasPage>
     final totalPersonas =
         lista.fold<int>(0, (s, r) => s + r.numeroPersonas);
     final totalMesas = lista.length;
-    final resumenFranja = _franjaActiva == FranjaReserva.asporto
-        ? '$totalMesas asporto${totalMesas == 1 ? '' : 's'}'
-        : '$totalPersonas persona${totalPersonas == 1 ? '' : 's'}, '
-            '$totalMesas mesa${totalMesas == 1 ? '' : 's'}';
+    final resumenFranja = _franjaActiva == FranjaReserva.canceladas
+        ? '$totalMesas cancelada${totalMesas == 1 ? '' : 's'}'
+        : _franjaActiva == FranjaReserva.asporto
+            ? '$totalMesas asporto${totalMesas == 1 ? '' : 's'}'
+            : '$totalPersonas persona${totalPersonas == 1 ? '' : 's'}, '
+                '$totalMesas mesa${totalMesas == 1 ? '' : 's'}';
     final hayAsporto = provider.reservasDelDia.any(
       (r) =>
           r.estaPendiente &&
           clasificarReserva(r, _horarios) == FranjaReserva.asporto,
     );
-    _sincronizarParpadeoAsporto(hayAsporto);
+    final hayCanceladas = provider.reservasDelDia.any(
+      (r) => r.estado == EstadoReserva.cancelada,
+    );
+    final debeParpadearAnimacion =
+        (hayAsporto && _franjaActiva != FranjaReserva.asporto) ||
+        (hayCanceladas && _franjaActiva != FranjaReserva.canceladas);
+    _sincronizarParpadeoFranjas(debeParpadearAnimacion);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -698,19 +991,27 @@ class _ReservasPageState extends State<ReservasPage>
                   color: const Color(0xFF00D9A5),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: _botonFranja(
                   franja: FranjaReserva.cena,
                   color: const Color(0xFFE94560),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: _botonFranja(
                   franja: FranjaReserva.asporto,
                   color: const Color(0xFFFFB74D),
                   parpadear: hayAsporto,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _botonFranja(
+                  franja: FranjaReserva.canceladas,
+                  color: const Color(0xFF9E9E9E),
+                  parpadear: hayCanceladas,
                 ),
               ),
             ],
@@ -766,9 +1067,7 @@ class _ReservasPageState extends State<ReservasPage>
     );
   }
 
-  void _sincronizarParpadeoAsporto(bool hayAsporto) {
-    final debeParpadear =
-        hayAsporto && _franjaActiva != FranjaReserva.asporto;
+  void _sincronizarParpadeoFranjas(bool debeParpadear) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (debeParpadear) {
@@ -806,7 +1105,7 @@ class _ReservasPageState extends State<ReservasPage>
               style: TextStyle(
                 color: texto,
                 fontWeight: FontWeight.bold,
-                fontSize: 13,
+                fontSize: franja == FranjaReserva.canceladas ? 11 : 13,
               ),
             ),
           ),
@@ -935,9 +1234,11 @@ class _ReservasPageState extends State<ReservasPage>
                       minWidth: 32,
                       minHeight: 32,
                     ),
-                    onPressed: () => _confirmarEliminarReserva(provider, reserva),
-                    icon: const Icon(Icons.delete_outline, color: Color(0xFFE94560)),
-                    tooltip: 'Eliminar',
+                    onPressed: reserva.estado == EstadoReserva.cancelada
+                        ? null
+                        : () => _confirmarEliminarReserva(provider, reserva),
+                    icon: const Icon(Icons.cancel_outlined, color: Color(0xFFE94560)),
+                    tooltip: 'Cancelar reserva',
                   ),
                 ],
               ),
@@ -965,7 +1266,28 @@ class _ReservasPageState extends State<ReservasPage>
                   style: TextStyle(color: Colors.orange.shade200, fontSize: 12),
                 ),
               ],
-              if (reserva.estaPendiente) ...[
+              if (reserva.estado == EstadoReserva.cancelada) ...[
+                const Spacer(),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: () => _reactivarReserva(provider, reserva),
+                    icon: const Icon(Icons.undo, size: 16),
+                    label: const Text('Reactivar'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D9A5),
+                      foregroundColor: Colors.black87,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ] else if (reserva.estaPendiente) ...[
                 const Spacer(),
                 const SizedBox(height: 6),
                 Align(
@@ -1064,6 +1386,7 @@ class _ReservasPageState extends State<ReservasPage>
           vacio: 'No hay reservas pendientes de envío',
           mostrarEtiquetaPorEnviar: true,
           permitirAsignarMesa: false,
+          permitirEditar: false,
         ),
         if (!PlatformUtils.isAndroid)
           _seccionReservas(
@@ -1077,6 +1400,7 @@ class _ReservasPageState extends State<ReservasPage>
             vacio: 'No hay reservas pendientes en la caja',
             mostrarEtiquetaPorEnviar: false,
             permitirAsignarMesa: true,
+            permitirEditar: true,
           ),
         if (!PlatformUtils.isAndroid)
           _seccionReservas(
@@ -1090,6 +1414,7 @@ class _ReservasPageState extends State<ReservasPage>
             vacio: 'No hay reservas en el servidor (pulsa sync)',
             mostrarEtiquetaPorEnviar: false,
             permitirAsignarMesa: false,
+            permitirEditar: false,
           ),
       ],
     );
@@ -1113,6 +1438,7 @@ class _ReservasPageState extends State<ReservasPage>
     required String vacio,
     required bool mostrarEtiquetaPorEnviar,
     required bool permitirAsignarMesa,
+    bool permitirEditar = false,
   }) {
     return Theme(
       data: Theme.of(context).copyWith(
@@ -1174,6 +1500,7 @@ class _ReservasPageState extends State<ReservasPage>
                   reserva: lista[index],
                   mostrarEtiquetaPorEnviar: mostrarEtiquetaPorEnviar,
                   permitirAsignarMesa: permitirAsignarMesa,
+                  permitirEditar: permitirEditar,
                 ),
               ),
             ),
@@ -1187,8 +1514,11 @@ class _ReservasPageState extends State<ReservasPage>
     required Reserva reserva,
     required bool mostrarEtiquetaPorEnviar,
     required bool permitirAsignarMesa,
+    bool permitirEditar = false,
   }) {
-    final sel = _reservaSeleccionada?.id == reserva.id;
+    final sel = permitirEditar
+        ? _reservaEditandoId == reserva.id
+        : _reservaSeleccionada?.id == reserva.id;
     final mostrarPorEnviar =
         mostrarEtiquetaPorEnviar && provider.pendienteDeEnvio(reserva);
 
@@ -1196,7 +1526,13 @@ class _ReservasPageState extends State<ReservasPage>
       color: sel ? const Color(0xFF0F3460) : const Color(0xFF1A1A2E),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: () => setState(() => _reservaSeleccionada = reserva),
+        onTap: () {
+          if (permitirEditar && reserva.id != null && reserva.id! > 0) {
+            setState(() => _cargarReservaEnFormulario(reserva));
+          } else {
+            setState(() => _reservaSeleccionada = reserva);
+          }
+        },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -1232,6 +1568,23 @@ class _ReservasPageState extends State<ReservasPage>
                         ),
                       ),
                     ),
+                  if (permitirEditar && reserva.sincronizadaEnCaja)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4FC3F7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'En caja',
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   Text(
                     _formatoFechaHora(reserva.fechaHoraLlegada),
                     style: const TextStyle(
@@ -1258,6 +1611,22 @@ class _ReservasPageState extends State<ReservasPage>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.orange.shade200, fontSize: 12),
+                ),
+              ],
+              if (permitirEditar) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: () =>
+                        setState(() => _cargarReservaEnFormulario(reserva)),
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Editar'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D9A5),
+                      foregroundColor: Colors.black87,
+                    ),
+                  ),
                 ),
               ],
               if (permitirAsignarMesa && reserva.numeroPersonas > 0) ...[
@@ -1345,7 +1714,7 @@ class _ReservasPageState extends State<ReservasPage>
             children: [
               Expanded(
                 child: Text(
-                  _reservaEditandoId != null && !PlatformUtils.isAndroid
+                  _reservaEditandoId != null
                       ? 'Editar reserva'
                       : (PlatformUtils.isAndroid
                           ? 'Nueva reserva (envío al VPS)'
@@ -1357,7 +1726,7 @@ class _ReservasPageState extends State<ReservasPage>
                   ),
                 ),
               ),
-              if (_reservaEditandoId != null && !PlatformUtils.isAndroid)
+              if (_reservaEditandoId != null)
                 TextButton(
                   onPressed: () => setState(_limpiarFormulario),
                   child: const Text('Cancelar edición'),
@@ -1626,6 +1995,26 @@ class _ReservasPageState extends State<ReservasPage>
             );
           }),
           const SizedBox(height: 20),
+          if (_reservaEditandoId != null && PlatformUtils.isAndroid) ...[
+            OutlinedButton.icon(
+              onPressed: _guardando || _reservaSeleccionada == null
+                  ? null
+                  : () => _confirmarEliminarReserva(
+                        provider,
+                        _reservaSeleccionada!,
+                      ),
+              icon: const Icon(Icons.cancel_outlined, color: Color(0xFFE94560)),
+              label: const Text(
+                'Cancelar reserva',
+                style: TextStyle(color: Color(0xFFE94560)),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFE94560)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           FilledButton.icon(
             onPressed: _guardando ? null : () => _guardarReserva(provider),
             icon: _guardando
@@ -1638,7 +2027,7 @@ class _ReservasPageState extends State<ReservasPage>
             label: Text(
               _guardando
                   ? 'Guardando…'
-                  : (_reservaEditandoId != null && !PlatformUtils.isAndroid
+                  : (_reservaEditandoId != null
                       ? 'Guardar cambios'
                       : 'Guardar reserva'),
             ),

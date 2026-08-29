@@ -533,9 +533,23 @@ class ApiClient {
     }
   }
 
-  /// GET /api/reservas — pendientes en el servidor central.
+  /// GET /api/reservas — pendientes que la caja aún no ha confirmado en disco.
   Future<List<Reserva>> obtenerReservasPendientes() async {
-    final uri = _apiUri(ApiEndpoints.reservas);
+    return _obtenerReservasDesdeVps();
+  }
+
+  /// GET /api/reservas?incluye=sincronizadas — todas las pendientes editables (app móvil).
+  Future<List<Reserva>> obtenerReservasEditables() async {
+    return _obtenerReservasDesdeVps(incluyeSincronizadas: true);
+  }
+
+  Future<List<Reserva>> _obtenerReservasDesdeVps({
+    bool incluyeSincronizadas = false,
+  }) async {
+    var uri = _apiUri(ApiEndpoints.reservas);
+    if (incluyeSincronizadas) {
+      uri = uri.replace(queryParameters: {'incluye': 'sincronizadas'});
+    }
     try {
       final response = await _client.get(
         uri,
@@ -552,7 +566,7 @@ class ApiClient {
         'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
       );
     } catch (e) {
-      debugPrint('Error en obtenerReservasPendientes ($uri): $e');
+      debugPrint('Error en _obtenerReservasDesdeVps ($uri): $e');
       rethrow;
     }
   }

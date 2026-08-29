@@ -2,7 +2,7 @@ import '../../../core/models/reserva.dart';
 import '../../../core/prefs/horarios_reservas_prefs.dart';
 
 /// Franjas de la agenda de reservas.
-enum FranjaReserva { comida, cena, asporto }
+enum FranjaReserva { comida, cena, asporto, canceladas }
 
 extension FranjaReservaX on FranjaReserva {
   String get etiqueta {
@@ -13,12 +13,17 @@ extension FranjaReservaX on FranjaReserva {
         return 'cena';
       case FranjaReserva.asporto:
         return 'asporto';
+      case FranjaReserva.canceladas:
+        return 'canceladas';
     }
   }
 }
 
-/// Clasifica una reserva: asporto si 0 cubiertos; si no, por horario.
+/// Clasifica una reserva: canceladas primero; asporto si 0 cubiertos; si no, por horario.
 FranjaReserva clasificarReserva(Reserva reserva, HorariosReservas horarios) {
+  if (reserva.estado == EstadoReserva.cancelada) {
+    return FranjaReserva.canceladas;
+  }
   if (reserva.numeroPersonas <= 0) return FranjaReserva.asporto;
 
   final minutos =

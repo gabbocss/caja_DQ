@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/core.dart';
 import '../pages/pedidos_page.dart';
+import '../widgets/dialogo_orden_plato.dart';
 
 /// Estado de apertura de una mesa (cubiertos o buffet)
 class AperturaMesa {
@@ -169,13 +170,48 @@ class PedidosMobileProvider extends ChangeNotifier {
     );
   }
 
+  /// Agrupa las notas/variantes de un plato por turno (orden + texto → unidades).
+  List<VariantePlato> variantesOrdenPlato(int numeroMesa, int productoId) {
+    final porClave = <String, ({int orden, String texto, int cantidad})>{};
+    for (final item in carritoMesa(numeroMesa)) {
+      if (item.producto.id != productoId) continue;
+      final texto = item.notas?.trim() ?? '';
+      if (texto.isEmpty) continue;
+      final orden = switch (item.orden) {
+        2 => 2,
+        3 => 3,
+        _ => 1,
+      };
+      final key = '$orden|$texto';
+      final prev = porClave[key];
+      if (prev == null) {
+        porClave[key] = (orden: orden, texto: texto, cantidad: item.cantidad);
+      } else {
+        porClave[key] = (
+          orden: orden,
+          texto: texto,
+          cantidad: prev.cantidad + item.cantidad,
+        );
+      }
+    }
+    return [
+      for (final e in porClave.values)
+        VariantePlato(
+          orden: e.orden,
+          texto: e.texto,
+          cantidad: e.cantidad,
+        ),
+    ];
+  }
+
   /// Deja exactamente [segundo] unidades en 2º y [tercero] en 3º.
-  /// El resto de ese producto vuelve a 1º. No supera el total del carrito.
+  /// Asigna [variantes] solo a líneas del turno indicado en cada variante.
   void aplicarDistribucionOrdenPlato({
     required int numeroMesa,
     required int productoId,
     required int segundo,
     required int tercero,
+    List<VariantePlato> variantes = const [],
   }) {
     final lista = _carritoByMesa[numeroMesa];
     if (lista == null) return;
@@ -202,7 +238,44 @@ class PedidosMobileProvider extends ChangeNotifier {
       } else {
         lista[i].orden = 1;
       }
+      lista[i].notas = null;
     }
+
+    // Índices por turno tras asignar orden.
+    final porOrden = <int, List<int>>{1: [], 2: [], 3: []};
+    for (final i in indices) {
+      final o = switch (lista[i].orden) {
+        2 => 2,
+        3 => 3,
+        _ => 1,
+      };
+      porOrden[o]!.add(i);
+    }
+
+    for (final orden in [1, 2, 3]) {
+      final indicesTurno = porOrden[orden]!;
+      if (indicesTurno.isEmpty) continue;
+      var cursor = 0;
+      var usados = 0;
+      final cupo = indicesTurno.fold<int>(
+        0,
+        (sum, i) => sum + lista[i].cantidad,
+      );
+      for (final variante in variantes.where((v) => v.orden == orden)) {
+        final texto = variante.texto.trim();
+        if (texto.isEmpty || variante.cantidad <= 0) continue;
+        final n = variante.cantidad.clamp(0, cupo - usados);
+        if (n <= 0) break;
+        var asignados = 0;
+        while (asignados < n && cursor < indicesTurno.length) {
+          final i = indicesTurno[cursor++];
+          lista[i].notas = texto;
+          asignados += lista[i].cantidad;
+        }
+        usados += asignados;
+      }
+    }
+
     notifyListeners();
   }
 
@@ -241,6 +314,7 @@ class PedidosMobileProvider extends ChangeNotifier {
             nombreProducto: item.producto.nombre,
             precioUnitario: item.producto.precio,
             cantidad: item.cantidad,
+            notas: item.notas,
             destinoId: destinoId,
             nombreDestino: nombreDestino,
             orden: item.orden,

@@ -1785,6 +1785,7 @@ class _PedidosPageState extends State<PedidosPage> {
           nombreProducto: item.producto.nombre,
           precioUnitario: item.producto.precio,
           cantidad: item.cantidad,
+          notas: item.notas,
           destinoId: destinoId,
           nombreDestino: nombreDestino,
           orden: item.orden,

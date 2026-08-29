@@ -61,10 +61,16 @@ Debe devolver JSON con `"endpoints"` y `"reservas": "/api/reservas"`.
 
 ### Candado de sincronización (caja → VPS)
 
-1. La caja hace `GET /api/reservas` (solo pendientes aún no confirmadas en disco local).
+1. La caja hace `GET /api/reservas` (pendientes nuevas, reeditadas o canceladas aún no confirmadas).
 2. Fusiona en Isar + `reservas_backup.json` (el histórico local no se borra).
 3. `POST /api/reservas/marcar-sincronizadas` con `{ "ids": [1, 2, 3] }`.
-4. El VPS deja de devolver esas reservas en el GET y, tras `RESERVAS_PURGE_MS`, las elimina de `reservas.json`.
+4. El VPS deja de devolver esas reservas en el GET de sync y, tras `RESERVAS_PURGE_MS`, las elimina de `reservas.json`.
+
+### Edición desde la app móvil (fase 2)
+
+- `GET /api/reservas?incluye=sincronizadas` devuelve **todas** las reservas con `estado: pendiente`, incluidas las ya confirmadas en caja (`sincronizadaEnCajaAt` presente).
+- Al editar (`POST /api/reservas` con `id`), el VPS borra `sincronizadaEnCajaAt` y la caja vuelve a descargarla en el siguiente sync.
+- Al cancelar (`PUT /api/reservas/<id>/estado`), también se reencola para la caja.
 
 Tras desplegar, reinicia: `pm2 restart reservas-central`.
 

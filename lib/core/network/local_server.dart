@@ -755,7 +755,7 @@ class LocalServer {
 
     // ==================== RUTAS DE RESERVAS ====================
 
-    // GET /api/reservas — solo pendientes (servidor central / caja)
+    // GET /api/reservas — pendientes (caja) o todas las editables (?incluye=sincronizadas)
     router.get(ApiEndpoints.reservas, (Request request) async {
       try {
         final reservas =

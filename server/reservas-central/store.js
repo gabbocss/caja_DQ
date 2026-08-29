@@ -72,12 +72,36 @@ function purgeSincronizadasAntiguas(reservas) {
   return 0;
 }
 
+/**
+ * Reservas que la caja debe descargar o actualizar (nuevas, reeditadas o canceladas).
+ */
 function getPendientes() {
   const reservas = readAll();
   purgeSincronizadasAntiguas(reservas);
   const actuales = readAll();
   return actuales
-    .filter((r) => r.estado === 'pendiente' && !r.sincronizadaEnCajaAt)
+    .filter(
+      (r) =>
+        !r.sincronizadaEnCajaAt &&
+        (r.estado === 'pendiente' || r.estado === 'cancelada'),
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.fechaHoraLlegada).getTime() -
+        new Date(b.fechaHoraLlegada).getTime(),
+    );
+}
+
+/**
+ * Todas las reservas pendientes editables (incluye las ya confirmadas en caja).
+ * Usado por la app móvil con GET /api/reservas?incluye=sincronizadas
+ */
+function getPendientesEditables() {
+  const reservas = readAll();
+  purgeSincronizadasAntiguas(reservas);
+  const actuales = readAll();
+  return actuales
+    .filter((r) => r.estado === 'pendiente')
     .sort(
       (a, b) =>
         new Date(a.fechaHoraLlegada).getTime() -
@@ -151,6 +175,8 @@ function updateEstado(id, estado, mesaAsignada) {
   reservas[idx].estado = estado;
   if (mesaAsignada != null) reservas[idx].mesaAsignada = mesaAsignada;
   reservas[idx].fechaActualizacion = new Date().toISOString();
+  // Reencolar para que la caja reciba cancelaciones u otros cambios de estado.
+  delete reservas[idx].sincronizadaEnCajaAt;
   writeAll(reservas);
   return reservas[idx];
 }
@@ -167,6 +193,7 @@ module.exports = {
   PRODUCTOS_FILE,
   readAll,
   getPendientes,
+  getPendientesEditables,
   marcarSincronizadas,
   upsertReserva,
   updateEstado,

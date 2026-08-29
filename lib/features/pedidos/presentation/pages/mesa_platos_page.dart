@@ -116,6 +116,7 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
       total: dist.total,
       segundoInicial: dist.segundo,
       terceroInicial: dist.tercero,
+      variantesIniciales: provider.variantesOrdenPlato(widget.numeroMesa, id),
     );
     if (result == null || !mounted) return;
 
@@ -124,6 +125,7 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
       productoId: id,
       segundo: result.segundo,
       tercero: result.tercero,
+      variantes: result.variantes,
     );
   }
 

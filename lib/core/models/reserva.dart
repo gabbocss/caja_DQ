@@ -72,6 +72,10 @@ class Reserva {
   late DateTime fechaCreacion;
   late DateTime fechaActualizacion;
 
+  /// Marca de sincronización en caja (solo en respuestas del VPS; no se guarda en Isar).
+  @ignore
+  DateTime? sincronizadaEnCajaAt;
+
   Reserva();
 
   Reserva.crear({
@@ -93,6 +97,9 @@ class Reserva {
 
   bool get estaCobrada => estado == EstadoReserva.cobrada;
 
+  /// Ya descargada por la caja de escritorio (flag del VPS).
+  bool get sincronizadaEnCaja => sincronizadaEnCajaAt != null;
+
   double get totalItemsReservados =>
       itemsReservados.fold<double>(0, (s, i) => s + i.subtotal);
 
@@ -108,6 +115,8 @@ class Reserva {
         'mesaAsignada': mesaAsignada,
         'fechaCreacion': fechaCreacion.toIso8601String(),
         'fechaActualizacion': fechaActualizacion.toIso8601String(),
+        if (sincronizadaEnCajaAt != null)
+          'sincronizadaEnCajaAt': sincronizadaEnCajaAt!.toIso8601String(),
       };
 
   factory Reserva.fromJson(Map<String, dynamic> json) {
@@ -132,6 +141,11 @@ class Reserva {
       ..fechaActualizacion = json['fechaActualizacion'] != null
           ? DateTime.parse(json['fechaActualizacion'] as String)
           : DateTime.now();
+
+    final syncAt = json['sincronizadaEnCajaAt'];
+    if (syncAt != null) {
+      reserva.sincronizadaEnCajaAt = DateTime.parse(syncAt as String);
+    }
 
     final rawId = json['id'];
     if (rawId != null) {

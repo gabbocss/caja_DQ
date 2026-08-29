@@ -946,13 +946,33 @@ class _CarritoItemTile extends StatelessWidget {
                         ),
                       )
                     else
-                      Text(
-                        '\$${item.subtotal.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Color(0xFF00D9A5),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '\$${item.subtotal.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Color(0xFF00D9A5),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (item.notas != null &&
+                              item.notas!.trim().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                item.notas!.trim(),
+                                style: const TextStyle(
+                                  color: Color(0xFFFFB74D),
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
                       ),
                   ],
                 ),

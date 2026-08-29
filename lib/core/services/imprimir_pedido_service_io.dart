@@ -40,14 +40,35 @@ class ImprimirPedidoService {
     return [0x1D, 0x21, (w << 4) | h];
   }
 
-  /// Agrupa ítems por nombre y suma cantidades (dentro de un mismo turno).
-  Map<String, int> _agruparCantidades(List<ItemPedido> items) {
-    final map = <String, int>{};
+  /// Agrupa por nombre y acumula variantes (notas) por texto.
+  /// Resultado: Nx plato y debajo Mx variante.
+  List<({String nombre, int cantidad, Map<String, int> variantes})>
+      _agruparConVariantes(List<ItemPedido> items) {
+    final ordenNombres = <String>[];
+    final cantidades = <String, int>{};
+    final variantes = <String, Map<String, int>>{};
     for (final item in items) {
       final nombre = item.nombreProducto.trim();
-      map[nombre] = (map[nombre] ?? 0) + item.cantidad;
+      if (!cantidades.containsKey(nombre)) {
+        ordenNombres.add(nombre);
+        cantidades[nombre] = 0;
+        variantes[nombre] = {};
+      }
+      cantidades[nombre] = cantidades[nombre]! + item.cantidad;
+      final nota = item.notas?.trim() ?? '';
+      if (nota.isNotEmpty) {
+        final map = variantes[nombre]!;
+        map[nota] = (map[nota] ?? 0) + item.cantidad;
+      }
     }
-    return map;
+    return [
+      for (final n in ordenNombres)
+        (
+          nombre: n,
+          cantidad: cantidades[n]!,
+          variantes: variantes[n]!,
+        ),
+    ];
   }
 
   /// Agrupa ítems por producto (manteniendo precio unitario) y suma cantidades.
@@ -281,9 +302,12 @@ class ImprimirPedidoService {
       addStr(_aplicarMargen('\n\n', margenEsp));
       addStr(_aplicarMargen('$orden Plato\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
-      final agrupado = _agruparCantidades(itemsTurno);
-      for (final e in agrupado.entries) {
-        addStr(_aplicarMargen('${e.value}x ${e.key}\n', margenEsp));
+      final agrupado = _agruparConVariantes(itemsTurno);
+      for (final e in agrupado) {
+        addStr(_aplicarMargen('${e.cantidad}x ${e.nombre}\n', margenEsp));
+        for (final v in e.variantes.entries) {
+          addStr(_aplicarMargen('  ${v.value}x ${v.key}\n', margenEsp));
+        }
       }
     }
 

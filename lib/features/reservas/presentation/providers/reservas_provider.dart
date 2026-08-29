@@ -126,6 +126,7 @@ class ReservasProvider extends ChangeNotifier {
       await getReservasCentralUrl();
       await _actualizarColaLocal();
       _productos = await _cartaCache.cargar();
+      await _actualizarPendientesServidor();
       _actualizarAvisoCartaAndroid();
     } catch (e) {
       _error = e.toString();
@@ -227,6 +228,7 @@ class ReservasProvider extends ChangeNotifier {
 
       final enviados = await _intentarReenviarCola();
       await _actualizarColaLocal();
+      await _actualizarPendientesServidor();
 
       if (enviados > 0 && _colaEnvio.isEmpty) {
         _error = null;
@@ -316,7 +318,15 @@ class ReservasProvider extends ChangeNotifier {
     required List<ItemReserva> itemsReservados,
   }) async {
     if (_esAndroidNube) {
-      throw StateError('Editar reservas solo está disponible en la caja de escritorio.');
+      await _actualizarReservaAndroidNube(
+        id: id,
+        nombreCliente: nombreCliente,
+        numeroPersonas: numeroPersonas,
+        fechaHoraLlegada: fechaHoraLlegada,
+        alergiasNotas: alergiasNotas,
+        itemsReservados: itemsReservados,
+      );
+      return;
     }
     final existente = await _persistencia.obtenerPorId(id);
     if (existente == null) {
@@ -335,30 +345,165 @@ class ReservasProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Actualiza una reserva pendiente en el VPS (app Android).
+  Future<void> _actualizarReservaAndroidNube({
+    required int id,
+    required String nombreCliente,
+    required int numeroPersonas,
+    required DateTime fechaHoraLlegada,
+    required String alergiasNotas,
+    required List<ItemReserva> itemsReservados,
+  }) async {
+    if (id <= 0) {
+      throw StateError(
+        'Esa reserva aún no está en el VPS. Envíala primero o edítala cuando tenga id.',
+      );
+    }
+    Reserva? existente = _pendientesServidor
+        .where((r) => r.id == id)
+        .firstOrNull;
+    if (existente == null) {
+      await _actualizarPendientesServidor();
+      existente = _pendientesServidor.where((r) => r.id == id).firstOrNull;
+    }
+    if (existente == null) {
+      throw StateError('Reserva no encontrada en el servidor');
+    }
+    if (!existente.estaPendiente) {
+      throw StateError('Solo se pueden editar reservas pendientes');
+    }
+
+    final actualizada = Reserva.fromJson(existente.toJson())
+      ..nombreCliente = nombreCliente.trim()
+      ..numeroPersonas = numeroPersonas
+      ..fechaHoraLlegada = fechaHoraLlegada
+      ..alergiasNotas = alergiasNotas.trim()
+      ..itemsReservados = List<ItemReserva>.from(itemsReservados)
+      ..fechaActualizacion = DateTime.now();
+
+    final client = await _clienteVps();
+    try {
+      if (!await client.verificarApiProgramaCaja()) {
+        throw Exception('No se pudo contactar con la API de reservas en el VPS');
+      }
+      await client.guardarReserva(actualizada);
+    } finally {
+      client.dispose();
+    }
+    await _actualizarPendientesServidor();
+    notifyListeners();
+  }
+
+  /// Cancela la reserva (estado cancelada; no se borra del histórico).
   Future<void> eliminarReserva(int id) async {
     if (_esAndroidNube) {
-      throw StateError('Eliminar reservas solo está disponible en la caja de escritorio.');
+      await _eliminarReservaAndroidNube(id);
+      return;
     }
     final existente = await _persistencia.obtenerPorId(id);
-    await _persistencia.eliminarReserva(id);
-    if (existente != null) {
-      final url = await getReservasCentralUrlEfectiva();
-      if (url != null && url.isNotEmpty) {
-        try {
-          final client = ApiClient(url);
-          if (await client.verificarApiProgramaCaja()) {
-            await client.actualizarEstadoReserva(
-              id: id,
-              estado: EstadoReserva.cancelada,
-            );
-          }
-          client.dispose();
-        } catch (e) {
-          debugPrint('Reserva eliminada en local; VPS no actualizado: $e');
+    if (existente == null) {
+      throw StateError('Reserva no encontrada');
+    }
+    existente
+      ..estado = EstadoReserva.cancelada
+      ..fechaActualizacion = DateTime.now();
+    await _persistencia.guardarReserva(existente);
+
+    final url = await getReservasCentralUrlEfectiva();
+    if (url != null && url.isNotEmpty) {
+      try {
+        final client = ApiClient(url);
+        if (await client.verificarApiProgramaCaja()) {
+          await client.actualizarEstadoReserva(
+            id: id,
+            estado: EstadoReserva.cancelada,
+          );
         }
+        client.dispose();
+      } catch (e) {
+        debugPrint('Reserva cancelada en local; VPS no actualizado: $e');
       }
     }
     await _recargarLocal();
+    notifyListeners();
+  }
+
+  /// Cancela la reserva en el VPS (app Android).
+  Future<void> _eliminarReservaAndroidNube(int id) async {
+    if (id <= 0) {
+      throw StateError('No se puede cancelar una reserva que aún no está en el VPS');
+    }
+    final client = await _clienteVps();
+    try {
+      if (!await client.verificarApiProgramaCaja()) {
+        throw Exception('No se pudo contactar con la API de reservas en el VPS');
+      }
+      await client.actualizarEstadoReserva(
+        id: id,
+        estado: EstadoReserva.cancelada,
+      );
+    } finally {
+      client.dispose();
+    }
+    await _actualizarPendientesServidor();
+    notifyListeners();
+  }
+
+  /// Reactiva una reserva cancelada (vuelve a pendiente).
+  Future<void> reactivarReserva(int id) async {
+    if (_esAndroidNube) {
+      await _reactivarReservaAndroidNube(id);
+      return;
+    }
+    final existente = await _persistencia.obtenerPorId(id);
+    if (existente == null) {
+      throw StateError('Reserva no encontrada');
+    }
+    if (existente.estado != EstadoReserva.cancelada) {
+      throw StateError('Solo se pueden reactivar reservas canceladas');
+    }
+    existente
+      ..estado = EstadoReserva.pendiente
+      ..mesaAsignada = null
+      ..fechaActualizacion = DateTime.now();
+    await _persistencia.guardarReserva(existente);
+
+    final url = await getReservasCentralUrlEfectiva();
+    if (url != null && url.isNotEmpty) {
+      try {
+        final client = ApiClient(url);
+        if (await client.verificarApiProgramaCaja()) {
+          await client.actualizarEstadoReserva(
+            id: id,
+            estado: EstadoReserva.pendiente,
+          );
+        }
+        client.dispose();
+      } catch (e) {
+        debugPrint('Reserva reactivada en local; VPS no actualizado: $e');
+      }
+    }
+    await _recargarLocal();
+    notifyListeners();
+  }
+
+  Future<void> _reactivarReservaAndroidNube(int id) async {
+    if (id <= 0) {
+      throw StateError('No se puede reactivar una reserva que aún no está en el VPS');
+    }
+    final client = await _clienteVps();
+    try {
+      if (!await client.verificarApiProgramaCaja()) {
+        throw Exception('No se pudo contactar con la API de reservas en el VPS');
+      }
+      await client.actualizarEstadoReserva(
+        id: id,
+        estado: EstadoReserva.pendiente,
+      );
+    } finally {
+      client.dispose();
+    }
+    await _actualizarPendientesServidor();
     notifyListeners();
   }
 
@@ -404,7 +549,9 @@ class ReservasProvider extends ChangeNotifier {
     try {
       client = ApiClient(url);
       if (await client.verificarApiProgramaCaja()) {
-        _pendientesServidor = await client.obtenerReservasPendientes();
+        _pendientesServidor = _esAndroidNube
+            ? await client.obtenerReservasEditables()
+            : await client.obtenerReservasPendientes();
       }
     } catch (e) {
       debugPrint('Reservas: listar pendientes en servidor: $e');
@@ -502,6 +649,9 @@ class ReservasProvider extends ChangeNotifier {
       throw StateError(
         'Asignar mesa a una reserva solo está disponible en la caja de escritorio.',
       );
+    }
+    if (reserva.estado == EstadoReserva.cancelada || !reserva.estaPendiente) {
+      throw StateError('No se puede asignar mesa a una reserva cancelada');
     }
     await _asignacion.asignarMesa(reserva: reserva, mesaNumero: mesaNumero);
     _mesas = await DatabaseService.instance.obtenerMesas();

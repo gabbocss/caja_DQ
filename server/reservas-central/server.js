@@ -86,7 +86,12 @@ async function handle(req, res) {
     }
 
     if (method === 'GET' && path === '/api/reservas') {
-      send(res, 200, store.getPendientes());
+      const incluye = url.searchParams.get('incluye');
+      const lista =
+        incluye === 'sincronizadas'
+          ? store.getPendientesEditables()
+          : store.getPendientes();
+      send(res, 200, lista);
       return;
     }
 
