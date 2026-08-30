@@ -75,10 +75,8 @@ class ListaPaellasAutoService {
     final reservas =
         await ReservaPersistenceService.instance.obtenerReservasDelDia(dia);
 
-    final yaMesas =
-        await idsMesasYaEnviados(dia, esComida: esComida);
-    final yaAsporto =
-        await idsAsportoYaEnviados(dia, esComida: esComida);
+    final yaMesas = await idsMesasYaEnviados(dia);
+    final yaAsporto = await idsAsportoYaEnviados(dia);
 
     final mesasNuevas = <Reserva>[];
     final asportosNuevos = <Reserva>[];
@@ -122,7 +120,6 @@ class ListaPaellasAutoService {
         await ImprimirPedidoService.instance.imprimirListaPaellas(lineas);
         await marcarMesasEnviadas(
           dia,
-          esComida: esComida,
           ids: idsImpresos,
         );
         debugPrint(
@@ -133,7 +130,6 @@ class ListaPaellasAutoService {
         // Sin platos: marcar igual para no reintentar en bucle.
         await marcarMesasEnviadas(
           dia,
-          esComida: esComida,
           ids: mesasNuevas.map((r) => r.id!).whereType<int>(),
         );
       }
@@ -160,7 +156,6 @@ class ListaPaellasAutoService {
       }
       await marcarAsportosEnviados(
         dia,
-        esComida: esComida,
         ids: idsOk,
       );
     }
@@ -203,7 +198,7 @@ class ListaPaellasAutoService {
     required List<Reserva> mesas,
     required List<Reserva> asportos,
   }) async {
-    final yaAvisados = await idsBarraYaAvisados(dia, esComida: esComida);
+    final yaAvisados = await idsBarraYaAvisados(dia);
     final idsMarcados = <int>[];
 
     for (final r in mesas) {
@@ -236,7 +231,7 @@ class ListaPaellasAutoService {
       idsMarcados.add(id);
     }
 
-    await marcarBarraAvisados(dia, esComida: esComida, ids: idsMarcados);
+    await marcarBarraAvisados(dia, ids: idsMarcados);
   }
 
   List<String> _lineasAvisoBarra(Reserva r) {
@@ -253,6 +248,8 @@ class ListaPaellasAutoService {
     return DateTime(dia.year, dia.month, dia.day, m ~/ 60, m % 60);
   }
 
+  /// Misma regla que [clasificarReserva] en la agenda: comida tiene prioridad
+  /// si la hora cae en ambos rangos (evita imprimir dos veces comida+cena).
   bool _esDelServicio(
     Reserva r, {
     required bool esComida,
@@ -261,14 +258,15 @@ class ListaPaellasAutoService {
     final minutos =
         r.fechaHoraLlegada.hour * 60 + r.fechaHoraLlegada.minute;
 
+    final bool esComidaReserva;
     if (_enRango(minutos, horarios.comidaInicioMin, horarios.comidaFinMin)) {
-      return esComida;
+      esComidaReserva = true;
+    } else if (_enRango(minutos, horarios.cenaInicioMin, horarios.cenaFinMin)) {
+      esComidaReserva = false;
+    } else {
+      esComidaReserva = minutos < horarios.cenaInicioMin;
     }
-    if (_enRango(minutos, horarios.cenaInicioMin, horarios.cenaFinMin)) {
-      return !esComida;
-    }
-    final fallbackComida = minutos < horarios.cenaInicioMin;
-    return esComida ? fallbackComida : !fallbackComida;
+    return esComidaReserva == esComida;
   }
 
   bool _enRangoLlegada(Reserva r, int inicio, int fin) {

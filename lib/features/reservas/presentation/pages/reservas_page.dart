@@ -38,6 +38,7 @@ class _ReservasPageState extends State<ReservasPage>
 
   FranjaReserva _franjaActiva = FranjaReserva.comida;
   HorariosReservas _horarios = HorariosReservas.defaults;
+  int? _destinoListaPaellasId;
   late final AnimationController _asportoBlinkCtrl;
 
   /// Proporción del panel agenda (0–1) en layout horizontal escritorio.
@@ -74,17 +75,21 @@ class _ReservasPageState extends State<ReservasPage>
         if (mounted) setState(() => _localeEsListo = true);
       }),
     );
-    unawaited(_cargarHorarios());
+    unawaited(_cargarConfigReservas());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _provider = context.read<ReservasProvider>();
       _provider!.inicializar();
     });
   }
 
-  Future<void> _cargarHorarios() async {
+  Future<void> _cargarConfigReservas() async {
     final h = await getHorariosReservas();
+    final destinoId = await getDestinoListaPaellasId();
     if (!mounted) return;
-    setState(() => _horarios = h);
+    setState(() {
+      _horarios = h;
+      _destinoListaPaellasId = destinoId;
+    });
   }
 
   @override
@@ -416,14 +421,21 @@ class _ReservasPageState extends State<ReservasPage>
     }
   }
 
-  Future<void> _abrirConfigHorarios() async {
-    final actualizado = await showDialog<HorariosReservas>(
+  Future<void> _abrirConfigReservas() async {
+    final actualizado = await showDialog<_ResultadoConfigReservas>(
       context: context,
-      builder: (ctx) => _DialogoHorariosReservas(inicial: _horarios),
+      builder: (ctx) => _DialogoConfigReservas(
+        horariosInicial: _horarios,
+        destinoListaPaellasIdInicial: _destinoListaPaellasId,
+      ),
     );
     if (actualizado == null || !mounted) return;
-    await saveHorariosReservas(actualizado);
-    setState(() => _horarios = actualizado);
+    await saveHorariosReservas(actualizado.horarios);
+    await saveDestinoListaPaellasId(actualizado.destinoListaPaellasId);
+    setState(() {
+      _horarios = actualizado.horarios;
+      _destinoListaPaellasId = actualizado.destinoListaPaellasId;
+    });
   }
 
   List<Reserva> _filtrarPorFranja(List<Reserva> lista) {
@@ -507,9 +519,9 @@ class _ReservasPageState extends State<ReservasPage>
               if (!PlatformUtils.isAndroid ||
                   _vistaAndroid != _VistaAndroidReservas.menu)
                 IconButton(
-                  onPressed: _abrirConfigHorarios,
+                  onPressed: _abrirConfigReservas,
                   icon: const Icon(Icons.settings),
-                  tooltip: 'Configurar horarios comida / cena',
+                  tooltip: 'Configurar reservas (horarios e impresión)',
                 ),
               IconButton(
                 onPressed: provider.sincronizando ? null : provider.sincronizar,
@@ -2167,30 +2179,93 @@ class _DialogoSelectorMesa extends StatelessWidget {
   }
 }
 
-/// Diálogo simple para ajustar franjas de comida y cena.
-class _DialogoHorariosReservas extends StatefulWidget {
-  const _DialogoHorariosReservas({required this.inicial});
+/// Resultado del diálogo de configuración de reservas.
+class _ResultadoConfigReservas {
+  const _ResultadoConfigReservas({
+    required this.horarios,
+    this.destinoListaPaellasId,
+  });
 
-  final HorariosReservas inicial;
-
-  @override
-  State<_DialogoHorariosReservas> createState() =>
-      _DialogoHorariosReservasState();
+  final HorariosReservas horarios;
+  final int? destinoListaPaellasId;
 }
 
-class _DialogoHorariosReservasState extends State<_DialogoHorariosReservas> {
+/// Horarios comida/cena y destino de impresión para la lista automática.
+class _DialogoConfigReservas extends StatefulWidget {
+  const _DialogoConfigReservas({
+    required this.horariosInicial,
+    this.destinoListaPaellasIdInicial,
+  });
+
+  final HorariosReservas horariosInicial;
+  final int? destinoListaPaellasIdInicial;
+
+  @override
+  State<_DialogoConfigReservas> createState() => _DialogoConfigReservasState();
+}
+
+class _DialogoConfigReservasState extends State<_DialogoConfigReservas> {
   late int _comidaInicio;
   late int _comidaFin;
   late int _cenaInicio;
   late int _cenaFin;
+  int? _destinoSeleccionadoId;
+  List<DestinoImpresion> _destinosImpresora = [];
+  bool _cargandoDestinos = true;
 
   @override
   void initState() {
     super.initState();
-    _comidaInicio = widget.inicial.comidaInicioMin;
-    _comidaFin = widget.inicial.comidaFinMin;
-    _cenaInicio = widget.inicial.cenaInicioMin;
-    _cenaFin = widget.inicial.cenaFinMin;
+    _comidaInicio = widget.horariosInicial.comidaInicioMin;
+    _comidaFin = widget.horariosInicial.comidaFinMin;
+    _cenaInicio = widget.horariosInicial.cenaInicioMin;
+    _cenaFin = widget.horariosInicial.cenaFinMin;
+    _destinoSeleccionadoId = widget.destinoListaPaellasIdInicial;
+    unawaited(_cargarDestinos());
+  }
+
+  Future<void> _cargarDestinos() async {
+    try {
+      final todos = await DatabaseService.instance.obtenerDestinos();
+      final filtrados = todos.where((d) {
+        if (!d.activo || d.id == null) return false;
+        if (d.tipo != TipoDestino.impresora && d.tipo != TipoDestino.ambos) {
+          return false;
+        }
+        final ip = d.direccionImpresora?.trim();
+        return ip != null && ip.isNotEmpty;
+      }).toList()
+        ..sort((a, b) => a.orden.compareTo(b.orden));
+      if (!mounted) return;
+      setState(() {
+        _destinosImpresora = filtrados;
+        _cargandoDestinos = false;
+        if (_destinoSeleccionadoId != null &&
+            !filtrados.any((d) => d.id == _destinoSeleccionadoId)) {
+          _destinoSeleccionadoId = null;
+        }
+        _destinoSeleccionadoId ??= _destinoPorDefecto(filtrados)?.id;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _destinosImpresora = [];
+        _cargandoDestinos = false;
+      });
+    }
+  }
+
+  DestinoImpresion? _destinoPorDefecto(List<DestinoImpresion> lista) {
+    for (final d in lista) {
+      if (d.nombre.toLowerCase().trim() == 'cocina') return d;
+    }
+    return lista.isEmpty ? null : lista.first;
+  }
+
+  String _etiquetaDestino(DestinoImpresion d) {
+    final ip = d.direccionImpresora?.trim() ?? '';
+    final port = d.puertoImpresora ?? 9100;
+    return '${d.nombre} · $ip:$port';
   }
 
   Future<void> _elegir(String titulo, int actual, ValueChanged<int> onOk) async {
@@ -2236,52 +2311,115 @@ class _DialogoHorariosReservasState extends State<_DialogoHorariosReservas> {
     return AlertDialog(
       backgroundColor: const Color(0xFF16213E),
       title: const Text(
-        'Horarios comida / cena',
+        'Configuración de reservas',
         style: TextStyle(color: Colors.white),
       ),
       content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Asporto = reserva con 0 cubiertos',
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Asporto = reserva con 0 cubiertos',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _fila(
+                'Comida desde',
+                _comidaInicio,
+                () => _elegir('Comida desde', _comidaInicio, (v) {
+                  setState(() => _comidaInicio = v);
+                }),
+              ),
+              _fila(
+                'Comida hasta',
+                _comidaFin,
+                () => _elegir('Comida hasta', _comidaFin, (v) {
+                  setState(() => _comidaFin = v);
+                }),
+              ),
+              const Divider(color: Color(0xFF0F3460)),
+              _fila(
+                'Cena desde',
+                _cenaInicio,
+                () => _elegir('Cena desde', _cenaInicio, (v) {
+                  setState(() => _cenaInicio = v);
+                }),
+              ),
+              _fila(
+                'Cena hasta',
+                _cenaFin,
+                () => _elegir('Cena hasta', _cenaFin, (v) {
+                  setState(() => _cenaFin = v);
+                }),
+              ),
+              const Divider(color: Color(0xFF0F3460)),
+              const Text(
+                'Lista de reservas (impresión automática)',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Destino donde se imprime la «Lista paellas» 1h 30 antes del servicio.',
                 style: TextStyle(color: Colors.white54, fontSize: 12),
               ),
-            ),
-            const SizedBox(height: 8),
-            _fila(
-              'Comida desde',
-              _comidaInicio,
-              () => _elegir('Comida desde', _comidaInicio, (v) {
-                setState(() => _comidaInicio = v);
-              }),
-            ),
-            _fila(
-              'Comida hasta',
-              _comidaFin,
-              () => _elegir('Comida hasta', _comidaFin, (v) {
-                setState(() => _comidaFin = v);
-              }),
-            ),
-            const Divider(color: Color(0xFF0F3460)),
-            _fila(
-              'Cena desde',
-              _cenaInicio,
-              () => _elegir('Cena desde', _cenaInicio, (v) {
-                setState(() => _cenaInicio = v);
-              }),
-            ),
-            _fila(
-              'Cena hasta',
-              _cenaFin,
-              () => _elegir('Cena hasta', _cenaFin, (v) {
-                setState(() => _cenaFin = v);
-              }),
-            ),
-          ],
+              const SizedBox(height: 8),
+              if (_cargandoDestinos)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              else if (_destinosImpresora.isEmpty)
+                const Text(
+                  'No hay destinos con impresora de red configurada. '
+                  'Configúralos en Destinos de impresión.',
+                  style: TextStyle(color: Colors.orange, fontSize: 12),
+                )
+              else
+                DropdownButtonFormField<int>(
+                  value: _destinoSeleccionadoId,
+                  dropdownColor: const Color(0xFF1A1A2E),
+                  decoration: InputDecoration(
+                    labelText: 'Destino de impresión',
+                    labelStyle: const TextStyle(color: Colors.white54),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF0F3460)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF00D9A5)),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  items: [
+                    for (final d in _destinosImpresora)
+                      DropdownMenuItem<int>(
+                        value: d.id,
+                        child: Text(
+                          _etiquetaDestino(d),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _destinoSeleccionadoId = v),
+                ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -2292,11 +2430,14 @@ class _DialogoHorariosReservasState extends State<_DialogoHorariosReservas> {
         FilledButton(
           onPressed: () {
             Navigator.of(context).pop(
-              HorariosReservas(
-                comidaInicioMin: _comidaInicio,
-                comidaFinMin: _comidaFin,
-                cenaInicioMin: _cenaInicio,
-                cenaFinMin: _cenaFin,
+              _ResultadoConfigReservas(
+                horarios: HorariosReservas(
+                  comidaInicioMin: _comidaInicio,
+                  comidaFinMin: _comidaFin,
+                  cenaInicioMin: _cenaInicio,
+                  cenaFinMin: _cenaFin,
+                ),
+                destinoListaPaellasId: _destinoSeleccionadoId,
               ),
             );
           },

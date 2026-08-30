@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../database/database_service.dart';
 import '../models/models.dart';
+import '../prefs/reservas_impresion_prefs.dart';
 import 'configuracion_impresion_service.dart';
 import 'ticket_numero_service.dart';
 
@@ -852,11 +853,12 @@ class ImprimirPedidoService {
   }
 
   /// Ticket resumen: título fijo "Lista paellas" + una línea por plato reservado.
+  /// Destino configurable en Reservas → configuración (fallback: «Cocina»).
   Future<void> imprimirListaPaellas(List<String> lineas) async {
     if (lineas.isEmpty) return;
     final config = await ConfiguracionImpresionService.instance.cargar();
     final payload = await _generarPayloadListaPaellas(config, lineas);
-    await _enviarATodasImpresorasCocina(payload);
+    await _enviarAImpresoraCocina(payload);
   }
 
   Future<List<int>> _generarPayloadListaPaellas(
@@ -931,24 +933,60 @@ class ImprimirPedidoService {
     return out;
   }
 
-  Future<void> _enviarATodasImpresorasCocina(List<int> payload) async {
+  Future<void> _enviarAImpresoraCocina(List<int> payload) async {
     final db = DatabaseService.instance;
-    final todos = await db.obtenerDestinos();
-    for (final destino in todos) {
-      if (destino.tipo != TipoDestino.impresora &&
-          destino.tipo != TipoDestino.ambos) {
-        continue;
-      }
-      final ip = destino.direccionImpresora?.trim();
-      if (ip == null || ip.isEmpty) continue;
-      final port = destino.puertoImpresora ?? _puertoPorDefecto;
-      final ok = await _enviarAImpresora(ip, port, payload);
-      if (!ok) {
-        debugPrint(
-          'No se pudo imprimir lista paellas en ${destino.nombre} ($ip:$port)',
-        );
+    final destino = await _resolverDestinoListaPaellas(db);
+    if (destino == null) {
+      debugPrint(
+        'Lista paellas: no hay destino con impresora configurado para reservas',
+      );
+      return;
+    }
+
+    final ip = destino.direccionImpresora!.trim();
+    final port = destino.puertoImpresora ?? _puertoPorDefecto;
+    final ok = await _enviarAImpresora(ip, port, payload);
+    if (!ok) {
+      debugPrint(
+        'No se pudo imprimir lista paellas en ${destino.nombre} ($ip:$port)',
+      );
+    }
+  }
+
+  bool _destinoTieneImpresora(DestinoImpresion destino) {
+    if (destino.tipo != TipoDestino.impresora &&
+        destino.tipo != TipoDestino.ambos) {
+      return false;
+    }
+    final ip = destino.direccionImpresora?.trim();
+    return ip != null && ip.isNotEmpty;
+  }
+
+  /// Destino elegido en Reservas → configuración; si no, «Cocina»; si no, el primero con IP.
+  Future<DestinoImpresion?> _resolverDestinoListaPaellas(
+    DatabaseService db,
+  ) async {
+    final configuradoId = await getDestinoListaPaellasId();
+    if (configuradoId != null) {
+      final elegido = await db.obtenerDestinoPorId(configuradoId);
+      if (elegido != null &&
+          elegido.activo &&
+          _destinoTieneImpresora(elegido)) {
+        return elegido;
       }
     }
+
+    final todos = await db.obtenerDestinos();
+    for (final destino in todos) {
+      if (!destino.activo) continue;
+      if (destino.nombre.toLowerCase().trim() != 'cocina') continue;
+      if (_destinoTieneImpresora(destino)) return destino;
+    }
+    for (final destino in todos) {
+      if (!destino.activo) continue;
+      if (_destinoTieneImpresora(destino)) return destino;
+    }
+    return null;
   }
 
   /// Comandas por destino al sentar una reserva (solo platos pre-reservados).
