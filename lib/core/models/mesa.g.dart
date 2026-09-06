@@ -17,11 +17,7 @@ const MesaSchema = CollectionSchema(
   name: r'Mesa',
   id: 5173100334568130071,
   properties: {
-    r'activa': PropertySchema(
-      id: 0,
-      name: r'activa',
-      type: IsarType.bool,
-    ),
+    r'activa': PropertySchema(id: 0, name: r'activa', type: IsarType.bool),
     r'capacidad': PropertySchema(
       id: 1,
       name: r'capacidad',
@@ -38,16 +34,8 @@ const MesaSchema = CollectionSchema(
       type: IsarType.string,
       enumMap: _MesaestadoEnumValueMap,
     ),
-    r'notas': PropertySchema(
-      id: 4,
-      name: r'notas',
-      type: IsarType.string,
-    ),
-    r'numero': PropertySchema(
-      id: 5,
-      name: r'numero',
-      type: IsarType.long,
-    ),
+    r'notas': PropertySchema(id: 4, name: r'notas', type: IsarType.string),
+    r'numero': PropertySchema(id: 5, name: r'numero', type: IsarType.long),
     r'ubicacion': PropertySchema(
       id: 6,
       name: r'ubicacion',
@@ -57,8 +45,9 @@ const MesaSchema = CollectionSchema(
       id: 7,
       name: r'ultimaActualizacion',
       type: IsarType.dateTime,
-    )
+    ),
   },
+
   estimateSize: _mesaEstimateSize,
   serialize: _mesaSerialize,
   deserialize: _mesaDeserialize,
@@ -75,16 +64,17 @@ const MesaSchema = CollectionSchema(
           name: r'numero',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _mesaGetId,
   getLinks: _mesaGetLinks,
   attach: _mesaAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _mesaEstimateSize(
@@ -136,7 +126,7 @@ Mesa _mesaDeserialize(
   object.capacidad = reader.readLong(offsets[1]);
   object.estado =
       _MesaestadoValueEnumMap[reader.readStringOrNull(offsets[3])] ??
-          EstadoMesa.libre;
+      EstadoMesa.libre;
   object.id = id;
   object.notas = reader.readStringOrNull(offsets[4]);
   object.numero = reader.readLong(offsets[5]);
@@ -160,7 +150,8 @@ P _mesaDeserializeProp<P>(
       return (reader.readBool(offset)) as P;
     case 3:
       return (_MesaestadoValueEnumMap[reader.readStringOrNull(offset)] ??
-          EstadoMesa.libre) as P;
+              EstadoMesa.libre)
+          as P;
     case 4:
       return (reader.readStringOrNull(offset)) as P;
     case 5:
@@ -272,10 +263,7 @@ extension MesaQueryWhereSort on QueryBuilder<Mesa, Mesa, QWhere> {
 extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
   QueryBuilder<Mesa, Mesa, QAfterWhereClause> idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
@@ -301,8 +289,10 @@ extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QAfterWhereClause> idGreaterThan(Id id,
-      {bool include = false}) {
+  QueryBuilder<Mesa, Mesa, QAfterWhereClause> idGreaterThan(
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -310,8 +300,10 @@ extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QAfterWhereClause> idLessThan(Id id,
-      {bool include = false}) {
+  QueryBuilder<Mesa, Mesa, QAfterWhereClause> idLessThan(
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -326,21 +318,22 @@ extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterWhereClause> numeroEqualTo(int numero) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'numero',
-        value: [numero],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'numero', value: [numero]),
+      );
     });
   }
 
@@ -348,32 +341,40 @@ extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'numero',
-              lower: [],
-              upper: [numero],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'numero',
-              lower: [numero],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'numero',
+                lower: [],
+                upper: [numero],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'numero',
+                lower: [numero],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'numero',
-              lower: [numero],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'numero',
-              lower: [],
-              upper: [numero],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'numero',
+                lower: [numero],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'numero',
+                lower: [],
+                upper: [numero],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -383,12 +384,14 @@ extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'numero',
-        lower: [numero],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'numero',
+          lower: [numero],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
@@ -397,12 +400,14 @@ extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'numero',
-        lower: [],
-        upper: [numero],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'numero',
+          lower: [],
+          upper: [numero],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
@@ -413,13 +418,15 @@ extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'numero',
-        lower: [lowerNumero],
-        includeLower: includeLower,
-        upper: [upperNumero],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'numero',
+          lower: [lowerNumero],
+          includeLower: includeLower,
+          upper: [upperNumero],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -427,19 +434,17 @@ extension MesaQueryWhere on QueryBuilder<Mesa, Mesa, QWhereClause> {
 extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> activaEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'activa',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'activa', value: value),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> capacidadEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'capacidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'capacidad', value: value),
+      );
     });
   }
 
@@ -448,11 +453,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'capacidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'capacidad',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -461,11 +468,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'capacidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'capacidad',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -476,23 +485,25 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'capacidad',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'capacidad',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> estaDisponibleEqualTo(
-      bool value) {
+    bool value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'estaDisponible',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'estaDisponible', value: value),
+      );
     });
   }
 
@@ -501,11 +512,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -515,12 +528,14 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -530,12 +545,14 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -547,14 +564,16 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'estado',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'estado',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -563,11 +582,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -576,76 +597,83 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QAfterFilterCondition> estadoContains(String value,
-      {bool caseSensitive = true}) {
+  QueryBuilder<Mesa, Mesa, QAfterFilterCondition> estadoContains(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QAfterFilterCondition> estadoMatches(String pattern,
-      {bool caseSensitive = true}) {
+  QueryBuilder<Mesa, Mesa, QAfterFilterCondition> estadoMatches(
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'estado',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'estado',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> estadoIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'estado',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'estado', value: ''),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> estadoIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'estado',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'estado', value: ''),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> idIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> idIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> idEqualTo(Id? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
@@ -654,11 +682,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -667,11 +697,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -682,29 +714,31 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> notasIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'notas',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'notas'),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> notasIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'notas',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'notas'),
+      );
     });
   }
 
@@ -713,11 +747,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'notas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -727,12 +763,14 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'notas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'notas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -742,12 +780,14 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'notas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'notas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -759,14 +799,16 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'notas',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'notas',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -775,11 +817,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'notas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'notas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -788,60 +832,67 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'notas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'notas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QAfterFilterCondition> notasContains(String value,
-      {bool caseSensitive = true}) {
+  QueryBuilder<Mesa, Mesa, QAfterFilterCondition> notasContains(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'notas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'notas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QAfterFilterCondition> notasMatches(String pattern,
-      {bool caseSensitive = true}) {
+  QueryBuilder<Mesa, Mesa, QAfterFilterCondition> notasMatches(
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'notas',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'notas',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> notasIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'notas',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'notas', value: ''),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> notasIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'notas',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'notas', value: ''),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> numeroEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'numero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'numero', value: value),
+      );
     });
   }
 
@@ -850,11 +901,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'numero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'numero',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -863,11 +916,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'numero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'numero',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -878,29 +933,31 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'numero',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'numero',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> ubicacionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'ubicacion',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'ubicacion'),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> ubicacionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'ubicacion',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'ubicacion'),
+      );
     });
   }
 
@@ -909,11 +966,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ubicacion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'ubicacion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -923,12 +982,14 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'ubicacion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'ubicacion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -938,12 +999,14 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'ubicacion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'ubicacion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -955,14 +1018,16 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'ubicacion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'ubicacion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -971,11 +1036,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'ubicacion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'ubicacion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -984,77 +1051,82 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'ubicacion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'ubicacion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> ubicacionContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'ubicacion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'ubicacion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> ubicacionMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'ubicacion',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'ubicacion',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> ubicacionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ubicacion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'ubicacion', value: ''),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> ubicacionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'ubicacion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'ubicacion', value: ''),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition> ultimaActualizacionEqualTo(
-      DateTime value) {
+    DateTime value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ultimaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'ultimaActualizacion', value: value),
+      );
     });
   }
 
   QueryBuilder<Mesa, Mesa, QAfterFilterCondition>
-      ultimaActualizacionGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  ultimaActualizacionGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'ultimaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'ultimaActualizacion',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1063,11 +1135,13 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'ultimaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'ultimaActualizacion',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1078,13 +1152,15 @@ extension MesaQueryFilter on QueryBuilder<Mesa, Mesa, QFilterCondition> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'ultimaActualizacion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'ultimaActualizacion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -1320,15 +1396,17 @@ extension MesaQueryWhereDistinct on QueryBuilder<Mesa, Mesa, QDistinct> {
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QDistinct> distinctByEstado(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Mesa, Mesa, QDistinct> distinctByEstado({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'estado', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QDistinct> distinctByNotas(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Mesa, Mesa, QDistinct> distinctByNotas({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'notas', caseSensitive: caseSensitive);
     });
@@ -1340,8 +1418,9 @@ extension MesaQueryWhereDistinct on QueryBuilder<Mesa, Mesa, QDistinct> {
     });
   }
 
-  QueryBuilder<Mesa, Mesa, QDistinct> distinctByUbicacion(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Mesa, Mesa, QDistinct> distinctByUbicacion({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'ubicacion', caseSensitive: caseSensitive);
     });

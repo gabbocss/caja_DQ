@@ -17,11 +17,7 @@ const ProductoSchema = CollectionSchema(
   name: r'Producto',
   id: -5697193943419826423,
   properties: {
-    r'activo': PropertySchema(
-      id: 0,
-      name: r'activo',
-      type: IsarType.bool,
-    ),
+    r'activo': PropertySchema(id: 0, name: r'activo', type: IsarType.bool),
     r'categoria': PropertySchema(
       id: 1,
       name: r'categoria',
@@ -43,11 +39,7 @@ const ProductoSchema = CollectionSchema(
       name: r'destinoId',
       type: IsarType.long,
     ),
-    r'esBuffet': PropertySchema(
-      id: 5,
-      name: r'esBuffet',
-      type: IsarType.bool,
-    ),
+    r'esBuffet': PropertySchema(id: 5, name: r'esBuffet', type: IsarType.bool),
     r'fechaCreacion': PropertySchema(
       id: 6,
       name: r'fechaCreacion',
@@ -58,36 +50,16 @@ const ProductoSchema = CollectionSchema(
       name: r'fechaModificacion',
       type: IsarType.dateTime,
     ),
-    r'imagen': PropertySchema(
-      id: 8,
-      name: r'imagen',
-      type: IsarType.string,
-    ),
+    r'imagen': PropertySchema(id: 8, name: r'imagen', type: IsarType.string),
     r'isAvailable': PropertySchema(
       id: 9,
       name: r'isAvailable',
       type: IsarType.bool,
     ),
-    r'nombre': PropertySchema(
-      id: 10,
-      name: r'nombre',
-      type: IsarType.string,
-    ),
-    r'orden': PropertySchema(
-      id: 11,
-      name: r'orden',
-      type: IsarType.long,
-    ),
-    r'precio': PropertySchema(
-      id: 12,
-      name: r'precio',
-      type: IsarType.double,
-    ),
-    r'stock': PropertySchema(
-      id: 13,
-      name: r'stock',
-      type: IsarType.long,
-    ),
+    r'nombre': PropertySchema(id: 10, name: r'nombre', type: IsarType.string),
+    r'orden': PropertySchema(id: 11, name: r'orden', type: IsarType.long),
+    r'precio': PropertySchema(id: 12, name: r'precio', type: IsarType.double),
+    r'stock': PropertySchema(id: 13, name: r'stock', type: IsarType.long),
     r'stockDisponible': PropertySchema(
       id: 14,
       name: r'stockDisponible',
@@ -97,8 +69,9 @@ const ProductoSchema = CollectionSchema(
       id: 15,
       name: r'usarInventario',
       type: IsarType.bool,
-    )
+    ),
   },
+
   estimateSize: _productoEstimateSize,
   serialize: _productoSerialize,
   deserialize: _productoDeserialize,
@@ -115,7 +88,7 @@ const ProductoSchema = CollectionSchema(
           name: r'nombre',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'esBuffet': IndexSchema(
@@ -128,7 +101,7 @@ const ProductoSchema = CollectionSchema(
           name: r'esBuffet',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'categoria': IndexSchema(
@@ -141,7 +114,7 @@ const ProductoSchema = CollectionSchema(
           name: r'categoria',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'destinoId': IndexSchema(
@@ -154,7 +127,7 @@ const ProductoSchema = CollectionSchema(
           name: r'destinoId',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'destino': IndexSchema(
@@ -167,7 +140,7 @@ const ProductoSchema = CollectionSchema(
           name: r'destino',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'isAvailable': IndexSchema(
@@ -180,16 +153,17 @@ const ProductoSchema = CollectionSchema(
           name: r'isAvailable',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _productoGetId,
   getLinks: _productoGetLinks,
   attach: _productoAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _productoEstimateSize(
@@ -257,7 +231,7 @@ Producto _productoDeserialize(
   object.descripcion = reader.readStringOrNull(offsets[2]);
   object.destino =
       _ProductodestinoValueEnumMap[reader.readStringOrNull(offsets[3])] ??
-          DestinoProducto.cocina;
+      DestinoProducto.cocina;
   object.destinoId = reader.readLongOrNull(offsets[4]);
   object.esBuffet = reader.readBool(offsets[5]);
   object.fechaCreacion = reader.readDateTime(offsets[6]);
@@ -289,7 +263,8 @@ P _productoDeserializeProp<P>(
       return (reader.readStringOrNull(offset)) as P;
     case 3:
       return (_ProductodestinoValueEnumMap[reader.readStringOrNull(offset)] ??
-          DestinoProducto.cocina) as P;
+              DestinoProducto.cocina)
+          as P;
     case 4:
       return (reader.readLongOrNull(offset)) as P;
     case 5:
@@ -319,10 +294,7 @@ P _productoDeserializeProp<P>(
   }
 }
 
-const _ProductodestinoEnumValueMap = {
-  r'cocina': r'cocina',
-  r'barra': r'barra',
-};
+const _ProductodestinoEnumValueMap = {r'cocina': r'cocina', r'barra': r'barra'};
 const _ProductodestinoValueEnumMap = {
   r'cocina': DestinoProducto.cocina,
   r'barra': DestinoProducto.barra,
@@ -375,10 +347,7 @@ extension ProductoQueryWhereSort on QueryBuilder<Producto, Producto, QWhere> {
 extension ProductoQueryWhere on QueryBuilder<Producto, Producto, QWhereClause> {
   QueryBuilder<Producto, Producto, QAfterWhereClause> idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
@@ -404,8 +373,10 @@ extension ProductoQueryWhere on QueryBuilder<Producto, Producto, QWhereClause> {
     });
   }
 
-  QueryBuilder<Producto, Producto, QAfterWhereClause> idGreaterThan(Id id,
-      {bool include = false}) {
+  QueryBuilder<Producto, Producto, QAfterWhereClause> idGreaterThan(
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -413,8 +384,10 @@ extension ProductoQueryWhere on QueryBuilder<Producto, Producto, QWhereClause> {
     });
   }
 
-  QueryBuilder<Producto, Producto, QAfterWhereClause> idLessThan(Id id,
-      {bool include = false}) {
+  QueryBuilder<Producto, Producto, QAfterWhereClause> idLessThan(
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -429,231 +402,271 @@ extension ProductoQueryWhere on QueryBuilder<Producto, Producto, QWhereClause> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> nombreEqualTo(
-      String nombre) {
+    String nombre,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'nombre',
-        value: [nombre],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'nombre', value: [nombre]),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> nombreNotEqualTo(
-      String nombre) {
+    String nombre,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'nombre',
-              lower: [],
-              upper: [nombre],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'nombre',
-              lower: [nombre],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'nombre',
+                lower: [],
+                upper: [nombre],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'nombre',
+                lower: [nombre],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'nombre',
-              lower: [nombre],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'nombre',
-              lower: [],
-              upper: [nombre],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'nombre',
+                lower: [nombre],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'nombre',
+                lower: [],
+                upper: [nombre],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> esBuffetEqualTo(
-      bool esBuffet) {
+    bool esBuffet,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'esBuffet',
-        value: [esBuffet],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'esBuffet', value: [esBuffet]),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> esBuffetNotEqualTo(
-      bool esBuffet) {
+    bool esBuffet,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'esBuffet',
-              lower: [],
-              upper: [esBuffet],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'esBuffet',
-              lower: [esBuffet],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'esBuffet',
+                lower: [],
+                upper: [esBuffet],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'esBuffet',
+                lower: [esBuffet],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'esBuffet',
-              lower: [esBuffet],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'esBuffet',
-              lower: [],
-              upper: [esBuffet],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'esBuffet',
+                lower: [esBuffet],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'esBuffet',
+                lower: [],
+                upper: [esBuffet],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> categoriaIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'categoria',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'categoria', value: [null]),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> categoriaIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'categoria',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'categoria',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> categoriaEqualTo(
-      String? categoria) {
+    String? categoria,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'categoria',
-        value: [categoria],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'categoria', value: [categoria]),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> categoriaNotEqualTo(
-      String? categoria) {
+    String? categoria,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'categoria',
-              lower: [],
-              upper: [categoria],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'categoria',
-              lower: [categoria],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'categoria',
+                lower: [],
+                upper: [categoria],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'categoria',
+                lower: [categoria],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'categoria',
-              lower: [categoria],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'categoria',
-              lower: [],
-              upper: [categoria],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'categoria',
+                lower: [categoria],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'categoria',
+                lower: [],
+                upper: [categoria],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> destinoIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'destinoId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'destinoId', value: [null]),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> destinoIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'destinoId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'destinoId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> destinoIdEqualTo(
-      int? destinoId) {
+    int? destinoId,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'destinoId',
-        value: [destinoId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'destinoId', value: [destinoId]),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> destinoIdNotEqualTo(
-      int? destinoId) {
+    int? destinoId,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'destinoId',
-              lower: [],
-              upper: [destinoId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'destinoId',
-              lower: [destinoId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'destinoId',
+                lower: [],
+                upper: [destinoId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'destinoId',
+                lower: [destinoId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'destinoId',
-              lower: [destinoId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'destinoId',
-              lower: [],
-              upper: [destinoId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'destinoId',
+                lower: [destinoId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'destinoId',
+                lower: [],
+                upper: [destinoId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -663,12 +676,14 @@ extension ProductoQueryWhere on QueryBuilder<Producto, Producto, QWhereClause> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'destinoId',
-        lower: [destinoId],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'destinoId',
+          lower: [destinoId],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
@@ -677,12 +692,14 @@ extension ProductoQueryWhere on QueryBuilder<Producto, Producto, QWhereClause> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'destinoId',
-        lower: [],
-        upper: [destinoId],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'destinoId',
+          lower: [],
+          upper: [destinoId],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
@@ -693,102 +710,125 @@ extension ProductoQueryWhere on QueryBuilder<Producto, Producto, QWhereClause> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'destinoId',
-        lower: [lowerDestinoId],
-        includeLower: includeLower,
-        upper: [upperDestinoId],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'destinoId',
+          lower: [lowerDestinoId],
+          includeLower: includeLower,
+          upper: [upperDestinoId],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> destinoEqualTo(
-      DestinoProducto destino) {
+    DestinoProducto destino,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'destino',
-        value: [destino],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'destino', value: [destino]),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> destinoNotEqualTo(
-      DestinoProducto destino) {
+    DestinoProducto destino,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'destino',
-              lower: [],
-              upper: [destino],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'destino',
-              lower: [destino],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'destino',
+                lower: [],
+                upper: [destino],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'destino',
+                lower: [destino],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'destino',
-              lower: [destino],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'destino',
-              lower: [],
-              upper: [destino],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'destino',
+                lower: [destino],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'destino',
+                lower: [],
+                upper: [destino],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> isAvailableEqualTo(
-      bool isAvailable) {
+    bool isAvailable,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isAvailable',
-        value: [isAvailable],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'isAvailable',
+          value: [isAvailable],
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterWhereClause> isAvailableNotEqualTo(
-      bool isAvailable) {
+    bool isAvailable,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isAvailable',
-              lower: [],
-              upper: [isAvailable],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isAvailable',
-              lower: [isAvailable],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isAvailable',
+                lower: [],
+                upper: [isAvailable],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isAvailable',
+                lower: [isAvailable],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isAvailable',
-              lower: [isAvailable],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isAvailable',
-              lower: [],
-              upper: [isAvailable],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isAvailable',
+                lower: [isAvailable],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isAvailable',
+                lower: [],
+                upper: [isAvailable],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -797,28 +837,28 @@ extension ProductoQueryWhere on QueryBuilder<Producto, Producto, QWhereClause> {
 extension ProductoQueryFilter
     on QueryBuilder<Producto, Producto, QFilterCondition> {
   QueryBuilder<Producto, Producto, QAfterFilterCondition> activoEqualTo(
-      bool value) {
+    bool value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'activo',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'activo', value: value),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> categoriaIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'categoria',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'categoria'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> categoriaIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'categoria',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'categoria'),
+      );
     });
   }
 
@@ -827,11 +867,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'categoria',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'categoria',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -841,12 +883,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'categoria',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'categoria',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -856,12 +900,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'categoria',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'categoria',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -873,14 +919,16 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'categoria',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'categoria',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -889,11 +937,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'categoria',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'categoria',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -902,71 +952,77 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'categoria',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'categoria',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> categoriaContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'categoria',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'categoria',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> categoriaMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'categoria',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'categoria',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> categoriaIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'categoria',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'categoria', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      categoriaIsNotEmpty() {
+  categoriaIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'categoria',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'categoria', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> descripcionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'descripcion',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'descripcion'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      descripcionIsNotNull() {
+  descripcionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'descripcion',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'descripcion'),
+      );
     });
   }
 
@@ -975,27 +1031,31 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      descripcionGreaterThan(
+  descripcionGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1005,12 +1065,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1022,14 +1084,16 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'descripcion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'descripcion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1038,11 +1102,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1051,54 +1117,60 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> descripcionContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> descripcionMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'descripcion',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'descripcion',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> descripcionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'descripcion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'descripcion', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      descripcionIsNotEmpty() {
+  descripcionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'descripcion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'descripcion', value: ''),
+      );
     });
   }
 
@@ -1107,11 +1179,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'destino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'destino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1121,12 +1195,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'destino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'destino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1136,12 +1212,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'destino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'destino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1153,14 +1231,16 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'destino',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'destino',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1169,11 +1249,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'destino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'destino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1182,79 +1264,85 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'destino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'destino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> destinoContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'destino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'destino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> destinoMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'destino',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'destino',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> destinoIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'destino',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'destino', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> destinoIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'destino',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'destino', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> destinoIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'destinoId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'destinoId'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> destinoIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'destinoId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'destinoId'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> destinoIdEqualTo(
-      int? value) {
+    int? value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'destinoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'destinoId', value: value),
+      );
     });
   }
 
@@ -1263,11 +1351,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'destinoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'destinoId',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1276,11 +1366,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'destinoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'destinoId',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1291,47 +1383,48 @@ extension ProductoQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'destinoId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'destinoId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> esBuffetEqualTo(
-      bool value) {
+    bool value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'esBuffet',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'esBuffet', value: value),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> fechaCreacionEqualTo(
-      DateTime value) {
+    DateTime value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fechaCreacion', value: value),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      fechaCreacionGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaCreacionGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fechaCreacion',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1340,11 +1433,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fechaCreacion',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1355,112 +1450,112 @@ extension ProductoQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fechaCreacion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fechaCreacion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      fechaModificacionIsNull() {
+  fechaModificacionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'fechaModificacion',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'fechaModificacion'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      fechaModificacionIsNotNull() {
+  fechaModificacionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'fechaModificacion',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'fechaModificacion'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      fechaModificacionEqualTo(DateTime? value) {
+  fechaModificacionEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fechaModificacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fechaModificacion', value: value),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      fechaModificacionGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  fechaModificacionGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fechaModificacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fechaModificacion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      fechaModificacionLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  fechaModificacionLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fechaModificacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fechaModificacion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      fechaModificacionBetween(
+  fechaModificacionBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fechaModificacion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fechaModificacion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> idIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> idIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> idEqualTo(Id? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
@@ -1469,11 +1564,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1482,11 +1579,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1497,29 +1596,31 @@ extension ProductoQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> imagenIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'imagen',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'imagen'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> imagenIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'imagen',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'imagen'),
+      );
     });
   }
 
@@ -1528,11 +1629,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'imagen',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'imagen',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1542,12 +1645,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'imagen',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'imagen',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1557,12 +1662,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'imagen',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'imagen',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1574,14 +1681,16 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'imagen',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'imagen',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1590,11 +1699,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'imagen',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'imagen',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1603,63 +1714,69 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'imagen',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'imagen',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> imagenContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'imagen',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'imagen',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> imagenMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'imagen',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'imagen',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> imagenIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'imagen',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'imagen', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> imagenIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'imagen',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'imagen', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> isAvailableEqualTo(
-      bool value) {
+    bool value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isAvailable',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isAvailable', value: value),
+      );
     });
   }
 
@@ -1668,11 +1785,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1682,12 +1801,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1697,12 +1818,14 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1714,14 +1837,16 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'nombre',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'nombre',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1730,11 +1855,13 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1743,63 +1870,69 @@ extension ProductoQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> nombreContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> nombreMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'nombre',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'nombre',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> nombreIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombre',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'nombre', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> nombreIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'nombre',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'nombre', value: ''),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> ordenEqualTo(
-      int value) {
+    int value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'orden',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'orden', value: value),
+      );
     });
   }
 
@@ -1808,11 +1941,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'orden',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'orden',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1821,11 +1956,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'orden',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'orden',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1836,13 +1973,15 @@ extension ProductoQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'orden',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'orden',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
@@ -1851,11 +1990,14 @@ extension ProductoQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'precio',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'precio',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
@@ -1865,12 +2007,15 @@ extension ProductoQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'precio',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'precio',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
@@ -1880,12 +2025,15 @@ extension ProductoQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'precio',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'precio',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
@@ -1897,40 +2045,43 @@ extension ProductoQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'precio',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'precio',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> stockIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'stock',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'stock'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> stockIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'stock',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'stock'),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> stockEqualTo(
-      int? value) {
+    int? value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'stock',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'stock', value: value),
+      );
     });
   }
 
@@ -1939,11 +2090,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'stock',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'stock',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1952,11 +2105,13 @@ extension ProductoQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'stock',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'stock',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1967,79 +2122,80 @@ extension ProductoQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'stock',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'stock',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      stockDisponibleEqualTo(int value) {
+  stockDisponibleEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'stockDisponible',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'stockDisponible', value: value),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      stockDisponibleGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  stockDisponibleGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'stockDisponible',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'stockDisponible',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      stockDisponibleLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  stockDisponibleLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'stockDisponible',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'stockDisponible',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition>
-      stockDisponibleBetween(
+  stockDisponibleBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'stockDisponible',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'stockDisponible',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Producto, Producto, QAfterFilterCondition> usarInventarioEqualTo(
-      bool value) {
+    bool value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'usarInventario',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'usarInventario', value: value),
+      );
     });
   }
 }
@@ -2459,22 +2615,25 @@ extension ProductoQueryWhereDistinct
     });
   }
 
-  QueryBuilder<Producto, Producto, QDistinct> distinctByCategoria(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Producto, Producto, QDistinct> distinctByCategoria({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'categoria', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<Producto, Producto, QDistinct> distinctByDescripcion(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Producto, Producto, QDistinct> distinctByDescripcion({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'descripcion', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<Producto, Producto, QDistinct> distinctByDestino(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Producto, Producto, QDistinct> distinctByDestino({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'destino', caseSensitive: caseSensitive);
     });
@@ -2504,8 +2663,9 @@ extension ProductoQueryWhereDistinct
     });
   }
 
-  QueryBuilder<Producto, Producto, QDistinct> distinctByImagen(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Producto, Producto, QDistinct> distinctByImagen({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'imagen', caseSensitive: caseSensitive);
     });
@@ -2517,8 +2677,9 @@ extension ProductoQueryWhereDistinct
     });
   }
 
-  QueryBuilder<Producto, Producto, QDistinct> distinctByNombre(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Producto, Producto, QDistinct> distinctByNombre({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'nombre', caseSensitive: caseSensitive);
     });
@@ -2606,7 +2767,7 @@ extension ProductoQueryProperty
   }
 
   QueryBuilder<Producto, DateTime?, QQueryOperations>
-      fechaModificacionProperty() {
+  fechaModificacionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'fechaModificacion');
     });

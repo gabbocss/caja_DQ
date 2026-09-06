@@ -16,9 +16,9 @@ dependencies:
   # Web bindings (Web Audio API para pitido en cocina web)
   web: ^1.1.0
   
-  # Base de datos local - Isar es rápida y soporta Windows/Android/Web
-  isar: 3.1.0+1
-  isar_flutter_libs: 3.1.0+1
+  # Base de datos local - fork comunitario (bugfixes + inspector)
+  isar_community: 3.3.2
+  isar_community_flutter_libs: 3.3.2
   
   # Servidor HTTP local para comunicación entre dispositivos
   shelf: ^1.4.2
@@ -66,8 +66,8 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-  # Generador de código para Isar
-  isar_generator: 3.1.0+1
+  # Generador de código para Isar (community)
+  isar_community_generator: 3.3.2
   build_runner: ^2.4.13
 
 flutter:

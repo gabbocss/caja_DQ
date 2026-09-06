@@ -12,6 +12,7 @@ import '../../features/cocina/presentation/pages/cocina_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_page.dart';
 import '../../features/configuracion/presentation/pages/configurar_servidor_central_page.dart';
 import '../../features/configuracion/presentation/pages/configurar_conexion_page.dart';
+import '../../features/configuracion/presentation/pages/menus_page.dart';
 import '../../features/configuracion/presentation/pages/wifi_qr_page.dart';
 import '../../features/configuracion/presentation/pages/configuracion_impresora_page.dart';
 import '../../features/configuracion/presentation/pages/destinos_page.dart';
@@ -23,14 +24,25 @@ import '../../features/estadisticas/presentation/pages/estadisticas_page.dart';
 import '../../features/caja/presentation/pages/caja_page.dart';
 import '../../features/reservas/presentation/pages/reservas_page.dart';
 import '../../features/reservas/presentation/providers/reservas_provider.dart';
+import '../../features/lista_compra/presentation/pages/lista_compra_hub_page.dart';
+import '../../features/lista_compra/presentation/pages/comprar_page.dart';
+import '../../features/lista_compra/presentation/pages/hacer_lista_page.dart';
+import '../../features/lista_compra/presentation/pages/supermercados_page.dart';
+import '../../features/lista_compra/presentation/providers/lista_compra_provider.dart';
+import '../../features/lista_compra/presentation/providers/supermercados_provider.dart';
 import 'navigation_shell.dart';
 
 /// Rutas de la aplicación
 class AppRoutes {
   static const String pedidos = '/pedidos';
   static const String mesas = '/mesas';
+  static const String menus = '/menus';
   static const String configurarConexion = '/configurar-conexion';
   static const String reservas = '/reservas';
+  static const String listaCompra = '/lista-compra';
+  static const String listaCompraComprar = '/lista-compra/comprar';
+  static const String listaCompraHacer = '/lista-compra/hacer-lista';
+  static const String listaCompraSupermercados = '/lista-compra/supermercados';
   static const String cocina = '/cocina';
   static const String configuracion = '/configuracion';
   static const String destinos = '/destinos';
@@ -91,6 +103,50 @@ final appRouter = GoRouter(
                   child: MesaPlatosPage(numeroMesa: numero, categoriaSlug: slug),
                 );
               },
+            ),
+          ],
+        ),
+        GoRoute(
+          path: AppRoutes.menus,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: MenusPage(),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.listaCompra,
+          pageBuilder: (context, state) => NoTransitionPage(
+            child: ChangeNotifierProvider(
+              create: (_) => ListaCompraProvider(),
+              child: const ListaCompraHubPage(),
+            ),
+          ),
+          routes: [
+            GoRoute(
+              path: 'comprar',
+              pageBuilder: (context, state) => NoTransitionPage(
+                child: ChangeNotifierProvider(
+                  create: (_) => ListaCompraProvider(),
+                  child: const ComprarPage(),
+                ),
+              ),
+            ),
+            GoRoute(
+              path: 'hacer-lista',
+              pageBuilder: (context, state) => NoTransitionPage(
+                child: ChangeNotifierProvider(
+                  create: (_) => ListaCompraProvider(),
+                  child: const HacerListaPage(),
+                ),
+              ),
+            ),
+            GoRoute(
+              path: 'supermercados',
+              pageBuilder: (context, state) => NoTransitionPage(
+                child: ChangeNotifierProvider(
+                  create: (_) => SupermercadosProvider(),
+                  child: const SupermercadosPage(),
+                ),
+              ),
             ),
           ],
         ),

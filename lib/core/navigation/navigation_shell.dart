@@ -8,7 +8,7 @@ import 'app_router.dart';
 
 /// Shell de navegación con barra lateral/inferior
 /// 
-/// En móvil: Mesas, Reservas, Servidor, WiFi. En escritorio: Pedidos, Reservas, Cocina, etc.
+/// En móvil: Mesas, Menús, WiFi. En escritorio: Pedidos, Reservas, Cocina, etc.
 /// Usa NavigationRail en pantallas grandes y BottomNavigation en móviles.
 class NavigationShell extends StatefulWidget {
   final Widget child;
@@ -77,9 +77,13 @@ class _NavigationShellState extends State<NavigationShell> {
   int _getSelectedIndex(String location) {
     if (location.startsWith(AppRoutes.cocina)) return _isWebFlow ? 0 : 2;
     if (_isMobileFlow) {
-      if (location.startsWith(AppRoutes.reservas)) return 1;
-      if (location.startsWith(AppRoutes.configurarConexion)) return 2;
-      if (location.startsWith(AppRoutes.wifiQr)) return 3;
+      if (location.startsWith(AppRoutes.menus) ||
+          location.startsWith(AppRoutes.reservas) ||
+          location.startsWith(AppRoutes.listaCompra) ||
+          location.startsWith(AppRoutes.configurarConexion)) {
+        return 1;
+      }
+      if (location.startsWith(AppRoutes.wifiQr)) return 2;
       return 0;
     }
     if (location.startsWith(AppRoutes.reservas)) return 1;
@@ -100,12 +104,9 @@ class _NavigationShellState extends State<NavigationShell> {
           context.go(AppRoutes.mesas);
           break;
         case 1:
-          context.go(AppRoutes.reservas);
+          context.go(AppRoutes.menus);
           break;
         case 2:
-          context.go(AppRoutes.configurarConexion);
-          break;
-        case 3:
           context.go(AppRoutes.wifiQr);
           break;
       }
@@ -157,15 +158,9 @@ class _NavigationShellState extends State<NavigationShell> {
               padding: EdgeInsets.symmetric(vertical: 8),
             ),
             NavigationRailDestination(
-              icon: Icon(Icons.event_seat_outlined),
-              selectedIcon: Icon(Icons.event_seat),
-              label: Text('Reservas'),
-              padding: EdgeInsets.symmetric(vertical: 8),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.dns_outlined),
-              selectedIcon: Icon(Icons.dns),
-              label: Text('Servidor'),
+              icon: Icon(Icons.menu_outlined),
+              selectedIcon: Icon(Icons.menu),
+              label: Text('Menús'),
               padding: EdgeInsets.symmetric(vertical: 8),
             ),
             NavigationRailDestination(
@@ -285,7 +280,7 @@ class _NavigationShellState extends State<NavigationShell> {
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
-    final maxIndex = _isMobileFlow ? 3 : (_isWebFlow ? 1 : 6);
+    final maxIndex = _isMobileFlow ? 2 : (_isWebFlow ? 1 : 6);
     final safeIndex = selectedIndex.clamp(0, maxIndex);
 
     return Container(
@@ -307,9 +302,8 @@ class _NavigationShellState extends State<NavigationShell> {
             children: _isMobileFlow
                 ? [
                     Expanded(child: _buildNavItem(context, index: 0, selectedIndex: safeIndex, icon: Icons.table_restaurant_outlined, selectedIcon: Icons.table_restaurant, label: 'Mesas')),
-                    Expanded(child: _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.event_seat_outlined, selectedIcon: Icons.event_seat, label: 'Reservas')),
-                    Expanded(child: _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.dns_outlined, selectedIcon: Icons.dns, label: 'Servidor')),
-                    Expanded(child: _buildNavItem(context, index: 3, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi')),
+                    Expanded(child: _buildNavItem(context, index: 1, selectedIndex: safeIndex, icon: Icons.menu_outlined, selectedIcon: Icons.menu, label: 'Menús')),
+                    Expanded(child: _buildNavItem(context, index: 2, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi')),
                   ]
                 : _isWebFlow
                     ? [

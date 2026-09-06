@@ -3,11 +3,14 @@
 gradle.beforeProject { proj ->
     if (proj == rootProject) return
     proj.afterEvaluate {
-        if ((proj.name.contains("isar_flutter_libs") || proj.path.contains("isar_flutter_libs"))
+        if ((proj.name.contains("isar_community_flutter_libs") ||
+                proj.name.contains("isar_flutter_libs") ||
+                proj.path.contains("isar_community_flutter_libs") ||
+                proj.path.contains("isar_flutter_libs"))
             && proj.plugins.hasPlugin("com.android.library")) {
             def android = proj.extensions.findByName("android")
             if (android != null && (android.namespace == null || android.namespace.isEmpty())) {
-                android.namespace = "dev.isar.isar_flutter_libs"
+                android.namespace = "dev.isar.isar_community_flutter_libs"
             }
         }
     }

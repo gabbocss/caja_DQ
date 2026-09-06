@@ -648,6 +648,314 @@ class ApiClient {
     }
   }
 
+  // ==================== LISTA DE LA COMPRA (VPS) ====================
+
+  /// GET /api/lista-compra
+  Future<List<Map<String, dynamic>>> obtenerListaCompra() async {
+    final uri = _apiUri(ApiEndpoints.listaCompra);
+    try {
+      final response = await _client.get(
+        uri,
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+      throw Exception(
+        'GET $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en obtenerListaCompra ($uri): $e');
+      rethrow;
+    }
+  }
+
+  /// POST /api/lista-compra — crear o actualizar ítem.
+  Future<Map<String, dynamic>> guardarItemListaCompra(
+    Map<String, dynamic> item,
+  ) async {
+    final uri = _apiUri(ApiEndpoints.listaCompra);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(item),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Map<String, dynamic>.from(json.decode(response.body) as Map);
+      }
+      throw Exception(
+        'POST $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en guardarItemListaCompra ($uri): $e');
+      rethrow;
+    }
+  }
+
+  /// PUT /api/lista-compra/<id>
+  Future<Map<String, dynamic>> actualizarItemListaCompra(
+    int id,
+    Map<String, dynamic> cambios,
+  ) async {
+    final uri = ApiEndpoints.listaCompraItem(baseUrl, id);
+    try {
+      final response = await _client.put(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(cambios),
+      );
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(json.decode(response.body) as Map);
+      }
+      throw Exception(
+        'PUT $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en actualizarItemListaCompra ($uri): $e');
+      rethrow;
+    }
+  }
+
+  /// DELETE /api/lista-compra/<id>
+  Future<void> eliminarItemListaCompra(int id) async {
+    final uri = ApiEndpoints.listaCompraItem(baseUrl, id);
+    try {
+      final response = await _client.delete(
+        uri,
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode != 200) {
+        throw Exception(
+          'DELETE $uri → ${response.statusCode}. '
+          'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error en eliminarItemListaCompra ($uri): $e');
+      rethrow;
+    }
+  }
+
+  /// POST /api/lista-compra/vaciar-compra — resetea flags; no borra el catálogo.
+  Future<void> vaciarCompraListaCompra() async {
+    final uri = _apiUri(ApiEndpoints.listaCompraVaciarCompra);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: '{}',
+      );
+      if (response.statusCode != 200) {
+        throw Exception(
+          'POST $uri → ${response.statusCode}. '
+          'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error en vaciarCompraListaCompra ($uri): $e');
+      rethrow;
+    }
+  }
+
+  /// POST /api/lista-compra/reordenar — fija el orden del catálogo.
+  Future<List<Map<String, dynamic>>> reordenarListaCompra(List<int> ids) async {
+    final uri = _apiUri(ApiEndpoints.listaCompraReordenar);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({'ids': ids}),
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+      throw Exception(
+        'POST $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en reordenarListaCompra ($uri): $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerPreciosListaCompra({
+    int? productoId,
+    int? supermercadoId,
+  }) async {
+    var uri = _apiUri(ApiEndpoints.listaCompraPrecios);
+    final q = <String, String>{};
+    if (productoId != null) q['productoId'] = '$productoId';
+    if (supermercadoId != null) q['supermercadoId'] = '$supermercadoId';
+    if (q.isNotEmpty) uri = uri.replace(queryParameters: q);
+    try {
+      final response = await _client.get(
+        uri,
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+      throw Exception(
+        'GET $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en obtenerPreciosListaCompra ($uri): $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> guardarPrecioListaCompra(
+    Map<String, dynamic> body,
+  ) async {
+    final uri = _apiUri(ApiEndpoints.listaCompraPrecios);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(body),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Map<String, dynamic>.from(json.decode(response.body) as Map);
+      }
+      throw Exception(
+        'POST $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en guardarPrecioListaCompra ($uri): $e');
+      rethrow;
+    }
+  }
+
+  // ==================== SUPERMERCADOS (VPS) ====================
+
+  Future<List<Map<String, dynamic>>> obtenerSupermercados() async {
+    final uri = _apiUri(ApiEndpoints.supermercados);
+    try {
+      final response = await _client.get(
+        uri,
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+      throw Exception(
+        'GET $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en obtenerSupermercados ($uri): $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> guardarSupermercado(
+    Map<String, dynamic> item,
+  ) async {
+    final uri = _apiUri(ApiEndpoints.supermercados);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(item),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Map<String, dynamic>.from(json.decode(response.body) as Map);
+      }
+      throw Exception(
+        'POST $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en guardarSupermercado ($uri): $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> reordenarSupermercados(
+    List<int> ids,
+  ) async {
+    final uri = _apiUri(ApiEndpoints.supermercadosReordenar);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({'ids': ids}),
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+      throw Exception(
+        'POST $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en reordenarSupermercados ($uri): $e');
+      rethrow;
+    }
+  }
+
+  Future<void> eliminarSupermercado(int id) async {
+    final uri = ApiEndpoints.supermercadoItem(baseUrl, id);
+    try {
+      final response = await _client.delete(
+        uri,
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode != 200) {
+        throw Exception(
+          'DELETE $uri → ${response.statusCode}. '
+          'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error en eliminarSupermercado ($uri): $e');
+      rethrow;
+    }
+  }
+
   /// Verifica la conexión con el servidor ([ApiEndpoints.healthApi] o [ApiEndpoints.health]).
   Future<bool> verificarConexion() async {
     for (final path in [ApiEndpoints.healthApi, ApiEndpoints.health]) {

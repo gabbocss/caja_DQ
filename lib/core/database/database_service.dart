@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
@@ -116,14 +116,13 @@ class DatabaseService {
       debugPrint('Mesas creadas correctamente');
     }
 
-    // Crear destinos ANTES de productos para poder asignarlos
+    // Destinos de impresión por defecto (sin productos de ejemplo:
+    // la carta llega solo al sincronizar desde el desktop).
     final destinoCount = await _isar!.destinoImpresions.count();
-    int? cocinaId;
-    int? barraId;
-    
+
     if (destinoCount == 0) {
       debugPrint('Creando destinos de impresión por defecto...');
-      
+
       await _isar!.writeTxn(() async {
         final cocina = DestinoImpresion.crear(
           nombre: 'Cocina',
@@ -133,8 +132,8 @@ class DatabaseService {
           tipo: TipoDestino.pantalla,
           orden: 1,
         );
-        cocinaId = await _isar!.destinoImpresions.put(cocina);
-        
+        await _isar!.destinoImpresions.put(cocina);
+
         final barra = DestinoImpresion.crear(
           nombre: 'Barra',
           descripcion: 'Barra de bebidas',
@@ -143,8 +142,8 @@ class DatabaseService {
           tipo: TipoDestino.pantalla,
           orden: 2,
         );
-        barraId = await _isar!.destinoImpresions.put(barra);
-        
+        await _isar!.destinoImpresions.put(barra);
+
         final postres = DestinoImpresion.crear(
           nombre: 'Postres',
           descripcion: 'Área de postres y cafetería',
@@ -155,7 +154,7 @@ class DatabaseService {
         );
         await _isar!.destinoImpresions.put(postres);
       });
-      
+
       debugPrint('Destinos de impresión creados correctamente');
     }
 
@@ -171,173 +170,6 @@ class DatabaseService {
         }
       });
       debugPrint('Categorías creadas correctamente');
-    }
-
-    if (destinoCount != 0) {
-      // Obtener IDs de destinos existentes
-      final destinos = await _isar!.destinoImpresions.where().findAll();
-      cocinaId = destinos.where((d) => d.nombre == 'Cocina').firstOrNull?.id;
-      barraId = destinos.where((d) => d.nombre == 'Barra').firstOrNull?.id;
-    }
-
-    final productoCount = await _isar!.productos.count();
-    
-    if (productoCount == 0) {
-      debugPrint('Creando productos de ejemplo...');
-      
-      await _isar!.writeTxn(() async {
-        // Productos de ejemplo con destino y disponibilidad configurados
-        final productosEjemplo = [
-          // === COMIDA (destino: cocina) ===
-          Producto.crear(
-            nombre: 'Tacos al Pastor',
-            precio: 45.00,
-            descripcion: 'Orden de 3 tacos con piña y cebolla',
-            categoria: 'Tacos',
-            esBuffet: true,
-            destino: DestinoProducto.cocina,
-            destinoId: cocinaId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Tacos de Bistec',
-            precio: 50.00,
-            descripcion: 'Orden de 3 tacos de bistec',
-            categoria: 'Tacos',
-            esBuffet: true,
-            destino: DestinoProducto.cocina,
-            destinoId: cocinaId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Quesadilla de Queso',
-            precio: 35.00,
-            descripcion: 'Quesadilla con queso Oaxaca',
-            categoria: 'Antojitos',
-            esBuffet: true,
-            destino: DestinoProducto.cocina,
-            destinoId: cocinaId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Quesadilla de Pollo',
-            precio: 45.00,
-            descripcion: 'Quesadilla con pollo deshebrado',
-            categoria: 'Antojitos',
-            esBuffet: true,
-            destino: DestinoProducto.cocina,
-            destinoId: cocinaId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Enchiladas Verdes',
-            precio: 85.00,
-            descripcion: 'Orden de 3 enchiladas con salsa verde',
-            categoria: 'Platos Fuertes',
-            esBuffet: true,
-            destino: DestinoProducto.cocina,
-            destinoId: cocinaId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Pozole Rojo',
-            precio: 75.00,
-            descripcion: 'Plato de pozole tradicional',
-            categoria: 'Sopas',
-            esBuffet: true,
-            destino: DestinoProducto.cocina,
-            destinoId: cocinaId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Flan Napolitano',
-            precio: 40.00,
-            descripcion: 'Flan casero con caramelo',
-            categoria: 'Postres',
-            esBuffet: true,
-            destino: DestinoProducto.cocina,
-            destinoId: cocinaId,
-            isAvailable: true,
-          ),
-          // === BEBIDAS (destino: barra) ===
-          Producto.crear(
-            nombre: 'Refresco',
-            precio: 25.00,
-            descripcion: 'Refresco de la casa 500ml',
-            categoria: 'Bebidas',
-            esBuffet: false,
-            destino: DestinoProducto.barra,
-            destinoId: barraId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Agua Fresca',
-            precio: 20.00,
-            descripcion: 'Agua fresca del día',
-            categoria: 'Bebidas',
-            esBuffet: true,
-            destino: DestinoProducto.barra,
-            destinoId: barraId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Limonada',
-            precio: 30.00,
-            descripcion: 'Limonada natural',
-            categoria: 'Bebidas',
-            esBuffet: true,
-            destino: DestinoProducto.barra,
-            destinoId: barraId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Cerveza Nacional',
-            precio: 40.00,
-            descripcion: 'Cerveza nacional 355ml',
-            categoria: 'Bebidas Alcohólicas',
-            esBuffet: false,
-            destino: DestinoProducto.barra,
-            destinoId: barraId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Cerveza Importada',
-            precio: 55.00,
-            descripcion: 'Cerveza importada 355ml',
-            categoria: 'Bebidas Alcohólicas',
-            esBuffet: false,
-            destino: DestinoProducto.barra,
-            destinoId: barraId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Margarita',
-            precio: 80.00,
-            descripcion: 'Margarita clásica con sal',
-            categoria: 'Bebidas Alcohólicas',
-            esBuffet: false,
-            destino: DestinoProducto.barra,
-            destinoId: barraId,
-            isAvailable: true,
-          ),
-          Producto.crear(
-            nombre: 'Café Americano',
-            precio: 25.00,
-            descripcion: 'Café de olla tradicional',
-            categoria: 'Bebidas',
-            esBuffet: true,
-            destino: DestinoProducto.barra,
-            destinoId: barraId,
-            isAvailable: true,
-          ),
-        ];
-
-        for (final producto in productosEjemplo) {
-          await _isar!.productos.put(producto);
-        }
-      });
-      
-      debugPrint('Productos de ejemplo creados correctamente');
     }
 
     // Crear configuración de buffet por defecto

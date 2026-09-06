@@ -26,14 +26,16 @@ const CarritoQrMesaSchema = CollectionSchema(
       id: 1,
       name: r'items',
       type: IsarType.objectList,
+
       target: r'ItemCarritoQr',
     ),
     r'mesaNumero': PropertySchema(
       id: 2,
       name: r'mesaNumero',
       type: IsarType.long,
-    )
+    ),
   },
+
   estimateSize: _carritoQrMesaEstimateSize,
   serialize: _carritoQrMesaSerialize,
   deserialize: _carritoQrMesaDeserialize,
@@ -50,16 +52,17 @@ const CarritoQrMesaSchema = CollectionSchema(
           name: r'mesaNumero',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {r'ItemCarritoQr': ItemCarritoQrSchema},
+
   getId: _carritoQrMesaGetId,
   getLinks: _carritoQrMesaGetLinks,
   attach: _carritoQrMesaAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _carritoQrMesaEstimateSize(
@@ -73,8 +76,11 @@ int _carritoQrMesaEstimateSize(
     final offsets = allOffsets[ItemCarritoQr]!;
     for (var i = 0; i < object.items.length; i++) {
       final value = object.items[i];
-      bytesCount +=
-          ItemCarritoQrSchema.estimateSize(value, offsets, allOffsets);
+      bytesCount += ItemCarritoQrSchema.estimateSize(
+        value,
+        offsets,
+        allOffsets,
+      );
     }
   }
   return bytesCount;
@@ -105,7 +111,8 @@ CarritoQrMesa _carritoQrMesaDeserialize(
   final object = CarritoQrMesa();
   object.fechaActualizacion = reader.readDateTime(offsets[0]);
   object.id = id;
-  object.items = reader.readObjectList<ItemCarritoQr>(
+  object.items =
+      reader.readObjectList<ItemCarritoQr>(
         offsets[1],
         ItemCarritoQrSchema.deserialize,
         allOffsets,
@@ -127,12 +134,13 @@ P _carritoQrMesaDeserializeProp<P>(
       return (reader.readDateTime(offset)) as P;
     case 1:
       return (reader.readObjectList<ItemCarritoQr>(
-            offset,
-            ItemCarritoQrSchema.deserialize,
-            allOffsets,
-            ItemCarritoQr(),
-          ) ??
-          []) as P;
+                offset,
+                ItemCarritoQrSchema.deserialize,
+                allOffsets,
+                ItemCarritoQr(),
+              ) ??
+              [])
+          as P;
     case 2:
       return (reader.readLong(offset)) as P;
     default:
@@ -149,7 +157,10 @@ List<IsarLinkBase<dynamic>> _carritoQrMesaGetLinks(CarritoQrMesa object) {
 }
 
 void _carritoQrMesaAttach(
-    IsarCollection<dynamic> col, Id id, CarritoQrMesa object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  CarritoQrMesa object,
+) {
   object.id = id;
 }
 
@@ -202,8 +213,10 @@ extension CarritoQrMesaByIndex on IsarCollection<CarritoQrMesa> {
     return putAllByIndex(r'mesaNumero', objects);
   }
 
-  List<Id> putAllByMesaNumeroSync(List<CarritoQrMesa> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByMesaNumeroSync(
+    List<CarritoQrMesa> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'mesaNumero', objects, saveLinks: saveLinks);
   }
 }
@@ -228,17 +241,16 @@ extension CarritoQrMesaQueryWhereSort
 extension CarritoQrMesaQueryWhere
     on QueryBuilder<CarritoQrMesa, CarritoQrMesa, QWhereClause> {
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause> idEqualTo(
-      Id id) {
+    Id id,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause> idNotEqualTo(
-      Id id) {
+    Id id,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -261,8 +273,9 @@ extension CarritoQrMesaQueryWhere
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause> idGreaterThan(
-      Id id,
-      {bool include = false}) {
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -271,8 +284,9 @@ extension CarritoQrMesaQueryWhere
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause> idLessThan(
-      Id id,
-      {bool include = false}) {
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -287,105 +301,114 @@ extension CarritoQrMesaQueryWhere
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause>
-      mesaNumeroEqualTo(int mesaNumero) {
+  mesaNumeroEqualTo(int mesaNumero) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'mesaNumero',
-        value: [mesaNumero],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'mesaNumero', value: [mesaNumero]),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause>
-      mesaNumeroNotEqualTo(int mesaNumero) {
+  mesaNumeroNotEqualTo(int mesaNumero) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'mesaNumero',
-              lower: [],
-              upper: [mesaNumero],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'mesaNumero',
-              lower: [mesaNumero],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mesaNumero',
+                lower: [],
+                upper: [mesaNumero],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mesaNumero',
+                lower: [mesaNumero],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'mesaNumero',
-              lower: [mesaNumero],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'mesaNumero',
-              lower: [],
-              upper: [mesaNumero],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mesaNumero',
+                lower: [mesaNumero],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mesaNumero',
+                lower: [],
+                upper: [mesaNumero],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause>
-      mesaNumeroGreaterThan(
-    int mesaNumero, {
-    bool include = false,
-  }) {
+  mesaNumeroGreaterThan(int mesaNumero, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'mesaNumero',
-        lower: [mesaNumero],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mesaNumero',
+          lower: [mesaNumero],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause>
-      mesaNumeroLessThan(
-    int mesaNumero, {
-    bool include = false,
-  }) {
+  mesaNumeroLessThan(int mesaNumero, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'mesaNumero',
-        lower: [],
-        upper: [mesaNumero],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mesaNumero',
+          lower: [],
+          upper: [mesaNumero],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterWhereClause>
-      mesaNumeroBetween(
+  mesaNumeroBetween(
     int lowerMesaNumero,
     int upperMesaNumero, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'mesaNumero',
-        lower: [lowerMesaNumero],
-        includeLower: includeLower,
-        upper: [upperMesaNumero],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mesaNumero',
+          lower: [lowerMesaNumero],
+          includeLower: includeLower,
+          upper: [upperMesaNumero],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -393,99 +416,97 @@ extension CarritoQrMesaQueryWhere
 extension CarritoQrMesaQueryFilter
     on QueryBuilder<CarritoQrMesa, CarritoQrMesa, QFilterCondition> {
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      fechaActualizacionEqualTo(DateTime value) {
+  fechaActualizacionEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fechaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fechaActualizacion', value: value),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      fechaActualizacionGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaActualizacionGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fechaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fechaActualizacion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      fechaActualizacionLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaActualizacionLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fechaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fechaActualizacion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      fechaActualizacionBetween(
+  fechaActualizacionBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fechaActualizacion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fechaActualizacion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition> idIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      idIsNotNull() {
+  idIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition> idEqualTo(
-      Id? value) {
+    Id? value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      idGreaterThan(
-    Id? value, {
-    bool include = false,
-  }) {
+  idGreaterThan(Id? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -494,11 +515,13 @@ extension CarritoQrMesaQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -509,89 +532,55 @@ extension CarritoQrMesaQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
-    });
-  }
-
-  QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      itemsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'items',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
       );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      itemsIsEmpty() {
+  itemsLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'items',
-        0,
-        true,
-        0,
-        true,
-      );
+      return query.listLength(r'items', length, true, length, true);
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      itemsIsNotEmpty() {
+  itemsIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'items',
-        0,
-        false,
-        999999,
-        true,
-      );
+      return query.listLength(r'items', 0, true, 0, true);
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      itemsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  itemsIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'items',
-        0,
-        true,
-        length,
-        include,
-      );
+      return query.listLength(r'items', 0, false, 999999, true);
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      itemsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  itemsLengthLessThan(int length, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'items',
-        length,
-        include,
-        999999,
-        true,
-      );
+      return query.listLength(r'items', 0, true, length, include);
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      itemsLengthBetween(
+  itemsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'items', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
+  itemsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -609,58 +598,57 @@ extension CarritoQrMesaQueryFilter
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      mesaNumeroEqualTo(int value) {
+  mesaNumeroEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'mesaNumero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'mesaNumero', value: value),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      mesaNumeroGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  mesaNumeroGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'mesaNumero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'mesaNumero',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      mesaNumeroLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  mesaNumeroLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'mesaNumero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'mesaNumero',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      mesaNumeroBetween(
+  mesaNumeroBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'mesaNumero',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'mesaNumero',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -668,7 +656,7 @@ extension CarritoQrMesaQueryFilter
 extension CarritoQrMesaQueryObject
     on QueryBuilder<CarritoQrMesa, CarritoQrMesa, QFilterCondition> {
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterFilterCondition>
-      itemsElement(FilterQuery<ItemCarritoQr> q) {
+  itemsElement(FilterQuery<ItemCarritoQr> q) {
     return QueryBuilder.apply(this, (query) {
       return query.object(q, r'items');
     });
@@ -681,14 +669,14 @@ extension CarritoQrMesaQueryLinks
 extension CarritoQrMesaQuerySortBy
     on QueryBuilder<CarritoQrMesa, CarritoQrMesa, QSortBy> {
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterSortBy>
-      sortByFechaActualizacion() {
+  sortByFechaActualizacion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaActualizacion', Sort.asc);
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterSortBy>
-      sortByFechaActualizacionDesc() {
+  sortByFechaActualizacionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaActualizacion', Sort.desc);
     });
@@ -701,7 +689,7 @@ extension CarritoQrMesaQuerySortBy
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterSortBy>
-      sortByMesaNumeroDesc() {
+  sortByMesaNumeroDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mesaNumero', Sort.desc);
     });
@@ -711,14 +699,14 @@ extension CarritoQrMesaQuerySortBy
 extension CarritoQrMesaQuerySortThenBy
     on QueryBuilder<CarritoQrMesa, CarritoQrMesa, QSortThenBy> {
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterSortBy>
-      thenByFechaActualizacion() {
+  thenByFechaActualizacion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaActualizacion', Sort.asc);
     });
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterSortBy>
-      thenByFechaActualizacionDesc() {
+  thenByFechaActualizacionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaActualizacion', Sort.desc);
     });
@@ -743,7 +731,7 @@ extension CarritoQrMesaQuerySortThenBy
   }
 
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QAfterSortBy>
-      thenByMesaNumeroDesc() {
+  thenByMesaNumeroDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mesaNumero', Sort.desc);
     });
@@ -753,7 +741,7 @@ extension CarritoQrMesaQuerySortThenBy
 extension CarritoQrMesaQueryWhereDistinct
     on QueryBuilder<CarritoQrMesa, CarritoQrMesa, QDistinct> {
   QueryBuilder<CarritoQrMesa, CarritoQrMesa, QDistinct>
-      distinctByFechaActualizacion() {
+  distinctByFechaActualizacion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'fechaActualizacion');
     });
@@ -775,14 +763,14 @@ extension CarritoQrMesaQueryProperty
   }
 
   QueryBuilder<CarritoQrMesa, DateTime, QQueryOperations>
-      fechaActualizacionProperty() {
+  fechaActualizacionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'fechaActualizacion');
     });
   }
 
   QueryBuilder<CarritoQrMesa, List<ItemCarritoQr>, QQueryOperations>
-      itemsProperty() {
+  itemsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'items');
     });
@@ -806,11 +794,7 @@ const ItemCarritoQrSchema = Schema(
   name: r'ItemCarritoQr',
   id: 4876290624810911542,
   properties: {
-    r'cantidad': PropertySchema(
-      id: 0,
-      name: r'cantidad',
-      type: IsarType.long,
-    ),
+    r'cantidad': PropertySchema(id: 0, name: r'cantidad', type: IsarType.long),
     r'destinoId': PropertySchema(
       id: 1,
       name: r'destinoId',
@@ -835,8 +819,9 @@ const ItemCarritoQrSchema = Schema(
       id: 5,
       name: r'productoId',
       type: IsarType.long,
-    )
+    ),
   },
+
   estimateSize: _itemCarritoQrEstimateSize,
   serialize: _itemCarritoQrSerialize,
   deserialize: _itemCarritoQrDeserialize,
@@ -916,201 +901,202 @@ P _itemCarritoQrDeserializeProp<P>(
 extension ItemCarritoQrQueryFilter
     on QueryBuilder<ItemCarritoQr, ItemCarritoQr, QFilterCondition> {
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      cantidadEqualTo(int value) {
+  cantidadEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'cantidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'cantidad', value: value),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      cantidadGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  cantidadGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'cantidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'cantidad',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      cantidadLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  cantidadLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'cantidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'cantidad',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      cantidadBetween(
+  cantidadBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'cantidad',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'cantidad',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      destinoIdIsNull() {
+  destinoIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'destinoId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'destinoId'),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      destinoIdIsNotNull() {
+  destinoIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'destinoId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'destinoId'),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      destinoIdEqualTo(int? value) {
+  destinoIdEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'destinoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'destinoId', value: value),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      destinoIdGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  destinoIdGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'destinoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'destinoId',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      destinoIdLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  destinoIdLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'destinoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'destinoId',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      destinoIdBetween(
+  destinoIdBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'destinoId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'destinoId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoIsNull() {
+  nombreDestinoIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'nombreDestino',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'nombreDestino'),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoIsNotNull() {
+  nombreDestinoIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'nombreDestino',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'nombreDestino'),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  nombreDestinoEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreDestino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'nombreDestino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'nombreDestino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoLessThan(
+  nombreDestinoGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'nombreDestino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'nombreDestino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoBetween(
+  nombreDestinoLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'nombreDestino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
+  nombreDestinoBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1118,135 +1104,140 @@ extension ItemCarritoQrQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'nombreDestino',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'nombreDestino',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreDestinoStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'nombreDestino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'nombreDestino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreDestinoEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'nombreDestino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'nombreDestino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoContains(String value, {bool caseSensitive = true}) {
+  nombreDestinoContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'nombreDestino',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'nombreDestino',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoMatches(String pattern, {bool caseSensitive = true}) {
+  nombreDestinoMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'nombreDestino',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'nombreDestino',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoIsEmpty() {
+  nombreDestinoIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreDestino',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'nombreDestino', value: ''),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreDestinoIsNotEmpty() {
+  nombreDestinoIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'nombreDestino',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'nombreDestino', value: ''),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreProductoEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoLessThan(
+  nombreProductoGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoBetween(
+  nombreProductoLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
+  nombreProductoBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1254,135 +1245,143 @@ extension ItemCarritoQrQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'nombreProducto',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'nombreProducto',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreProductoStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreProductoEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoContains(String value, {bool caseSensitive = true}) {
+  nombreProductoContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoMatches(String pattern, {bool caseSensitive = true}) {
+  nombreProductoMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'nombreProducto',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'nombreProducto',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoIsEmpty() {
+  nombreProductoIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreProducto',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'nombreProducto', value: ''),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      nombreProductoIsNotEmpty() {
+  nombreProductoIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'nombreProducto',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'nombreProducto', value: ''),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      precioUnitarioEqualTo(
-    double value, {
-    double epsilon = Query.epsilon,
-  }) {
+  precioUnitarioEqualTo(double value, {double epsilon = Query.epsilon}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'precioUnitario',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'precioUnitario',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      precioUnitarioGreaterThan(
-    double value, {
-    bool include = false,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'precioUnitario',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      precioUnitarioLessThan(
+  precioUnitarioGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'precioUnitario',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'precioUnitario',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      precioUnitarioBetween(
+  precioUnitarioLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'precioUnitario',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
+  precioUnitarioBetween(
     double lower,
     double upper, {
     bool includeLower = true,
@@ -1390,70 +1389,72 @@ extension ItemCarritoQrQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'precioUnitario',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'precioUnitario',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      productoIdEqualTo(int value) {
+  productoIdEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'productoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'productoId', value: value),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      productoIdGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  productoIdGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'productoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'productoId',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      productoIdLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  productoIdLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'productoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'productoId',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemCarritoQr, ItemCarritoQr, QAfterFilterCondition>
-      productoIdBetween(
+  productoIdBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'productoId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'productoId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }

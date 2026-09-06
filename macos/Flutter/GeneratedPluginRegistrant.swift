@@ -7,7 +7,7 @@ import Foundation
 
 import device_info_plus
 import file_picker
-import isar_flutter_libs
+import isar_community_flutter_libs
 import network_info_plus
 import printing
 import shared_preferences_foundation

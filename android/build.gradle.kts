@@ -21,10 +21,10 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Forzar compileSdk del plugin isar_flutter_libs (su build.gradle fija compileSdkVersion 30)
+// Forzar compileSdk del plugin isar_community_flutter_libs (compileSdkVersion antiguo)
 gradle.beforeProject(
     org.gradle.api.Action<Project> {
-        if (name != "isar_flutter_libs") return@Action
+        if (name != "isar_community_flutter_libs") return@Action
 
         afterEvaluate {
             val androidExt = extensions.findByName("android") ?: return@afterEvaluate
@@ -47,7 +47,7 @@ gradle.beforeProject(
 
             if (!ok) {
                 throw GradleException(
-                    "No se pudo forzar compileSdk en ${project.path} (isar_flutter_libs). " +
+                    "No se pudo forzar compileSdk en ${project.path} (isar_community_flutter_libs). " +
                         "Clase androidExt: ${androidExt.javaClass.name}",
                 )
             }

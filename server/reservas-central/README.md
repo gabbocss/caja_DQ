@@ -74,6 +74,29 @@ Debe devolver JSON con `"endpoints"` y `"reservas": "/api/reservas"`.
 
 Tras desplegar, reinicia: `pm2 restart reservas-central`.
 
+## Lista de la compra (móvil)
+
+Endpoints adicionales (JSON en `data/lista_compra.json`):
+
+- `GET /api/lista-compra`
+- `POST /api/lista-compra` (crear/editar: `{ nombre, cantidad?, hayQueComprar?, comprado?, id? }`)
+- `PUT /api/lista-compra/:id`
+- `POST /api/lista-compra/vaciar-compra` — resetea `hayQueComprar`/`comprado`; **no borra el catálogo**
+- `POST /api/lista-compra/reordenar` — `{ "ids": [3,1,2] }` fija el orden del catálogo
+- `GET /api/lista-compra/precios` — precios por producto/súper (`?productoId=&supermercadoId=`)
+- `POST /api/lista-compra/precios` — `{ productoId, supermercadoId, precioEnvase, contenidoCantidad, contenidoUnidad }` → calcula `precioPorBase`
+- `DELETE /api/lista-compra/precios/:id`
+- Producto admite `unidadBase` (`kilo`|`litro`|`unidad`), `contenidoCantidad`, `contenidoUnidad`, `cantidadMinima` (envases a comprar, default 1)
+- `DELETE /api/lista-compra/:id` (solo mantenimiento; la app móvil no lo usa al vaciar)
+
+### Supermercados
+
+- `GET /api/supermercados`
+- `POST /api/supermercados` (`{ nombre, id?, orden? }`)
+- `POST /api/supermercados/reordenar` — `{ "ids": [...] }`
+- `PUT/DELETE /api/supermercados/:id`
+- Datos en `data/supermercados.json` (IDs listos para asignar productos más adelante)
+
 ## PM2 útiles
 
 ```bash

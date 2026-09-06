@@ -10,6 +10,7 @@ import '../../features/cocina/data/repositories/cocina_repository_impl.dart';
 import '../../features/cocina/data/repositories/cocina_repository_api.dart';
 import '../services/reserva_sync_service.dart';
 import '../services/reserva_vps_polling_service.dart';
+import '../utils/platform_utils.dart';
 import '../../features/caja/data/caja_service.dart' if (dart.library.html) '../../features/caja/data/caja_service_stub.dart';
 
 /// Contenedor de inyección de dependencias usando GetIt
@@ -103,9 +104,11 @@ Future<void> initializeAsyncServices() async {
     }
   }
 
-  // Caja: descargar reservas del servidor 24/7 → Isar + reservas_backup.json
+  // Reservas desde el servidor 24/7. El catálogo al VPS solo lo publica el escritorio.
   if (sl.isRegistered<DatabaseService>()) {
-    final sync = await ReservaSyncService.instance.sincronizarAlInicio();
+    final sync = PlatformUtils.isMobile
+        ? await ReservaSyncService.instance.sincronizarSoloReservasAlInicio()
+        : await ReservaSyncService.instance.sincronizarAlInicio();
     if (!sync.exito && sync.usoBackupLocal) {
       debugPrint(
         'Reservas: modo degradado (${sync.descargadas} en backup local).',

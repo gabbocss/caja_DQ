@@ -4,6 +4,7 @@ import '../database/database_service.dart';
 import '../models/reserva.dart';
 import '../network/api_client.dart';
 import '../prefs/reservas_central_prefs.dart';
+import '../utils/platform_utils.dart';
 import 'reserva_persistence_service.dart';
 
 /// Resultado de una sincronización con el servidor central 24/7.
@@ -23,7 +24,9 @@ class ReservaSyncResult {
   });
 }
 
-/// Descarga reservas del servidor remoto y sube el catálogo desde la caja (Isar).
+/// Descarga reservas del servidor remoto.
+///
+/// La subida del catálogo al VPS solo está permitida desde escritorio (caja).
 class ReservaSyncService {
   static final ReservaSyncService instance = ReservaSyncService._();
   ReservaSyncService._();
@@ -31,8 +34,15 @@ class ReservaSyncService {
   final ReservaPersistenceService _persistencia =
       ReservaPersistenceService.instance;
 
-  /// Sincroniza al arrancar la caja (martes por la mañana, etc.).
+  /// Sincroniza al arrancar.
+  ///
+  /// En móvil solo descarga reservas (nunca publica el menú).
+  /// En escritorio puede subir el catálogo local y luego bajar reservas.
   Future<ReservaSyncResult> sincronizarAlInicio() async {
+    if (PlatformUtils.isMobile) {
+      return sincronizarSoloReservasAlInicio();
+    }
+
     final url = await getReservasCentralUrlEfectiva();
     if (url == null || url.isEmpty) {
       debugPrint(
@@ -80,8 +90,9 @@ class ReservaSyncService {
     }
   }
 
-  /// Sube el catálogo de Isar al VPS usando la URL configurada.
+  /// Sube el catálogo de Isar al VPS usando la URL configurada (solo escritorio).
   Future<int> subirCatalogoAlVpsDesdePrefs() async {
+    _asegurarEscritorioPuedeSubirCatalogo();
     final url = await getReservasCentralUrlEfectiva();
     if (url == null || url.isEmpty) {
       throw Exception(
@@ -93,10 +104,12 @@ class ReservaSyncService {
     return n;
   }
 
-  /// Sube todos los productos de Isar al VPS y descarga reservas pendientes.
+  /// En escritorio: sube catálogo y descarga reservas.
+  /// En móvil/web: solo descarga reservas (sin tocar el menú del VPS).
   Future<ReservaSyncResult> sincronizarDesdeRemoto(String baseUrl) async {
     var productosSubidos = 0;
     String? errorCatalogo;
+    final puedeSubirCatalogo = PlatformUtils.isDesktop;
 
     try {
       final client = ApiClient(baseUrl);
@@ -108,12 +121,19 @@ class ReservaSyncService {
         );
       }
 
-      try {
-        productosSubidos = await subirCatalogoProductosAlVps(baseUrl, client: client);
-        debugPrint('✅ Catálogo subido al VPS: $productosSubidos productos');
-      } catch (e, st) {
-        errorCatalogo = 'Catálogo: $e';
-        debugPrint('⚠️ Fallo subida catálogo al VPS: $e\n$st');
+      if (puedeSubirCatalogo) {
+        try {
+          productosSubidos =
+              await subirCatalogoProductosAlVps(baseUrl, client: client);
+          debugPrint('✅ Catálogo subido al VPS: $productosSubidos productos');
+        } catch (e, st) {
+          errorCatalogo = 'Catálogo: $e';
+          debugPrint('⚠️ Fallo subida catálogo al VPS: $e\n$st');
+        }
+      } else {
+        debugPrint(
+          'Catálogo: omitida subida al VPS (solo escritorio puede publicarlo).',
+        );
       }
 
       final remotas = await client.obtenerReservasPendientes();
@@ -185,10 +205,12 @@ class ReservaSyncService {
   }
 
   /// Lee productos de Isar y los publica en el servidor central (POST /api/productos).
+  /// Solo permitido desde escritorio (caja).
   Future<int> subirCatalogoProductosAlVps(
     String baseUrl, {
     ApiClient? client,
   }) async {
+    _asegurarEscritorioPuedeSubirCatalogo();
     final productos = await DatabaseService.instance.obtenerProductos();
     final ownClient = client ?? ApiClient(baseUrl);
     final disposeOwn = client == null;
@@ -196,6 +218,14 @@ class ReservaSyncService {
       return await ownClient.subirCatalogoProductos(productos);
     } finally {
       if (disposeOwn) ownClient.dispose();
+    }
+  }
+
+  void _asegurarEscritorioPuedeSubirCatalogo() {
+    if (!PlatformUtils.isDesktop) {
+      throw Exception(
+        'Solo la caja de escritorio puede subir el catálogo al VPS.',
+      );
     }
   }
 }

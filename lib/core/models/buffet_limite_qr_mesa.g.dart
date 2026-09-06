@@ -37,8 +37,9 @@ const BuffetLimiteQrMesaSchema = CollectionSchema(
       id: 3,
       name: r'ventanaIdActual',
       type: IsarType.long,
-    )
+    ),
   },
+
   estimateSize: _buffetLimiteQrMesaEstimateSize,
   serialize: _buffetLimiteQrMesaSerialize,
   deserialize: _buffetLimiteQrMesaDeserialize,
@@ -55,16 +56,17 @@ const BuffetLimiteQrMesaSchema = CollectionSchema(
           name: r'mesaNumero',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _buffetLimiteQrMesaGetId,
   getLinks: _buffetLimiteQrMesaGetLinks,
   attach: _buffetLimiteQrMesaAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _buffetLimiteQrMesaEstimateSize(
@@ -130,12 +132,16 @@ Id _buffetLimiteQrMesaGetId(BuffetLimiteQrMesa object) {
 }
 
 List<IsarLinkBase<dynamic>> _buffetLimiteQrMesaGetLinks(
-    BuffetLimiteQrMesa object) {
+  BuffetLimiteQrMesa object,
+) {
   return [];
 }
 
 void _buffetLimiteQrMesaAttach(
-    IsarCollection<dynamic> col, Id id, BuffetLimiteQrMesa object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  BuffetLimiteQrMesa object,
+) {
   object.id = id;
 }
 
@@ -157,7 +163,8 @@ extension BuffetLimiteQrMesaByIndex on IsarCollection<BuffetLimiteQrMesa> {
   }
 
   Future<List<BuffetLimiteQrMesa?>> getAllByMesaNumero(
-      List<int> mesaNumeroValues) {
+    List<int> mesaNumeroValues,
+  ) {
     final values = mesaNumeroValues.map((e) => [e]).toList();
     return getAllByIndex(r'mesaNumero', values);
   }
@@ -189,8 +196,10 @@ extension BuffetLimiteQrMesaByIndex on IsarCollection<BuffetLimiteQrMesa> {
     return putAllByIndex(r'mesaNumero', objects);
   }
 
-  List<Id> putAllByMesaNumeroSync(List<BuffetLimiteQrMesa> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByMesaNumeroSync(
+    List<BuffetLimiteQrMesa> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'mesaNumero', objects, saveLinks: saveLinks);
   }
 }
@@ -204,7 +213,7 @@ extension BuffetLimiteQrMesaQueryWhereSort
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhere>
-      anyMesaNumero() {
+  anyMesaNumero() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'mesaNumero'),
@@ -216,17 +225,14 @@ extension BuffetLimiteQrMesaQueryWhereSort
 extension BuffetLimiteQrMesaQueryWhere
     on QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QWhereClause> {
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      idEqualTo(Id id) {
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -249,7 +255,7 @@ extension BuffetLimiteQrMesaQueryWhere
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -258,7 +264,7 @@ extension BuffetLimiteQrMesaQueryWhere
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -267,112 +273,121 @@ extension BuffetLimiteQrMesaQueryWhere
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      idBetween(
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      mesaNumeroEqualTo(int mesaNumero) {
+  mesaNumeroEqualTo(int mesaNumero) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'mesaNumero',
-        value: [mesaNumero],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'mesaNumero', value: [mesaNumero]),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      mesaNumeroNotEqualTo(int mesaNumero) {
+  mesaNumeroNotEqualTo(int mesaNumero) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'mesaNumero',
-              lower: [],
-              upper: [mesaNumero],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'mesaNumero',
-              lower: [mesaNumero],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mesaNumero',
+                lower: [],
+                upper: [mesaNumero],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mesaNumero',
+                lower: [mesaNumero],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'mesaNumero',
-              lower: [mesaNumero],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'mesaNumero',
-              lower: [],
-              upper: [mesaNumero],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mesaNumero',
+                lower: [mesaNumero],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mesaNumero',
+                lower: [],
+                upper: [mesaNumero],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      mesaNumeroGreaterThan(
-    int mesaNumero, {
-    bool include = false,
-  }) {
+  mesaNumeroGreaterThan(int mesaNumero, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'mesaNumero',
-        lower: [mesaNumero],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mesaNumero',
+          lower: [mesaNumero],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      mesaNumeroLessThan(
-    int mesaNumero, {
-    bool include = false,
-  }) {
+  mesaNumeroLessThan(int mesaNumero, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'mesaNumero',
-        lower: [],
-        upper: [mesaNumero],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mesaNumero',
+          lower: [],
+          upper: [mesaNumero],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterWhereClause>
-      mesaNumeroBetween(
+  mesaNumeroBetween(
     int lowerMesaNumero,
     int upperMesaNumero, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'mesaNumero',
-        lower: [lowerMesaNumero],
-        includeLower: includeLower,
-        upper: [upperMesaNumero],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mesaNumero',
+          lower: [lowerMesaNumero],
+          includeLower: includeLower,
+          upper: [upperMesaNumero],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -380,267 +395,272 @@ extension BuffetLimiteQrMesaQueryWhere
 extension BuffetLimiteQrMesaQueryFilter
     on QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QFilterCondition> {
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      fechaUltimoEnvioQrIsNull() {
+  fechaUltimoEnvioQrIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'fechaUltimoEnvioQr',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'fechaUltimoEnvioQr'),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      fechaUltimoEnvioQrIsNotNull() {
+  fechaUltimoEnvioQrIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'fechaUltimoEnvioQr',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'fechaUltimoEnvioQr'),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      fechaUltimoEnvioQrEqualTo(DateTime? value) {
+  fechaUltimoEnvioQrEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fechaUltimoEnvioQr',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fechaUltimoEnvioQr', value: value),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      fechaUltimoEnvioQrGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  fechaUltimoEnvioQrGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fechaUltimoEnvioQr',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fechaUltimoEnvioQr',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      fechaUltimoEnvioQrLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  fechaUltimoEnvioQrLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fechaUltimoEnvioQr',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fechaUltimoEnvioQr',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      fechaUltimoEnvioQrBetween(
+  fechaUltimoEnvioQrBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fechaUltimoEnvioQr',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fechaUltimoEnvioQr',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      idIsNull() {
+  idIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      idIsNotNull() {
+  idIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      idEqualTo(Id? value) {
+  idEqualTo(Id? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      idGreaterThan(
-    Id? value, {
-    bool include = false,
-  }) {
+  idGreaterThan(Id? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      idLessThan(
-    Id? value, {
-    bool include = false,
-  }) {
+  idLessThan(Id? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      idBetween(
+  idBetween(
     Id? lower,
     Id? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      mesaNumeroEqualTo(int value) {
+  mesaNumeroEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'mesaNumero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'mesaNumero', value: value),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      mesaNumeroGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  mesaNumeroGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'mesaNumero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'mesaNumero',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      mesaNumeroLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  mesaNumeroLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'mesaNumero',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'mesaNumero',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      mesaNumeroBetween(
+  mesaNumeroBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'mesaNumero',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'mesaNumero',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaElementEqualTo(int value) {
+  productosDistintosEnviadosEnVentanaElementEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'productosDistintosEnviadosEnVentana',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'productosDistintosEnviadosEnVentana',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaElementGreaterThan(
+  productosDistintosEnviadosEnVentanaElementGreaterThan(
     int value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'productosDistintosEnviadosEnVentana',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'productosDistintosEnviadosEnVentana',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaElementLessThan(
+  productosDistintosEnviadosEnVentanaElementLessThan(
     int value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'productosDistintosEnviadosEnVentana',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'productosDistintosEnviadosEnVentana',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaElementBetween(
+  productosDistintosEnviadosEnVentanaElementBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'productosDistintosEnviadosEnVentana',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'productosDistintosEnviadosEnVentana',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaLengthEqualTo(int length) {
+  productosDistintosEnviadosEnVentanaLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'productosDistintosEnviadosEnVentana',
@@ -653,7 +673,7 @@ extension BuffetLimiteQrMesaQueryFilter
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaIsEmpty() {
+  productosDistintosEnviadosEnVentanaIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'productosDistintosEnviadosEnVentana',
@@ -666,7 +686,7 @@ extension BuffetLimiteQrMesaQueryFilter
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaIsNotEmpty() {
+  productosDistintosEnviadosEnVentanaIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'productosDistintosEnviadosEnVentana',
@@ -679,7 +699,7 @@ extension BuffetLimiteQrMesaQueryFilter
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaLengthLessThan(
+  productosDistintosEnviadosEnVentanaLengthLessThan(
     int length, {
     bool include = false,
   }) {
@@ -695,7 +715,7 @@ extension BuffetLimiteQrMesaQueryFilter
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaLengthGreaterThan(
+  productosDistintosEnviadosEnVentanaLengthGreaterThan(
     int length, {
     bool include = false,
   }) {
@@ -711,7 +731,7 @@ extension BuffetLimiteQrMesaQueryFilter
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      productosDistintosEnviadosEnVentanaLengthBetween(
+  productosDistintosEnviadosEnVentanaLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -729,58 +749,57 @@ extension BuffetLimiteQrMesaQueryFilter
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      ventanaIdActualEqualTo(int value) {
+  ventanaIdActualEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ventanaIdActual',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'ventanaIdActual', value: value),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      ventanaIdActualGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  ventanaIdActualGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'ventanaIdActual',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'ventanaIdActual',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      ventanaIdActualLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  ventanaIdActualLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'ventanaIdActual',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'ventanaIdActual',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterFilterCondition>
-      ventanaIdActualBetween(
+  ventanaIdActualBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'ventanaIdActual',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'ventanaIdActual',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -794,42 +813,42 @@ extension BuffetLimiteQrMesaQueryLinks
 extension BuffetLimiteQrMesaQuerySortBy
     on QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QSortBy> {
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      sortByFechaUltimoEnvioQr() {
+  sortByFechaUltimoEnvioQr() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaUltimoEnvioQr', Sort.asc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      sortByFechaUltimoEnvioQrDesc() {
+  sortByFechaUltimoEnvioQrDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaUltimoEnvioQr', Sort.desc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      sortByMesaNumero() {
+  sortByMesaNumero() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mesaNumero', Sort.asc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      sortByMesaNumeroDesc() {
+  sortByMesaNumeroDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mesaNumero', Sort.desc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      sortByVentanaIdActual() {
+  sortByVentanaIdActual() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'ventanaIdActual', Sort.asc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      sortByVentanaIdActualDesc() {
+  sortByVentanaIdActualDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'ventanaIdActual', Sort.desc);
     });
@@ -839,56 +858,56 @@ extension BuffetLimiteQrMesaQuerySortBy
 extension BuffetLimiteQrMesaQuerySortThenBy
     on QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QSortThenBy> {
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      thenByFechaUltimoEnvioQr() {
+  thenByFechaUltimoEnvioQr() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaUltimoEnvioQr', Sort.asc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      thenByFechaUltimoEnvioQrDesc() {
+  thenByFechaUltimoEnvioQrDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaUltimoEnvioQr', Sort.desc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      thenById() {
+  thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      thenByMesaNumero() {
+  thenByMesaNumero() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mesaNumero', Sort.asc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      thenByMesaNumeroDesc() {
+  thenByMesaNumeroDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mesaNumero', Sort.desc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      thenByVentanaIdActual() {
+  thenByVentanaIdActual() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'ventanaIdActual', Sort.asc);
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QAfterSortBy>
-      thenByVentanaIdActualDesc() {
+  thenByVentanaIdActualDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'ventanaIdActual', Sort.desc);
     });
@@ -898,28 +917,28 @@ extension BuffetLimiteQrMesaQuerySortThenBy
 extension BuffetLimiteQrMesaQueryWhereDistinct
     on QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QDistinct> {
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QDistinct>
-      distinctByFechaUltimoEnvioQr() {
+  distinctByFechaUltimoEnvioQr() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'fechaUltimoEnvioQr');
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QDistinct>
-      distinctByMesaNumero() {
+  distinctByMesaNumero() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'mesaNumero');
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QDistinct>
-      distinctByProductosDistintosEnviadosEnVentana() {
+  distinctByProductosDistintosEnviadosEnVentana() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'productosDistintosEnviadosEnVentana');
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, BuffetLimiteQrMesa, QDistinct>
-      distinctByVentanaIdActual() {
+  distinctByVentanaIdActual() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'ventanaIdActual');
     });
@@ -935,7 +954,7 @@ extension BuffetLimiteQrMesaQueryProperty
   }
 
   QueryBuilder<BuffetLimiteQrMesa, DateTime?, QQueryOperations>
-      fechaUltimoEnvioQrProperty() {
+  fechaUltimoEnvioQrProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'fechaUltimoEnvioQr');
     });
@@ -948,14 +967,14 @@ extension BuffetLimiteQrMesaQueryProperty
   }
 
   QueryBuilder<BuffetLimiteQrMesa, List<int>, QQueryOperations>
-      productosDistintosEnviadosEnVentanaProperty() {
+  productosDistintosEnviadosEnVentanaProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'productosDistintosEnviadosEnVentana');
     });
   }
 
   QueryBuilder<BuffetLimiteQrMesa, int, QQueryOperations>
-      ventanaIdActualProperty() {
+  ventanaIdActualProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'ventanaIdActual');
     });

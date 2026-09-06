@@ -5,6 +5,13 @@ abstract final class ApiEndpoints {
   static const String reservasMarcarSincronizadas =
       '/api/reservas/marcar-sincronizadas';
   static const String productos = '/api/productos';
+  static const String listaCompra = '/api/lista-compra';
+  static const String listaCompraVaciarCompra =
+      '/api/lista-compra/vaciar-compra';
+  static const String listaCompraReordenar = '/api/lista-compra/reordenar';
+  static const String listaCompraPrecios = '/api/lista-compra/precios';
+  static const String supermercados = '/api/supermercados';
+  static const String supermercadosReordenar = '/api/supermercados/reordenar';
   static const String health = '/health';
   static const String healthApi = '/api/health';
 
@@ -32,4 +39,13 @@ abstract final class ApiEndpoints {
 
   static Uri reservasEstado(String baseUrl, int id) =>
       uri(baseUrl, '/api/reservas/$id/estado');
+
+  static Uri listaCompraItem(String baseUrl, int id) =>
+      uri(baseUrl, '/api/lista-compra/$id');
+
+  static Uri listaCompraPrecioItem(String baseUrl, int id) =>
+      uri(baseUrl, '/api/lista-compra/precios/$id');
+
+  static Uri supermercadoItem(String baseUrl, int id) =>
+      uri(baseUrl, '/api/supermercados/$id');
 }

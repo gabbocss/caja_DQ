@@ -99,7 +99,7 @@ cd programa_caja
 flutter pub get
 
 # Generar código de Isar
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build --force-jit --delete-conflicting-outputs
 
 # Ejecutar en modo debug
 flutter run
@@ -158,7 +158,7 @@ El sistema soporta impresoras térmicas vía:
 
 ## 📋 Dependencias Principales
 
-- `isar`: Base de datos local NoSQL
+- `isar_community`: Base de datos local NoSQL (fork comunitario de Isar 3.3)
 - `shelf`: Servidor HTTP
 - `get_it`: Inyección de dependencias
 - `provider`: Manejo de estado

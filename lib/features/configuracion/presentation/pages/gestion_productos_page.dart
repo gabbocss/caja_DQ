@@ -32,6 +32,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   }
 
   Future<void> _sincronizarCatalogoConVps() async {
+    if (!PlatformUtils.isDesktop) return;
     setState(() => _sincronizandoCatalogo = true);
     try {
       final n = await ReservaSyncService.instance.subirCatalogoAlVpsDesdePrefs();
@@ -100,17 +101,19 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
           ],
         ),
         actions: [
-          IconButton(
-            onPressed: _sincronizandoCatalogo ? null : _sincronizarCatalogoConVps,
-            icon: _sincronizandoCatalogo
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.settings, color: Color(0xFF4FC3F7)),
-            tooltip: 'Subir catálogo al VPS',
-          ),
+          if (PlatformUtils.isDesktop)
+            IconButton(
+              onPressed:
+                  _sincronizandoCatalogo ? null : _sincronizarCatalogoConVps,
+              icon: _sincronizandoCatalogo
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_upload, color: Color(0xFF4FC3F7)),
+              tooltip: 'Subir catálogo al VPS',
+            ),
           IconButton(
             onPressed: () => _mostrarFormularioProducto(null),
             icon: const Icon(Icons.add_circle, color: Color(0xFF00D9A5)),

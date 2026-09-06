@@ -17,16 +17,8 @@ const DestinoImpresionSchema = CollectionSchema(
   name: r'DestinoImpresion',
   id: -4502643503832516541,
   properties: {
-    r'activo': PropertySchema(
-      id: 0,
-      name: r'activo',
-      type: IsarType.bool,
-    ),
-    r'color': PropertySchema(
-      id: 1,
-      name: r'color',
-      type: IsarType.string,
-    ),
+    r'activo': PropertySchema(id: 0, name: r'activo', type: IsarType.bool),
+    r'color': PropertySchema(id: 1, name: r'color', type: IsarType.string),
     r'descripcion': PropertySchema(
       id: 2,
       name: r'descripcion',
@@ -42,26 +34,14 @@ const DestinoImpresionSchema = CollectionSchema(
       name: r'fechaCreacion',
       type: IsarType.dateTime,
     ),
-    r'icono': PropertySchema(
-      id: 5,
-      name: r'icono',
-      type: IsarType.string,
-    ),
-    r'nombre': PropertySchema(
-      id: 6,
-      name: r'nombre',
-      type: IsarType.string,
-    ),
+    r'icono': PropertySchema(id: 5, name: r'icono', type: IsarType.string),
+    r'nombre': PropertySchema(id: 6, name: r'nombre', type: IsarType.string),
     r'nombreImpresora': PropertySchema(
       id: 7,
       name: r'nombreImpresora',
       type: IsarType.string,
     ),
-    r'orden': PropertySchema(
-      id: 8,
-      name: r'orden',
-      type: IsarType.long,
-    ),
+    r'orden': PropertySchema(id: 8, name: r'orden', type: IsarType.long),
     r'puertoImpresora': PropertySchema(
       id: 9,
       name: r'puertoImpresora',
@@ -72,8 +52,9 @@ const DestinoImpresionSchema = CollectionSchema(
       name: r'tipo',
       type: IsarType.string,
       enumMap: _DestinoImpresiontipoEnumValueMap,
-    )
+    ),
   },
+
   estimateSize: _destinoImpresionEstimateSize,
   serialize: _destinoImpresionSerialize,
   deserialize: _destinoImpresionDeserialize,
@@ -90,16 +71,17 @@ const DestinoImpresionSchema = CollectionSchema(
           name: r'nombre',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _destinoImpresionGetId,
   getLinks: _destinoImpresionGetLinks,
   attach: _destinoImpresionAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _destinoImpresionEstimateSize(
@@ -172,7 +154,7 @@ DestinoImpresion _destinoImpresionDeserialize(
   object.puertoImpresora = reader.readLongOrNull(offsets[9]);
   object.tipo =
       _DestinoImpresiontipoValueEnumMap[reader.readStringOrNull(offsets[10])] ??
-          TipoDestino.pantalla;
+      TipoDestino.pantalla;
   return object;
 }
 
@@ -204,9 +186,11 @@ P _destinoImpresionDeserializeProp<P>(
     case 9:
       return (reader.readLongOrNull(offset)) as P;
     case 10:
-      return (_DestinoImpresiontipoValueEnumMap[
-              reader.readStringOrNull(offset)] ??
-          TipoDestino.pantalla) as P;
+      return (_DestinoImpresiontipoValueEnumMap[reader.readStringOrNull(
+                offset,
+              )] ??
+              TipoDestino.pantalla)
+          as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -232,7 +216,10 @@ List<IsarLinkBase<dynamic>> _destinoImpresionGetLinks(DestinoImpresion object) {
 }
 
 void _destinoImpresionAttach(
-    IsarCollection<dynamic> col, Id id, DestinoImpresion object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  DestinoImpresion object,
+) {
   object.id = id;
 }
 
@@ -285,8 +272,10 @@ extension DestinoImpresionByIndex on IsarCollection<DestinoImpresion> {
     return putAllByIndex(r'nombre', objects);
   }
 
-  List<Id> putAllByNombreSync(List<DestinoImpresion> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByNombreSync(
+    List<DestinoImpresion> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'nombre', objects, saveLinks: saveLinks);
   }
 }
@@ -303,17 +292,15 @@ extension DestinoImpresionQueryWhereSort
 extension DestinoImpresionQueryWhere
     on QueryBuilder<DestinoImpresion, DestinoImpresion, QWhereClause> {
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterWhereClause> idEqualTo(
-      Id id) {
+    Id id,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -336,7 +323,7 @@ extension DestinoImpresionQueryWhere
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -345,7 +332,7 @@ extension DestinoImpresionQueryWhere
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -360,56 +347,65 @@ extension DestinoImpresionQueryWhere
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterWhereClause>
-      nombreEqualTo(String nombre) {
+  nombreEqualTo(String nombre) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'nombre',
-        value: [nombre],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'nombre', value: [nombre]),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterWhereClause>
-      nombreNotEqualTo(String nombre) {
+  nombreNotEqualTo(String nombre) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'nombre',
-              lower: [],
-              upper: [nombre],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'nombre',
-              lower: [nombre],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'nombre',
+                lower: [],
+                upper: [nombre],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'nombre',
+                lower: [nombre],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'nombre',
-              lower: [nombre],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'nombre',
-              lower: [],
-              upper: [nombre],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'nombre',
+                lower: [nombre],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'nombre',
+                lower: [],
+                upper: [nombre],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -418,63 +414,65 @@ extension DestinoImpresionQueryWhere
 extension DestinoImpresionQueryFilter
     on QueryBuilder<DestinoImpresion, DestinoImpresion, QFilterCondition> {
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      activoEqualTo(bool value) {
+  activoEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'activo',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'activo', value: value),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  colorEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'color',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'color',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorGreaterThan(
+  colorGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'color',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'color',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorLessThan(
+  colorLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'color',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'color',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorBetween(
+  colorBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -482,153 +480,158 @@ extension DestinoImpresionQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'color',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'color',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  colorStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'color',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'color',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  colorEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'color',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'color',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorContains(String value, {bool caseSensitive = true}) {
+  colorContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'color',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'color',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorMatches(String pattern, {bool caseSensitive = true}) {
+  colorMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'color',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'color',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorIsEmpty() {
+  colorIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'color',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'color', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      colorIsNotEmpty() {
+  colorIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'color',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'color', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionIsNull() {
+  descripcionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'descripcion',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'descripcion'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionIsNotNull() {
+  descripcionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'descripcion',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'descripcion'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  descripcionEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionLessThan(
+  descripcionGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionBetween(
+  descripcionLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
+  descripcionBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -636,153 +639,158 @@ extension DestinoImpresionQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'descripcion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'descripcion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  descripcionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  descripcionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionContains(String value, {bool caseSensitive = true}) {
+  descripcionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'descripcion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'descripcion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionMatches(String pattern, {bool caseSensitive = true}) {
+  descripcionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'descripcion',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'descripcion',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionIsEmpty() {
+  descripcionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'descripcion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'descripcion', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      descripcionIsNotEmpty() {
+  descripcionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'descripcion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'descripcion', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraIsNull() {
+  direccionImpresoraIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'direccionImpresora',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'direccionImpresora'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraIsNotNull() {
+  direccionImpresoraIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'direccionImpresora',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'direccionImpresora'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  direccionImpresoraEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'direccionImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'direccionImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'direccionImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraLessThan(
+  direccionImpresoraGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'direccionImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'direccionImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraBetween(
+  direccionImpresoraLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'direccionImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
+  direccionImpresoraBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -790,191 +798,195 @@ extension DestinoImpresionQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'direccionImpresora',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'direccionImpresora',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  direccionImpresoraStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'direccionImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'direccionImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  direccionImpresoraEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'direccionImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'direccionImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraContains(String value, {bool caseSensitive = true}) {
+  direccionImpresoraContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'direccionImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'direccionImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraMatches(String pattern, {bool caseSensitive = true}) {
+  direccionImpresoraMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'direccionImpresora',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'direccionImpresora',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraIsEmpty() {
+  direccionImpresoraIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'direccionImpresora',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'direccionImpresora', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      direccionImpresoraIsNotEmpty() {
+  direccionImpresoraIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'direccionImpresora',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'direccionImpresora', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      fechaCreacionEqualTo(DateTime value) {
+  fechaCreacionEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fechaCreacion', value: value),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      fechaCreacionGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaCreacionGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fechaCreacion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      fechaCreacionLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaCreacionLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fechaCreacion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      fechaCreacionBetween(
+  fechaCreacionBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fechaCreacion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fechaCreacion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  iconoEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'icono',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'icono',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'icono',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoLessThan(
+  iconoGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'icono',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'icono',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoBetween(
+  iconoLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'icono',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
+  iconoBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -982,209 +994,213 @@ extension DestinoImpresionQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'icono',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'icono',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  iconoStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'icono',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'icono',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  iconoEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'icono',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'icono',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoContains(String value, {bool caseSensitive = true}) {
+  iconoContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'icono',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'icono',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoMatches(String pattern, {bool caseSensitive = true}) {
+  iconoMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'icono',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'icono',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoIsEmpty() {
+  iconoIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'icono',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'icono', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      iconoIsNotEmpty() {
+  iconoIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'icono',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'icono', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      idIsNull() {
+  idIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      idIsNotNull() {
+  idIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      idEqualTo(Id? value) {
+  idEqualTo(Id? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      idGreaterThan(
-    Id? value, {
-    bool include = false,
-  }) {
+  idGreaterThan(Id? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      idLessThan(
-    Id? value, {
-    bool include = false,
-  }) {
+  idLessThan(Id? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      idBetween(
+  idBetween(
     Id? lower,
     Id? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreLessThan(
+  nombreGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreBetween(
+  nombreLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
+  nombreBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1192,153 +1208,158 @@ extension DestinoImpresionQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'nombre',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'nombre',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreContains(String value, {bool caseSensitive = true}) {
+  nombreContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'nombre',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'nombre',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreMatches(String pattern, {bool caseSensitive = true}) {
+  nombreMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'nombre',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'nombre',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreIsEmpty() {
+  nombreIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombre',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'nombre', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreIsNotEmpty() {
+  nombreIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'nombre',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'nombre', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraIsNull() {
+  nombreImpresoraIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'nombreImpresora',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'nombreImpresora'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraIsNotNull() {
+  nombreImpresoraIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'nombreImpresora',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'nombreImpresora'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  nombreImpresoraEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'nombreImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'nombreImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraLessThan(
+  nombreImpresoraGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'nombreImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'nombreImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraBetween(
+  nombreImpresoraLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'nombreImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
+  nombreImpresoraBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1346,265 +1367,268 @@ extension DestinoImpresionQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'nombreImpresora',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'nombreImpresora',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreImpresoraStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'nombreImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'nombreImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreImpresoraEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'nombreImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'nombreImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraContains(String value, {bool caseSensitive = true}) {
+  nombreImpresoraContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'nombreImpresora',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'nombreImpresora',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraMatches(String pattern, {bool caseSensitive = true}) {
+  nombreImpresoraMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'nombreImpresora',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'nombreImpresora',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraIsEmpty() {
+  nombreImpresoraIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreImpresora',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'nombreImpresora', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      nombreImpresoraIsNotEmpty() {
+  nombreImpresoraIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'nombreImpresora',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'nombreImpresora', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      ordenEqualTo(int value) {
+  ordenEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'orden',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'orden', value: value),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      ordenGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  ordenGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'orden',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'orden',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      ordenLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  ordenLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'orden',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'orden',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      ordenBetween(
+  ordenBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'orden',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'orden',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      puertoImpresoraIsNull() {
+  puertoImpresoraIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'puertoImpresora',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'puertoImpresora'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      puertoImpresoraIsNotNull() {
+  puertoImpresoraIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'puertoImpresora',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'puertoImpresora'),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      puertoImpresoraEqualTo(int? value) {
+  puertoImpresoraEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'puertoImpresora',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'puertoImpresora', value: value),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      puertoImpresoraGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  puertoImpresoraGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'puertoImpresora',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'puertoImpresora',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      puertoImpresoraLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  puertoImpresoraLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'puertoImpresora',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'puertoImpresora',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      puertoImpresoraBetween(
+  puertoImpresoraBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'puertoImpresora',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'puertoImpresora',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoEqualTo(
-    TipoDestino value, {
-    bool caseSensitive = true,
-  }) {
+  tipoEqualTo(TipoDestino value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'tipo',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'tipo',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoGreaterThan(
-    TipoDestino value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'tipo',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoLessThan(
+  tipoGreaterThan(
     TipoDestino value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'tipo',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'tipo',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoBetween(
+  tipoLessThan(
+    TipoDestino value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'tipo',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
+  tipoBetween(
     TipoDestino lower,
     TipoDestino upper, {
     bool includeLower = true,
@@ -1612,84 +1636,86 @@ extension DestinoImpresionQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'tipo',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'tipo',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  tipoStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'tipo',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'tipo',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  tipoEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'tipo',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'tipo',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoContains(String value, {bool caseSensitive = true}) {
+  tipoContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'tipo',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'tipo',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoMatches(String pattern, {bool caseSensitive = true}) {
+  tipoMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'tipo',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'tipo',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoIsEmpty() {
+  tipoIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'tipo',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'tipo', value: ''),
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterFilterCondition>
-      tipoIsNotEmpty() {
+  tipoIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'tipo',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'tipo', value: ''),
+      );
     });
   }
 }
@@ -1703,14 +1729,14 @@ extension DestinoImpresionQueryLinks
 extension DestinoImpresionQuerySortBy
     on QueryBuilder<DestinoImpresion, DestinoImpresion, QSortBy> {
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByActivo() {
+  sortByActivo() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activo', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByActivoDesc() {
+  sortByActivoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activo', Sort.desc);
     });
@@ -1723,49 +1749,49 @@ extension DestinoImpresionQuerySortBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByColorDesc() {
+  sortByColorDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'color', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByDescripcion() {
+  sortByDescripcion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'descripcion', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByDescripcionDesc() {
+  sortByDescripcionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'descripcion', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByDireccionImpresora() {
+  sortByDireccionImpresora() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'direccionImpresora', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByDireccionImpresoraDesc() {
+  sortByDireccionImpresoraDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'direccionImpresora', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByFechaCreacion() {
+  sortByFechaCreacion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaCreacion', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByFechaCreacionDesc() {
+  sortByFechaCreacionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaCreacion', Sort.desc);
     });
@@ -1778,35 +1804,35 @@ extension DestinoImpresionQuerySortBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByIconoDesc() {
+  sortByIconoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'icono', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByNombre() {
+  sortByNombre() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nombre', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByNombreDesc() {
+  sortByNombreDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nombre', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByNombreImpresora() {
+  sortByNombreImpresora() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nombreImpresora', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByNombreImpresoraDesc() {
+  sortByNombreImpresoraDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nombreImpresora', Sort.desc);
     });
@@ -1819,21 +1845,21 @@ extension DestinoImpresionQuerySortBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByOrdenDesc() {
+  sortByOrdenDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'orden', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByPuertoImpresora() {
+  sortByPuertoImpresora() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'puertoImpresora', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByPuertoImpresoraDesc() {
+  sortByPuertoImpresoraDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'puertoImpresora', Sort.desc);
     });
@@ -1846,7 +1872,7 @@ extension DestinoImpresionQuerySortBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      sortByTipoDesc() {
+  sortByTipoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'tipo', Sort.desc);
     });
@@ -1856,14 +1882,14 @@ extension DestinoImpresionQuerySortBy
 extension DestinoImpresionQuerySortThenBy
     on QueryBuilder<DestinoImpresion, DestinoImpresion, QSortThenBy> {
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByActivo() {
+  thenByActivo() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activo', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByActivoDesc() {
+  thenByActivoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activo', Sort.desc);
     });
@@ -1876,49 +1902,49 @@ extension DestinoImpresionQuerySortThenBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByColorDesc() {
+  thenByColorDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'color', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByDescripcion() {
+  thenByDescripcion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'descripcion', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByDescripcionDesc() {
+  thenByDescripcionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'descripcion', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByDireccionImpresora() {
+  thenByDireccionImpresora() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'direccionImpresora', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByDireccionImpresoraDesc() {
+  thenByDireccionImpresoraDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'direccionImpresora', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByFechaCreacion() {
+  thenByFechaCreacion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaCreacion', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByFechaCreacionDesc() {
+  thenByFechaCreacionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fechaCreacion', Sort.desc);
     });
@@ -1931,7 +1957,7 @@ extension DestinoImpresionQuerySortThenBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByIconoDesc() {
+  thenByIconoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'icono', Sort.desc);
     });
@@ -1944,35 +1970,35 @@ extension DestinoImpresionQuerySortThenBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByNombre() {
+  thenByNombre() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nombre', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByNombreDesc() {
+  thenByNombreDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nombre', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByNombreImpresora() {
+  thenByNombreImpresora() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nombreImpresora', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByNombreImpresoraDesc() {
+  thenByNombreImpresoraDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'nombreImpresora', Sort.desc);
     });
@@ -1985,21 +2011,21 @@ extension DestinoImpresionQuerySortThenBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByOrdenDesc() {
+  thenByOrdenDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'orden', Sort.desc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByPuertoImpresora() {
+  thenByPuertoImpresora() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'puertoImpresora', Sort.asc);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByPuertoImpresoraDesc() {
+  thenByPuertoImpresoraDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'puertoImpresora', Sort.desc);
     });
@@ -2012,7 +2038,7 @@ extension DestinoImpresionQuerySortThenBy
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QAfterSortBy>
-      thenByTipoDesc() {
+  thenByTipoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'tipo', Sort.desc);
     });
@@ -2022,79 +2048,87 @@ extension DestinoImpresionQuerySortThenBy
 extension DestinoImpresionQueryWhereDistinct
     on QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> {
   QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct>
-      distinctByActivo() {
+  distinctByActivo() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'activo');
     });
   }
 
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> distinctByColor(
-      {bool caseSensitive = true}) {
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> distinctByColor({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'color', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct>
-      distinctByDescripcion({bool caseSensitive = true}) {
+  distinctByDescripcion({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'descripcion', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct>
-      distinctByDireccionImpresora({bool caseSensitive = true}) {
+  distinctByDireccionImpresora({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'direccionImpresora',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'direccionImpresora',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct>
-      distinctByFechaCreacion() {
+  distinctByFechaCreacion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'fechaCreacion');
     });
   }
 
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> distinctByIcono(
-      {bool caseSensitive = true}) {
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> distinctByIcono({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'icono', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> distinctByNombre(
-      {bool caseSensitive = true}) {
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> distinctByNombre({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'nombre', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct>
-      distinctByNombreImpresora({bool caseSensitive = true}) {
+  distinctByNombreImpresora({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'nombreImpresora',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'nombreImpresora',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct>
-      distinctByOrden() {
+  distinctByOrden() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'orden');
     });
   }
 
   QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct>
-      distinctByPuertoImpresora() {
+  distinctByPuertoImpresora() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'puertoImpresora');
     });
   }
 
-  QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> distinctByTipo(
-      {bool caseSensitive = true}) {
+  QueryBuilder<DestinoImpresion, DestinoImpresion, QDistinct> distinctByTipo({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'tipo', caseSensitive: caseSensitive);
     });
@@ -2122,21 +2156,21 @@ extension DestinoImpresionQueryProperty
   }
 
   QueryBuilder<DestinoImpresion, String?, QQueryOperations>
-      descripcionProperty() {
+  descripcionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'descripcion');
     });
   }
 
   QueryBuilder<DestinoImpresion, String?, QQueryOperations>
-      direccionImpresoraProperty() {
+  direccionImpresoraProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'direccionImpresora');
     });
   }
 
   QueryBuilder<DestinoImpresion, DateTime, QQueryOperations>
-      fechaCreacionProperty() {
+  fechaCreacionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'fechaCreacion');
     });
@@ -2155,7 +2189,7 @@ extension DestinoImpresionQueryProperty
   }
 
   QueryBuilder<DestinoImpresion, String?, QQueryOperations>
-      nombreImpresoraProperty() {
+  nombreImpresoraProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'nombreImpresora');
     });
@@ -2168,7 +2202,7 @@ extension DestinoImpresionQueryProperty
   }
 
   QueryBuilder<DestinoImpresion, int?, QQueryOperations>
-      puertoImpresoraProperty() {
+  puertoImpresoraProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'puertoImpresora');
     });

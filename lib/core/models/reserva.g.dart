@@ -22,54 +22,71 @@ const ReservaSchema = CollectionSchema(
       name: r'alergiasNotas',
       type: IsarType.string,
     ),
-    r'estaPendiente': PropertySchema(
+    r'estaCobrada': PropertySchema(
       id: 1,
+      name: r'estaCobrada',
+      type: IsarType.bool,
+    ),
+    r'estaPendiente': PropertySchema(
+      id: 2,
       name: r'estaPendiente',
       type: IsarType.bool,
     ),
     r'estado': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'estado',
       type: IsarType.string,
       enumMap: _ReservaestadoEnumValueMap,
     ),
     r'fechaActualizacion': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'fechaActualizacion',
       type: IsarType.dateTime,
     ),
     r'fechaCreacion': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'fechaCreacion',
       type: IsarType.dateTime,
     ),
     r'fechaHoraLlegada': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'fechaHoraLlegada',
       type: IsarType.dateTime,
     ),
     r'itemsReservados': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'itemsReservados',
       type: IsarType.objectList,
+
       target: r'ItemReserva',
     ),
     r'mesaAsignada': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'mesaAsignada',
       type: IsarType.long,
     ),
     r'nombreCliente': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'nombreCliente',
       type: IsarType.string,
     ),
     r'numeroPersonas': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'numeroPersonas',
       type: IsarType.long,
-    )
+    ),
+    r'sincronizadaEnCaja': PropertySchema(
+      id: 11,
+      name: r'sincronizadaEnCaja',
+      type: IsarType.bool,
+    ),
+    r'totalItemsReservados': PropertySchema(
+      id: 12,
+      name: r'totalItemsReservados',
+      type: IsarType.double,
+    ),
   },
+
   estimateSize: _reservaEstimateSize,
   serialize: _reservaSerialize,
   deserialize: _reservaDeserialize,
@@ -86,7 +103,7 @@ const ReservaSchema = CollectionSchema(
           name: r'fechaHoraLlegada',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'estado': IndexSchema(
@@ -99,16 +116,17 @@ const ReservaSchema = CollectionSchema(
           name: r'estado',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {r'ItemReserva': ItemReservaSchema},
+
   getId: _reservaGetId,
   getLinks: _reservaGetLinks,
   attach: _reservaAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _reservaEstimateSize(
@@ -138,20 +156,23 @@ void _reservaSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.alergiasNotas);
-  writer.writeBool(offsets[1], object.estaPendiente);
-  writer.writeString(offsets[2], object.estado.name);
-  writer.writeDateTime(offsets[3], object.fechaActualizacion);
-  writer.writeDateTime(offsets[4], object.fechaCreacion);
-  writer.writeDateTime(offsets[5], object.fechaHoraLlegada);
+  writer.writeBool(offsets[1], object.estaCobrada);
+  writer.writeBool(offsets[2], object.estaPendiente);
+  writer.writeString(offsets[3], object.estado.name);
+  writer.writeDateTime(offsets[4], object.fechaActualizacion);
+  writer.writeDateTime(offsets[5], object.fechaCreacion);
+  writer.writeDateTime(offsets[6], object.fechaHoraLlegada);
   writer.writeObjectList<ItemReserva>(
-    offsets[6],
+    offsets[7],
     allOffsets,
     ItemReservaSchema.serialize,
     object.itemsReservados,
   );
-  writer.writeLong(offsets[7], object.mesaAsignada);
-  writer.writeString(offsets[8], object.nombreCliente);
-  writer.writeLong(offsets[9], object.numeroPersonas);
+  writer.writeLong(offsets[8], object.mesaAsignada);
+  writer.writeString(offsets[9], object.nombreCliente);
+  writer.writeLong(offsets[10], object.numeroPersonas);
+  writer.writeBool(offsets[11], object.sincronizadaEnCaja);
+  writer.writeDouble(offsets[12], object.totalItemsReservados);
 }
 
 Reserva _reservaDeserialize(
@@ -163,22 +184,23 @@ Reserva _reservaDeserialize(
   final object = Reserva();
   object.alergiasNotas = reader.readString(offsets[0]);
   object.estado =
-      _ReservaestadoValueEnumMap[reader.readStringOrNull(offsets[2])] ??
-          EstadoReserva.pendiente;
-  object.fechaActualizacion = reader.readDateTime(offsets[3]);
-  object.fechaCreacion = reader.readDateTime(offsets[4]);
-  object.fechaHoraLlegada = reader.readDateTime(offsets[5]);
+      _ReservaestadoValueEnumMap[reader.readStringOrNull(offsets[3])] ??
+      EstadoReserva.pendiente;
+  object.fechaActualizacion = reader.readDateTime(offsets[4]);
+  object.fechaCreacion = reader.readDateTime(offsets[5]);
+  object.fechaHoraLlegada = reader.readDateTime(offsets[6]);
   object.id = id;
-  object.itemsReservados = reader.readObjectList<ItemReserva>(
-        offsets[6],
+  object.itemsReservados =
+      reader.readObjectList<ItemReserva>(
+        offsets[7],
         ItemReservaSchema.deserialize,
         allOffsets,
         ItemReserva(),
       ) ??
       [];
-  object.mesaAsignada = reader.readLongOrNull(offsets[7]);
-  object.nombreCliente = reader.readString(offsets[8]);
-  object.numeroPersonas = reader.readLong(offsets[9]);
+  object.mesaAsignada = reader.readLongOrNull(offsets[8]);
+  object.nombreCliente = reader.readString(offsets[9]);
+  object.numeroPersonas = reader.readLong(offsets[10]);
   return object;
 }
 
@@ -194,28 +216,36 @@ P _reservaDeserializeProp<P>(
     case 1:
       return (reader.readBool(offset)) as P;
     case 2:
-      return (_ReservaestadoValueEnumMap[reader.readStringOrNull(offset)] ??
-          EstadoReserva.pendiente) as P;
+      return (reader.readBool(offset)) as P;
     case 3:
-      return (reader.readDateTime(offset)) as P;
+      return (_ReservaestadoValueEnumMap[reader.readStringOrNull(offset)] ??
+              EstadoReserva.pendiente)
+          as P;
     case 4:
       return (reader.readDateTime(offset)) as P;
     case 5:
       return (reader.readDateTime(offset)) as P;
     case 6:
-      return (reader.readObjectList<ItemReserva>(
-            offset,
-            ItemReservaSchema.deserialize,
-            allOffsets,
-            ItemReserva(),
-          ) ??
-          []) as P;
+      return (reader.readDateTime(offset)) as P;
     case 7:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readObjectList<ItemReserva>(
+                offset,
+                ItemReservaSchema.deserialize,
+                allOffsets,
+                ItemReserva(),
+              ) ??
+              [])
+          as P;
     case 8:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
       return (reader.readLong(offset)) as P;
+    case 11:
+      return (reader.readBool(offset)) as P;
+    case 12:
+      return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -265,10 +295,7 @@ extension ReservaQueryWhereSort on QueryBuilder<Reserva, Reserva, QWhere> {
 extension ReservaQueryWhere on QueryBuilder<Reserva, Reserva, QWhereClause> {
   QueryBuilder<Reserva, Reserva, QAfterWhereClause> idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
@@ -294,8 +321,10 @@ extension ReservaQueryWhere on QueryBuilder<Reserva, Reserva, QWhereClause> {
     });
   }
 
-  QueryBuilder<Reserva, Reserva, QAfterWhereClause> idGreaterThan(Id id,
-      {bool include = false}) {
+  QueryBuilder<Reserva, Reserva, QAfterWhereClause> idGreaterThan(
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -303,8 +332,10 @@ extension ReservaQueryWhere on QueryBuilder<Reserva, Reserva, QWhereClause> {
     });
   }
 
-  QueryBuilder<Reserva, Reserva, QAfterWhereClause> idLessThan(Id id,
-      {bool include = false}) {
+  QueryBuilder<Reserva, Reserva, QAfterWhereClause> idLessThan(
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -319,56 +350,70 @@ extension ReservaQueryWhere on QueryBuilder<Reserva, Reserva, QWhereClause> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterWhereClause> fechaHoraLlegadaEqualTo(
-      DateTime fechaHoraLlegada) {
+    DateTime fechaHoraLlegada,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'fechaHoraLlegada',
-        value: [fechaHoraLlegada],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'fechaHoraLlegada',
+          value: [fechaHoraLlegada],
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterWhereClause> fechaHoraLlegadaNotEqualTo(
-      DateTime fechaHoraLlegada) {
+    DateTime fechaHoraLlegada,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'fechaHoraLlegada',
-              lower: [],
-              upper: [fechaHoraLlegada],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'fechaHoraLlegada',
-              lower: [fechaHoraLlegada],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'fechaHoraLlegada',
+                lower: [],
+                upper: [fechaHoraLlegada],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'fechaHoraLlegada',
+                lower: [fechaHoraLlegada],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'fechaHoraLlegada',
-              lower: [fechaHoraLlegada],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'fechaHoraLlegada',
-              lower: [],
-              upper: [fechaHoraLlegada],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'fechaHoraLlegada',
+                lower: [fechaHoraLlegada],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'fechaHoraLlegada',
+                lower: [],
+                upper: [fechaHoraLlegada],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -378,12 +423,14 @@ extension ReservaQueryWhere on QueryBuilder<Reserva, Reserva, QWhereClause> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'fechaHoraLlegada',
-        lower: [fechaHoraLlegada],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'fechaHoraLlegada',
+          lower: [fechaHoraLlegada],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
@@ -392,12 +439,14 @@ extension ReservaQueryWhere on QueryBuilder<Reserva, Reserva, QWhereClause> {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'fechaHoraLlegada',
-        lower: [],
-        upper: [fechaHoraLlegada],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'fechaHoraLlegada',
+          lower: [],
+          upper: [fechaHoraLlegada],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
@@ -408,57 +457,68 @@ extension ReservaQueryWhere on QueryBuilder<Reserva, Reserva, QWhereClause> {
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'fechaHoraLlegada',
-        lower: [lowerFechaHoraLlegada],
-        includeLower: includeLower,
-        upper: [upperFechaHoraLlegada],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'fechaHoraLlegada',
+          lower: [lowerFechaHoraLlegada],
+          includeLower: includeLower,
+          upper: [upperFechaHoraLlegada],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterWhereClause> estadoEqualTo(
-      EstadoReserva estado) {
+    EstadoReserva estado,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'estado',
-        value: [estado],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'estado', value: [estado]),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterWhereClause> estadoNotEqualTo(
-      EstadoReserva estado) {
+    EstadoReserva estado,
+  ) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'estado',
-              lower: [],
-              upper: [estado],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'estado',
-              lower: [estado],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'estado',
+                lower: [],
+                upper: [estado],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'estado',
+                lower: [estado],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'estado',
-              lower: [estado],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'estado',
-              lower: [],
-              upper: [estado],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'estado',
+                lower: [estado],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'estado',
+                lower: [],
+                upper: [estado],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -471,27 +531,31 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'alergiasNotas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'alergiasNotas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      alergiasNotasGreaterThan(
+  alergiasNotasGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'alergiasNotas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'alergiasNotas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -501,12 +565,14 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'alergiasNotas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'alergiasNotas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -518,14 +584,16 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'alergiasNotas',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'alergiasNotas',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -534,11 +602,13 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'alergiasNotas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'alergiasNotas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -547,64 +617,80 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'alergiasNotas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'alergiasNotas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> alergiasNotasContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'alergiasNotas',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'alergiasNotas',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> alergiasNotasMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'alergiasNotas',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'alergiasNotas',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> alergiasNotasIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'alergiasNotas',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'alergiasNotas', value: ''),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      alergiasNotasIsNotEmpty() {
+  alergiasNotasIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'alergiasNotas',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'alergiasNotas', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterFilterCondition> estaCobradaEqualTo(
+    bool value,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'estaCobrada', value: value),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> estaPendienteEqualTo(
-      bool value) {
+    bool value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'estaPendiente',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'estaPendiente', value: value),
+      );
     });
   }
 
@@ -613,11 +699,13 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -627,12 +715,14 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -642,12 +732,14 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -659,14 +751,16 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'estado',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'estado',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -675,11 +769,13 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -688,133 +784,137 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> estadoContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'estado',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'estado',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> estadoMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'estado',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'estado',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> estadoIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'estado',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'estado', value: ''),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> estadoIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'estado',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'estado', value: ''),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      fechaActualizacionEqualTo(DateTime value) {
+  fechaActualizacionEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fechaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fechaActualizacion', value: value),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      fechaActualizacionGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaActualizacionGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fechaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fechaActualizacion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      fechaActualizacionLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaActualizacionLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fechaActualizacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fechaActualizacion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      fechaActualizacionBetween(
+  fechaActualizacionBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fechaActualizacion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fechaActualizacion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> fechaCreacionEqualTo(
-      DateTime value) {
+    DateTime value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fechaCreacion', value: value),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      fechaCreacionGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaCreacionGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fechaCreacion',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -823,11 +923,13 @@ extension ReservaQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fechaCreacion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fechaCreacion',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -838,51 +940,51 @@ extension ReservaQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fechaCreacion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fechaCreacion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> fechaHoraLlegadaEqualTo(
-      DateTime value) {
+    DateTime value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'fechaHoraLlegada',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'fechaHoraLlegada', value: value),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      fechaHoraLlegadaGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaHoraLlegadaGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'fechaHoraLlegada',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'fechaHoraLlegada',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      fechaHoraLlegadaLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  fechaHoraLlegadaLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'fechaHoraLlegada',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'fechaHoraLlegada',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -893,38 +995,39 @@ extension ReservaQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'fechaHoraLlegada',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'fechaHoraLlegada',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> idIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> idIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'id',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'id'),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> idEqualTo(Id? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
@@ -933,11 +1036,13 @@ extension ReservaQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -946,11 +1051,13 @@ extension ReservaQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -961,76 +1068,48 @@ extension ReservaQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
-    });
-  }
-
-  QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      itemsReservadosLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'itemsReservados',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
       );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      itemsReservadosIsEmpty() {
+  itemsReservadosLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'itemsReservados',
-        0,
-        true,
-        0,
-        true,
-      );
+      return query.listLength(r'itemsReservados', length, true, length, true);
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      itemsReservadosIsNotEmpty() {
+  itemsReservadosIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'itemsReservados',
-        0,
-        false,
-        999999,
-        true,
-      );
+      return query.listLength(r'itemsReservados', 0, true, 0, true);
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      itemsReservadosLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  itemsReservadosIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'itemsReservados',
-        0,
-        true,
-        length,
-        include,
-      );
+      return query.listLength(r'itemsReservados', 0, false, 999999, true);
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      itemsReservadosLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  itemsReservadosLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'itemsReservados', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
+  itemsReservadosLengthGreaterThan(int length, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'itemsReservados',
@@ -1043,7 +1122,7 @@ extension ReservaQueryFilter
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      itemsReservadosLengthBetween(
+  itemsReservadosLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -1062,28 +1141,28 @@ extension ReservaQueryFilter
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> mesaAsignadaIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'mesaAsignada',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'mesaAsignada'),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      mesaAsignadaIsNotNull() {
+  mesaAsignadaIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'mesaAsignada',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'mesaAsignada'),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> mesaAsignadaEqualTo(
-      int? value) {
+    int? value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'mesaAsignada',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'mesaAsignada', value: value),
+      );
     });
   }
 
@@ -1092,11 +1171,13 @@ extension ReservaQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'mesaAsignada',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'mesaAsignada',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1105,11 +1186,13 @@ extension ReservaQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'mesaAsignada',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'mesaAsignada',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1120,13 +1203,15 @@ extension ReservaQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'mesaAsignada',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'mesaAsignada',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
@@ -1135,27 +1220,31 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreCliente',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'nombreCliente',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      nombreClienteGreaterThan(
+  nombreClienteGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'nombreCliente',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'nombreCliente',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1165,12 +1254,14 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'nombreCliente',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'nombreCliente',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1182,14 +1273,16 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'nombreCliente',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'nombreCliente',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1198,11 +1291,13 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'nombreCliente',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'nombreCliente',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
@@ -1211,78 +1306,83 @@ extension ReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'nombreCliente',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'nombreCliente',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> nombreClienteContains(
-      String value,
-      {bool caseSensitive = true}) {
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'nombreCliente',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'nombreCliente',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> nombreClienteMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'nombreCliente',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'nombreCliente',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> nombreClienteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreCliente',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'nombreCliente', value: ''),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      nombreClienteIsNotEmpty() {
+  nombreClienteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'nombreCliente',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'nombreCliente', value: ''),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> numeroPersonasEqualTo(
-      int value) {
+    int value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'numeroPersonas',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'numeroPersonas', value: value),
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
-      numeroPersonasGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  numeroPersonasGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'numeroPersonas',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'numeroPersonas',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1291,11 +1391,13 @@ extension ReservaQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'numeroPersonas',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'numeroPersonas',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1306,13 +1408,99 @@ extension ReservaQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'numeroPersonas',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'numeroPersonas',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
+  sincronizadaEnCajaEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sincronizadaEnCaja', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
+  totalItemsReservadosEqualTo(double value, {double epsilon = Query.epsilon}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'totalItemsReservados',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
+  totalItemsReservadosGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'totalItemsReservados',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
+  totalItemsReservadosLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'totalItemsReservados',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterFilterCondition>
+  totalItemsReservadosBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'totalItemsReservados',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 }
@@ -1320,7 +1508,8 @@ extension ReservaQueryFilter
 extension ReservaQueryObject
     on QueryBuilder<Reserva, Reserva, QFilterCondition> {
   QueryBuilder<Reserva, Reserva, QAfterFilterCondition> itemsReservadosElement(
-      FilterQuery<ItemReserva> q) {
+    FilterQuery<ItemReserva> q,
+  ) {
     return QueryBuilder.apply(this, (query) {
       return query.object(q, r'itemsReservados');
     });
@@ -1340,6 +1529,18 @@ extension ReservaQuerySortBy on QueryBuilder<Reserva, Reserva, QSortBy> {
   QueryBuilder<Reserva, Reserva, QAfterSortBy> sortByAlergiasNotasDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'alergiasNotas', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> sortByEstaCobrada() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'estaCobrada', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> sortByEstaCobradaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'estaCobrada', Sort.desc);
     });
   }
 
@@ -1438,6 +1639,31 @@ extension ReservaQuerySortBy on QueryBuilder<Reserva, Reserva, QSortBy> {
       return query.addSortBy(r'numeroPersonas', Sort.desc);
     });
   }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> sortBySincronizadaEnCaja() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sincronizadaEnCaja', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> sortBySincronizadaEnCajaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sincronizadaEnCaja', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> sortByTotalItemsReservados() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalItemsReservados', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy>
+  sortByTotalItemsReservadosDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalItemsReservados', Sort.desc);
+    });
+  }
 }
 
 extension ReservaQuerySortThenBy
@@ -1451,6 +1677,18 @@ extension ReservaQuerySortThenBy
   QueryBuilder<Reserva, Reserva, QAfterSortBy> thenByAlergiasNotasDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'alergiasNotas', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> thenByEstaCobrada() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'estaCobrada', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> thenByEstaCobradaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'estaCobrada', Sort.desc);
     });
   }
 
@@ -1561,15 +1799,49 @@ extension ReservaQuerySortThenBy
       return query.addSortBy(r'numeroPersonas', Sort.desc);
     });
   }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> thenBySincronizadaEnCaja() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sincronizadaEnCaja', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> thenBySincronizadaEnCajaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sincronizadaEnCaja', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy> thenByTotalItemsReservados() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalItemsReservados', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QAfterSortBy>
+  thenByTotalItemsReservadosDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalItemsReservados', Sort.desc);
+    });
+  }
 }
 
 extension ReservaQueryWhereDistinct
     on QueryBuilder<Reserva, Reserva, QDistinct> {
-  QueryBuilder<Reserva, Reserva, QDistinct> distinctByAlergiasNotas(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Reserva, Reserva, QDistinct> distinctByAlergiasNotas({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'alergiasNotas',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'alergiasNotas',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QDistinct> distinctByEstaCobrada() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'estaCobrada');
     });
   }
 
@@ -1579,8 +1851,9 @@ extension ReservaQueryWhereDistinct
     });
   }
 
-  QueryBuilder<Reserva, Reserva, QDistinct> distinctByEstado(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Reserva, Reserva, QDistinct> distinctByEstado({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'estado', caseSensitive: caseSensitive);
     });
@@ -1610,17 +1883,32 @@ extension ReservaQueryWhereDistinct
     });
   }
 
-  QueryBuilder<Reserva, Reserva, QDistinct> distinctByNombreCliente(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Reserva, Reserva, QDistinct> distinctByNombreCliente({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'nombreCliente',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'nombreCliente',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<Reserva, Reserva, QDistinct> distinctByNumeroPersonas() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'numeroPersonas');
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QDistinct> distinctBySincronizadaEnCaja() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sincronizadaEnCaja');
+    });
+  }
+
+  QueryBuilder<Reserva, Reserva, QDistinct> distinctByTotalItemsReservados() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'totalItemsReservados');
     });
   }
 }
@@ -1639,6 +1927,12 @@ extension ReservaQueryProperty
     });
   }
 
+  QueryBuilder<Reserva, bool, QQueryOperations> estaCobradaProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'estaCobrada');
+    });
+  }
+
   QueryBuilder<Reserva, bool, QQueryOperations> estaPendienteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'estaPendiente');
@@ -1652,7 +1946,7 @@ extension ReservaQueryProperty
   }
 
   QueryBuilder<Reserva, DateTime, QQueryOperations>
-      fechaActualizacionProperty() {
+  fechaActualizacionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'fechaActualizacion');
     });
@@ -1671,7 +1965,7 @@ extension ReservaQueryProperty
   }
 
   QueryBuilder<Reserva, List<ItemReserva>, QQueryOperations>
-      itemsReservadosProperty() {
+  itemsReservadosProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'itemsReservados');
     });
@@ -1694,6 +1988,19 @@ extension ReservaQueryProperty
       return query.addPropertyName(r'numeroPersonas');
     });
   }
+
+  QueryBuilder<Reserva, bool, QQueryOperations> sincronizadaEnCajaProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sincronizadaEnCaja');
+    });
+  }
+
+  QueryBuilder<Reserva, double, QQueryOperations>
+  totalItemsReservadosProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'totalItemsReservados');
+    });
+  }
 }
 
 // **************************************************************************
@@ -1707,11 +2014,7 @@ const ItemReservaSchema = Schema(
   name: r'ItemReserva',
   id: -6389787503835117458,
   properties: {
-    r'cantidad': PropertySchema(
-      id: 0,
-      name: r'cantidad',
-      type: IsarType.long,
-    ),
+    r'cantidad': PropertySchema(id: 0, name: r'cantidad', type: IsarType.long),
     r'nombreProducto': PropertySchema(
       id: 1,
       name: r'nombreProducto',
@@ -1731,8 +2034,9 @@ const ItemReservaSchema = Schema(
       id: 4,
       name: r'subtotal',
       type: IsarType.double,
-    )
+    ),
   },
+
   estimateSize: _itemReservaEstimateSize,
   serialize: _itemReservaSerialize,
   deserialize: _itemReservaDeserialize,
@@ -1801,40 +2105,38 @@ P _itemReservaDeserializeProp<P>(
 extension ItemReservaQueryFilter
     on QueryBuilder<ItemReserva, ItemReserva, QFilterCondition> {
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition> cantidadEqualTo(
-      int value) {
+    int value,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'cantidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'cantidad', value: value),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      cantidadGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  cantidadGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'cantidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'cantidad',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      cantidadLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  cantidadLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'cantidad',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'cantidad',
+          value: value,
+        ),
+      );
     });
   }
 
@@ -1845,64 +2147,69 @@ extension ItemReservaQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'cantidad',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'cantidad',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreProductoEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoLessThan(
+  nombreProductoGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoBetween(
+  nombreProductoLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
+  nombreProductoBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1910,135 +2217,143 @@ extension ItemReservaQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'nombreProducto',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'nombreProducto',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreProductoStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  nombreProductoEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoContains(String value, {bool caseSensitive = true}) {
+  nombreProductoContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'nombreProducto',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'nombreProducto',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoMatches(String pattern, {bool caseSensitive = true}) {
+  nombreProductoMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'nombreProducto',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'nombreProducto',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoIsEmpty() {
+  nombreProductoIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'nombreProducto',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'nombreProducto', value: ''),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      nombreProductoIsNotEmpty() {
+  nombreProductoIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'nombreProducto',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'nombreProducto', value: ''),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      precioUnitarioEqualTo(
-    double value, {
-    double epsilon = Query.epsilon,
-  }) {
+  precioUnitarioEqualTo(double value, {double epsilon = Query.epsilon}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'precioUnitario',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'precioUnitario',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      precioUnitarioGreaterThan(
-    double value, {
-    bool include = false,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'precioUnitario',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      precioUnitarioLessThan(
+  precioUnitarioGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'precioUnitario',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'precioUnitario',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      precioUnitarioBetween(
+  precioUnitarioLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'precioUnitario',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
+  precioUnitarioBetween(
     double lower,
     double upper, {
     bool includeLower = true,
@@ -2046,70 +2361,72 @@ extension ItemReservaQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'precioUnitario',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'precioUnitario',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      productoIdEqualTo(int value) {
+  productoIdEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'productoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'productoId', value: value),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      productoIdGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  productoIdGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'productoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'productoId',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      productoIdLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  productoIdLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'productoId',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'productoId',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      productoIdBetween(
+  productoIdBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'productoId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'productoId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
@@ -2118,43 +2435,52 @@ extension ItemReservaQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'subtotal',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'subtotal',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      subtotalGreaterThan(
+  subtotalGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'subtotal',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'subtotal',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
   QueryBuilder<ItemReserva, ItemReserva, QAfterFilterCondition>
-      subtotalLessThan(
+  subtotalLessThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'subtotal',
-        value: value,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'subtotal',
+          value: value,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 
@@ -2166,14 +2492,17 @@ extension ItemReservaQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'subtotal',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        epsilon: epsilon,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'subtotal',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+
+          epsilon: epsilon,
+        ),
+      );
     });
   }
 }
