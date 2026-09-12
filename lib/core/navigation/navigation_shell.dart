@@ -91,6 +91,7 @@ class _NavigationShellState extends State<NavigationShell> {
     if (location.startsWith(AppRoutes.wifiQr)) return 4;
     if (location.startsWith(AppRoutes.estadisticas)) return 5;
     if (location.startsWith(AppRoutes.caja)) return 6;
+    if (location.startsWith(AppRoutes.compra)) return 7;
     return _isWebFlow ? 0 : 0;
   }
 
@@ -144,6 +145,9 @@ class _NavigationShellState extends State<NavigationShell> {
         break;
       case 6:
         context.go(AppRoutes.caja);
+        break;
+      case 7:
+        context.go(AppRoutes.compra);
         break;
     }
   }
@@ -228,6 +232,12 @@ class _NavigationShellState extends State<NavigationShell> {
                   label: Text('Caja'),
                   padding: EdgeInsets.symmetric(vertical: 8),
                 ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.shopping_cart_outlined),
+                  selectedIcon: Icon(Icons.shopping_cart),
+                  label: Text('Compra'),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
               ];
 
     return AnimatedContainer(
@@ -280,7 +290,7 @@ class _NavigationShellState extends State<NavigationShell> {
   }
 
   Widget _buildBottomNavigation(BuildContext context, int selectedIndex) {
-    final maxIndex = _isMobileFlow ? 2 : (_isWebFlow ? 1 : 6);
+    final maxIndex = _isMobileFlow ? 2 : (_isWebFlow ? 1 : 7);
     final safeIndex = selectedIndex.clamp(0, maxIndex);
 
     return Container(
@@ -318,6 +328,7 @@ class _NavigationShellState extends State<NavigationShell> {
                         _buildNavItem(context, index: 4, selectedIndex: safeIndex, icon: Icons.wifi_outlined, selectedIcon: Icons.wifi, label: 'WiFi'),
                         _buildNavItem(context, index: 5, selectedIndex: safeIndex, icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Estadísticas'),
                         _buildNavItem(context, index: 6, selectedIndex: safeIndex, icon: Icons.point_of_sale_outlined, selectedIcon: Icons.point_of_sale, label: 'Caja'),
+                        _buildNavItem(context, index: 7, selectedIndex: safeIndex, icon: Icons.shopping_cart_outlined, selectedIcon: Icons.shopping_cart, label: 'Compra'),
                       ],
           ),
         ),

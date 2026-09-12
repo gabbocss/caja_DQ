@@ -1182,17 +1182,13 @@ class LocalServer {
           mesaNumero = json['mesaNumero'] as int;
         }
 
-        // Crear pedido con origen QR
-        final pedido = Pedido()
-          ..mesaNumero = mesaNumero
-          ..usuarioCamarero = 'CLIENTE QR'
-          ..origen = OrigenPedido.qr
-          ..estado = EstadoPedido.pendiente
-          ..esBuffet = json['esBuffet'] as bool? ?? false
-          ..fechaCreacion = DateTime.now()
-          ..fechaActualizacion = DateTime.now()
-          ..total = 0
-          ..items = [];
+        // Crear pedido con origen QR (Pedido.crear inicializa totalPendiente y dineroCobradoAcumulado)
+        final pedido = Pedido.crear(
+          mesaNumero: mesaNumero,
+          usuarioCamarero: 'CLIENTE QR',
+          esBuffet: json['esBuffet'] as bool? ?? false,
+          origen: OrigenPedido.qr,
+        );
         
         // Procesar items: si viene token, usamos el carrito comunitario persistido
         if (token != null && token.trim().isNotEmpty) {

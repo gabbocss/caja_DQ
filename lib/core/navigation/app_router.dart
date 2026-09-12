@@ -24,9 +24,12 @@ import '../../features/estadisticas/presentation/pages/estadisticas_page.dart';
 import '../../features/caja/presentation/pages/caja_page.dart';
 import '../../features/reservas/presentation/pages/reservas_page.dart';
 import '../../features/reservas/presentation/providers/reservas_provider.dart';
+import '../../features/lista_compra/domain/entities/item_lista_compra.dart';
 import '../../features/lista_compra/presentation/pages/lista_compra_hub_page.dart';
 import '../../features/lista_compra/presentation/pages/comprar_page.dart';
+import '../../features/lista_compra/presentation/pages/compra_desktop_page.dart';
 import '../../features/lista_compra/presentation/pages/hacer_lista_page.dart';
+import '../../features/lista_compra/presentation/pages/hacer_lista_zonas_page.dart';
 import '../../features/lista_compra/presentation/pages/supermercados_page.dart';
 import '../../features/lista_compra/presentation/providers/lista_compra_provider.dart';
 import '../../features/lista_compra/presentation/providers/supermercados_provider.dart';
@@ -42,7 +45,10 @@ class AppRoutes {
   static const String listaCompra = '/lista-compra';
   static const String listaCompraComprar = '/lista-compra/comprar';
   static const String listaCompraHacer = '/lista-compra/hacer-lista';
+  static String listaCompraHacerZona(ZonaListaCompra zona) =>
+      '$listaCompraHacer/${zona.apiValue}';
   static const String listaCompraSupermercados = '/lista-compra/supermercados';
+  static const String compra = '/compra';
   static const String cocina = '/cocina';
   static const String configuracion = '/configuracion';
   static const String destinos = '/destinos';
@@ -135,9 +141,25 @@ final appRouter = GoRouter(
               pageBuilder: (context, state) => NoTransitionPage(
                 child: ChangeNotifierProvider(
                   create: (_) => ListaCompraProvider(),
-                  child: const HacerListaPage(),
+                  child: const HacerListaZonasPage(),
                 ),
               ),
+              routes: [
+                GoRoute(
+                  path: ':zona',
+                  pageBuilder: (context, state) {
+                    final zona = ZonaListaCompra.fromString(
+                      state.pathParameters['zona'],
+                    );
+                    return NoTransitionPage(
+                      child: ChangeNotifierProvider(
+                        create: (_) => ListaCompraProvider(),
+                        child: HacerListaPage(zona: zona),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
             GoRoute(
               path: 'supermercados',
@@ -149,6 +171,15 @@ final appRouter = GoRouter(
               ),
             ),
           ],
+        ),
+        GoRoute(
+          path: AppRoutes.compra,
+          pageBuilder: (context, state) => NoTransitionPage(
+            child: ChangeNotifierProvider(
+              create: (_) => ListaCompraProvider(),
+              child: const CompraDesktopPage(),
+            ),
+          ),
         ),
         GoRoute(
           path: AppRoutes.reservas,

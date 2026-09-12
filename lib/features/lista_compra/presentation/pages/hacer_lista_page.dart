@@ -8,9 +8,11 @@ import '../../domain/entities/unidad_medida.dart';
 import '../providers/lista_compra_provider.dart';
 import '../widgets/dialogo_precio_producto.dart';
 
-/// Catálogo de productos + unidad + precios por súper.
+/// Catálogo de productos de una zona (cocina o sala).
 class HacerListaPage extends StatefulWidget {
-  const HacerListaPage({super.key});
+  final ZonaListaCompra zona;
+
+  const HacerListaPage({super.key, required this.zona});
 
   @override
   State<HacerListaPage> createState() => _HacerListaPageState();
@@ -38,6 +40,7 @@ class _HacerListaPageState extends State<HacerListaPage> {
     var unidadBase = existente?.unidadBase ?? UnidadBase.unidad;
     var contenidoUnidad = existente?.contenidoUnidad ??
         ContenidoUnidad.paraBase(unidadBase).first;
+    var zona = existente?.zona ?? widget.zona;
     final provider = context.read<ListaCompraProvider>();
 
     final ok = await showDialog<bool>(
@@ -62,6 +65,52 @@ class _HacerListaPageState extends State<HacerListaPage> {
                       decoration: const InputDecoration(
                         labelText: 'Nombre',
                         labelStyle: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Zona',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<ZonaListaCompra>(
+                        segments: const [
+                          ButtonSegment(
+                            value: ZonaListaCompra.cocina,
+                            label: Text('Cocina'),
+                            icon: Icon(Icons.kitchen_outlined, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: ZonaListaCompra.sala,
+                            label: Text('Sala'),
+                            icon: Icon(Icons.table_restaurant_outlined, size: 16),
+                          ),
+                        ],
+                        selected: {zona},
+                        onSelectionChanged: (sel) {
+                          setLocal(() => zona = sel.first);
+                        },
+                        style: ButtonStyle(
+                          foregroundColor:
+                              WidgetStateProperty.resolveWith((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return Colors.black87;
+                            }
+                            return Colors.white70;
+                          }),
+                          backgroundColor:
+                              WidgetStateProperty.resolveWith((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return const Color(0xFFFFB74D);
+                            }
+                            return const Color(0xFF0D0D0D);
+                          }),
+                        ),
                       ),
                     ),
                     TextField(
@@ -273,6 +322,7 @@ class _HacerListaPageState extends State<HacerListaPage> {
             contenidoCantidad: contenido,
             contenidoUnidad: contenidoUnidad,
             cantidadMinima: minima,
+            zona: zona,
           )
         : await provider.editar(
             existente,
@@ -283,6 +333,7 @@ class _HacerListaPageState extends State<HacerListaPage> {
             clearContenido: contenidoCtrl.text.trim().isEmpty,
             contenidoUnidad: contenidoUnidad,
             cantidadMinima: minima,
+            zona: zona,
           );
 
     if (!mounted) return;
@@ -317,15 +368,15 @@ class _HacerListaPageState extends State<HacerListaPage> {
         child: Column(
           children: [
             _Header(
-              titulo: 'HACER LISTA',
-              onBack: () => context.go(AppRoutes.listaCompra),
+              titulo: widget.zona.etiqueta.toUpperCase(),
+              onBack: () => context.go(AppRoutes.listaCompraHacer),
               onRefresh: () => context.read<ListaCompraProvider>().cargar(),
             ),
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Text(
-                'Marca qué hay que comprar. Usa € para guardar precios por '
-                'súper (calcula €/L, €/kg o €/ud). Mantén pulsado para ordenar.',
+                'Marca qué hay que comprar. Usa € para precios por súper. '
+                'Mantén pulsado para ordenar.',
                 style: TextStyle(color: Colors.white54, fontSize: 13),
               ),
             ),
@@ -341,12 +392,17 @@ class _HacerListaPageState extends State<HacerListaPage> {
                       onRetry: provider.cargar,
                     );
                   }
-                  if (provider.items.isEmpty) {
-                    return const Center(
+                  final items = provider.itemsDe(widget.zona);
+                  if (items.isEmpty) {
+                    return Center(
                       child: Text(
-                        'El catálogo está vacío.\nPulsa Añadir para guardar productos.',
+                        'No hay productos en ${widget.zona.etiqueta.toLowerCase()}.\n'
+                        'Pulsa Añadir para guardar productos.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white54, fontSize: 15),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 15,
+                        ),
                       ),
                     );
                   }
@@ -355,7 +411,7 @@ class _HacerListaPageState extends State<HacerListaPage> {
                     child: ReorderableListView.builder(
                       buildDefaultDragHandles: false,
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-                      itemCount: provider.items.length,
+                      itemCount: items.length,
                       proxyDecorator: (child, index, animation) {
                         return Material(
                           color: Colors.transparent,
@@ -364,10 +420,10 @@ class _HacerListaPageState extends State<HacerListaPage> {
                         );
                       },
                       onReorder: (oldIndex, newIndex) {
-                        provider.reordenar(oldIndex, newIndex);
+                        provider.reordenar(widget.zona, oldIndex, newIndex);
                       },
                       itemBuilder: (context, index) {
-                        final item = provider.items[index];
+                        final item = items[index];
                         final precios = provider.preciosDeProducto(item.id);
                         return Padding(
                           key: ValueKey(item.id),

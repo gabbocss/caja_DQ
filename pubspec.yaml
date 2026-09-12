@@ -61,6 +61,9 @@ dependencies:
   printing: ^5.13.0
   fl_chart: ^0.69.0
 
+  # Abrir URLs (fallback si no hay WebView embebido)
+  url_launcher: ^6.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

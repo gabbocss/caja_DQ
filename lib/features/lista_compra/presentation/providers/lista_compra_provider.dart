@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/lista_compra_remote_service.dart';
+import '../../data/supermercados_remote_service.dart';
 import '../../domain/entities/item_lista_compra.dart';
 import '../../domain/entities/precio_producto.dart';
 import '../../domain/entities/supermercado.dart';
@@ -41,6 +42,9 @@ class ListaCompraProvider extends ChangeNotifier {
   DateTime? _ultimaOk;
 
   List<ItemListaCompra> get items => List.unmodifiable(_items);
+
+  List<ItemListaCompra> itemsDe(ZonaListaCompra zona) =>
+      _items.where((i) => i.zona == zona).toList();
   List<PrecioProducto> get precios => List.unmodifiable(_precios);
   List<Supermercado> get supermercados => List.unmodifiable(_supermercados);
   int? get supermercadoActualId => _supermercadoActualId;
@@ -182,6 +186,9 @@ class ListaCompraProvider extends ChangeNotifier {
     double? contenidoCantidad,
     ContenidoUnidad? contenidoUnidad,
     int cantidadMinima = 1,
+    ZonaListaCompra zona = ZonaListaCompra.cocina,
+    String urlMetro = '',
+    String urlCc = '',
   }) async {
     final n = nombre.trim();
     if (n.isEmpty) {
@@ -200,6 +207,9 @@ class ListaCompraProvider extends ChangeNotifier {
           contenidoUnidad:
               contenidoUnidad ?? ContenidoUnidad.paraBase(unidadBase).first,
           cantidadMinima: cantidadMinima < 1 ? 1 : cantidadMinima,
+          zona: zona,
+          urlMetro: urlMetro.trim(),
+          urlCc: urlCc.trim(),
         ),
       );
       await cargar();
@@ -220,6 +230,9 @@ class ListaCompraProvider extends ChangeNotifier {
     bool clearContenido = false,
     ContenidoUnidad? contenidoUnidad,
     int? cantidadMinima,
+    ZonaListaCompra? zona,
+    String? urlMetro,
+    String? urlCc,
   }) async {
     final n = nombre.trim();
     if (n.isEmpty) {
@@ -237,6 +250,9 @@ class ListaCompraProvider extends ChangeNotifier {
           clearContenido: clearContenido,
           contenidoUnidad: contenidoUnidad,
           cantidadMinima: cantidadMinima,
+          zona: zona,
+          urlMetro: urlMetro,
+          urlCc: urlCc,
         ),
       );
       await cargar();
@@ -329,13 +345,104 @@ class ListaCompraProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> reordenar(int oldIndex, int newIndex) async {
+  /// Guarda enlaces Metro / C&C del producto (uso desktop).
+  Future<bool> guardarUrlsProveedor(
+    ItemListaCompra item, {
+    String? urlMetro,
+    String? urlCc,
+  }) async {
+    try {
+      await _remote.actualizar(item.id, {
+        if (urlMetro != null) 'urlMetro': urlMetro.trim(),
+        if (urlCc != null) 'urlCc': urlCc.trim(),
+      });
+      await cargar();
+      return _error == null;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  bool _esMetro(Supermercado s) =>
+      s.nombre.toLowerCase().contains('metro');
+
+  bool _esCc(Supermercado s) {
+    final n = s.nombre.toLowerCase().replaceAll(' ', '');
+    return n.contains('c&c') ||
+        n.contains('c+c') ||
+        n.contains('cash&carry') ||
+        n.contains('cashandcarry') ||
+        s.nombre.toLowerCase() == 'c&c' ||
+        s.nombre.toLowerCase() == 'c + c';
+  }
+
+  /// Busca el súper «Metro» o lo crea si no existe.
+  Future<Supermercado?> asegurarSupermercadoMetro() async {
+    for (final s in _supermercados) {
+      if (_esMetro(s)) return s;
+    }
+    try {
+      final remoto = SupermercadosRemoteService();
+      final creado = await remoto.guardar(
+        const Supermercado(id: 0, nombre: 'Metro'),
+      );
+      _supermercados = await _remote.obtenerSupermercados();
+      notifyListeners();
+      return creado;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Busca el súper «C&C» o lo crea si no existe.
+  Future<Supermercado?> asegurarSupermercadoCc() async {
+    for (final s in _supermercados) {
+      if (_esCc(s)) return s;
+    }
+    try {
+      final remoto = SupermercadosRemoteService();
+      final creado = await remoto.guardar(
+        const Supermercado(id: 0, nombre: 'C&C'),
+      );
+      _supermercados = await _remote.obtenerSupermercados();
+      notifyListeners();
+      return creado;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return null;
+    }
+  }
+
+  PrecioProducto? precioEnSuper(int productoId, int supermercadoId) {
+    for (final p in preciosDeProducto(productoId)) {
+      if (p.supermercadoId == supermercadoId) return p;
+    }
+    return null;
+  }
+
+  Future<bool> reordenar(
+    ZonaListaCompra zona,
+    int oldIndex,
+    int newIndex,
+  ) async {
     if (oldIndex < newIndex) newIndex -= 1;
-    final lista = List<ItemListaCompra>.from(_items);
-    final item = lista.removeAt(oldIndex);
-    lista.insert(newIndex, item);
+    final deZona = List<ItemListaCompra>.from(itemsDe(zona));
+    if (oldIndex < 0 || oldIndex >= deZona.length) return false;
+    final item = deZona.removeAt(oldIndex);
+    final insertAt = newIndex.clamp(0, deZona.length);
+    deZona.insert(insertAt, item);
+    final cocina =
+        zona == ZonaListaCompra.cocina ? deZona : itemsDe(ZonaListaCompra.cocina);
+    final sala =
+        zona == ZonaListaCompra.sala ? deZona : itemsDe(ZonaListaCompra.sala);
+    final combinada = [...cocina, ...sala];
     _items = [
-      for (var i = 0; i < lista.length; i++) lista[i].copyWith(orden: i),
+      for (var i = 0; i < combinada.length; i++) combinada[i].copyWith(orden: i),
     ];
     notifyListeners();
     try {

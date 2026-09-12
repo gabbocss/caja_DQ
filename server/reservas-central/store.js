@@ -222,6 +222,10 @@ function normalizarUnidadBase(v) {
   return 'unidad';
 }
 
+function normalizarZona(v) {
+  return String(v || '').toLowerCase() === 'sala' ? 'sala' : 'cocina';
+}
+
 function normalizarContenidoUnidad(v, unidadBase) {
   const s = String(v || '').toLowerCase();
   const permitidas =
@@ -282,8 +286,16 @@ function normalizarItemListaCompra(item, now) {
   const minRaw = Number(item.cantidadMinima);
   const cantidadMinima =
     Number.isFinite(minRaw) && minRaw >= 1 ? Math.floor(minRaw) : 1;
+  const urlMetroRaw = item.urlMetro != null
+    ? String(item.urlMetro).trim()
+    : '';
+  const urlCc = String(item.urlCc || '').trim();
+  // Migración: urlProveedor antiguo → urlMetro.
+  const urlMetro =
+    urlMetroRaw || String(item.urlProveedor || '').trim();
+  const { urlProveedor: _omitUrlProveedor, ...rest } = item;
   return {
-    ...item,
+    ...rest,
     hayQueComprar,
     comprado,
     orden,
@@ -294,6 +306,9 @@ function normalizarItemListaCompra(item, now) {
       unidadBase,
     ),
     cantidadMinima,
+    zona: normalizarZona(item.zona),
+    urlMetro,
+    urlCc,
     fechaActualizacion: now,
   };
 }
@@ -315,6 +330,11 @@ function getListaCompra() {
     const o = Number(items[i].orden);
     if (items[i].orden == null || Number.isNaN(o)) {
       items[i].orden = i;
+      needsWrite = true;
+    }
+    const zona = normalizarZona(items[i].zona);
+    if (items[i].zona !== zona) {
+      items[i].zona = zona;
       needsWrite = true;
     }
   }
@@ -362,6 +382,15 @@ function upsertItemListaCompra(body) {
           item.cantidadMinima != null
             ? item.cantidadMinima
             : items[idx].cantidadMinima,
+        zona: item.zona != null ? item.zona : items[idx].zona,
+        urlMetro:
+          item.urlMetro != null
+            ? item.urlMetro
+            : item.urlProveedor != null
+              ? item.urlProveedor
+              : items[idx].urlMetro ?? items[idx].urlProveedor,
+        urlCc:
+          item.urlCc != null ? item.urlCc : items[idx].urlCc,
         fechaCreacion: items[idx].fechaCreacion || now,
       };
       if (!merged.nombre) {
@@ -390,6 +419,9 @@ function upsertItemListaCompra(body) {
       contenidoCantidad: item.contenidoCantidad,
       contenidoUnidad: item.contenidoUnidad,
       cantidadMinima: item.cantidadMinima != null ? item.cantidadMinima : 1,
+      zona: item.zona,
+      urlMetro: item.urlMetro != null ? item.urlMetro : item.urlProveedor,
+      urlCc: item.urlCc,
       fechaCreacion: now,
     },
     now,
