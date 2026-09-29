@@ -104,11 +104,9 @@ Future<void> initializeAsyncServices() async {
     }
   }
 
-  // Reservas desde el servidor 24/7. El catálogo al VPS solo lo publica el escritorio.
-  if (sl.isRegistered<DatabaseService>()) {
-    final sync = PlatformUtils.isMobile
-        ? await ReservaSyncService.instance.sincronizarSoloReservasAlInicio()
-        : await ReservaSyncService.instance.sincronizarAlInicio();
+  // Reservas: solo la caja (escritorio) hace pull por id. El móvil lista/edita en el VPS.
+  if (sl.isRegistered<DatabaseService>() && !PlatformUtils.isMobile) {
+    final sync = await ReservaSyncService.instance.sincronizarAlInicio();
     if (!sync.exito && sync.usoBackupLocal) {
       debugPrint(
         'Reservas: modo degradado (${sync.descargadas} en backup local).',

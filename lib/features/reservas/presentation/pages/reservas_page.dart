@@ -1417,7 +1417,7 @@ class _ReservasPageState extends State<ReservasPage>
         if (!PlatformUtils.isAndroid)
           _seccionReservas(
             titulo: 'En el servidor',
-            subtitulo: 'Reservas ya enviadas al VPS',
+            subtitulo: 'Pendientes en el VPS (espejo por id)',
             icono: Icons.cloud_done_outlined,
             cantidad: provider.reservasEnServidorCount,
             lista: enServidor,
@@ -1573,23 +1573,6 @@ class _ReservasPageState extends State<ReservasPage>
                       ),
                       child: const Text(
                         'Por enviar',
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  if (permitirEditar && reserva.sincronizadaEnCaja)
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4FC3F7),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'En caja',
                         style: TextStyle(
                           color: Colors.black87,
                           fontSize: 10,

@@ -533,12 +533,12 @@ class ApiClient {
     }
   }
 
-  /// GET /api/reservas — pendientes que la caja aún no ha confirmado en disco.
+  /// GET /api/reservas — pendientes y canceladas (caja hace upsert por id).
   Future<List<Reserva>> obtenerReservasPendientes() async {
     return _obtenerReservasDesdeVps();
   }
 
-  /// GET /api/reservas?incluye=sincronizadas — todas las pendientes editables (app móvil).
+  /// GET /api/reservas?incluye=sincronizadas — pendientes editables (app móvil).
   Future<List<Reserva>> obtenerReservasEditables() async {
     return _obtenerReservasDesdeVps(incluyeSincronizadas: true);
   }
@@ -594,7 +594,7 @@ class ApiClient {
     }
   }
 
-  /// POST /api/reservas/marcar-sincronizadas — candado: la caja ya guardó estos IDs.
+  /// POST /api/reservas/marcar-sincronizadas — no-op en el VPS (compat. clientes antiguos).
   Future<void> marcarReservasSincronizadas(List<int> ids) async {
     if (ids.isEmpty) return;
     final uri = _apiUri(ApiEndpoints.reservasMarcarSincronizadas);

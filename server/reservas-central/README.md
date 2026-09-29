@@ -57,20 +57,19 @@ Debe devolver JSON con `"endpoints"` y `"reservas": "/api/reservas"`.
 | `PORT` | `8888` | Puerto de escucha |
 | `HOST` | `0.0.0.0` | Interfaz |
 | `DATA_DIR` | `./data` | Carpeta de `reservas.json` |
-| `RESERVAS_PURGE_MS` | `2592000000` (30 días) | Tras confirmar sync en caja, borrar del VPS pasado este tiempo |
+| `RESERVAS_PURGE_MS` | `2592000000` (30 días) | Borra del VPS reservas cuya `fechaHoraLlegada` es más antigua que este margen |
 
-### Candado de sincronización (caja → VPS)
+### Sincronización por id (caja ← VPS)
 
-1. La caja hace `GET /api/reservas` (pendientes nuevas, reeditadas o canceladas aún no confirmadas).
-2. Fusiona en Isar + `reservas_backup.json` (el histórico local no se borra).
-3. `POST /api/reservas/marcar-sincronizadas` con `{ "ids": [1, 2, 3] }`.
-4. El VPS deja de devolver esas reservas en el GET de sync y, tras `RESERVAS_PURGE_MS`, las elimina de `reservas.json`.
+1. La caja hace `GET /api/reservas` (todas las `pendiente` y `cancelada` dentro de la ventana de retención).
+2. Fusiona en Isar por **id**: inserta si no existe; actualiza si `fechaActualizacion` remota es ≥ local (sin pisar `sentada`/`cobrada` locales).
+3. No hay candado `sincronizadaEnCajaAt`: el móvil no puede “robar” la entrega.
+4. `POST /api/reservas/marcar-sincronizadas` queda como **no-op** (compatibilidad con clientes antiguos) y limpia marcas legacy si las hay.
 
-### Edición desde la app móvil (fase 2)
+### Edición desde la app móvil
 
-- `GET /api/reservas?incluye=sincronizadas` devuelve **todas** las reservas con `estado: pendiente`, incluidas las ya confirmadas en caja (`sincronizadaEnCajaAt` presente).
-- Al editar (`POST /api/reservas` con `id`), el VPS borra `sincronizadaEnCajaAt` y la caja vuelve a descargarla en el siguiente sync.
-- Al cancelar (`PUT /api/reservas/<id>/estado`), también se reencola para la caja.
+- `GET /api/reservas?incluye=sincronizadas` (o el GET normal) lista pendientes editables.
+- Al editar (`POST /api/reservas` con `id`) o cancelar (`PUT .../estado`), se actualiza `fechaActualizacion` y la caja aplica el cambio en el siguiente poll.
 
 Tras desplegar, reinicia: `pm2 restart reservas-central`.
 

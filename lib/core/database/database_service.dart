@@ -1300,17 +1300,38 @@ class DatabaseService {
     return await isar.writeTxn(() => isar.reservas.delete(id));
   }
 
-  /// Upsert de reservas del VPS; no elimina reservas locales que ya no vienen en el pull.
+  /// Upsert por id desde el VPS.
+  ///
+  /// - Id nuevo → inserta.
+  /// - Cancelación remota → siempre aplica.
+  /// - No pisa `sentada`/`cobrada` locales con un `pendiente` remoto.
+  /// - En resto de casos actualiza si `fechaActualizacion` remota ≥ local.
+  /// No elimina reservas locales que ya no vienen en el pull.
   Future<void> fusionarReservasRemotas(List<Reserva> remotas) async {
     await isar.writeTxn(() async {
       for (final remota in remotas) {
-        if (remota.id != null) {
-          final local = await isar.reservas.get(remota.id!);
-          if (local != null) {
-            remota.fechaCreacion = local.fechaCreacion;
-          }
+        if (remota.id == null) continue;
+        final local = await isar.reservas.get(remota.id!);
+        if (local == null) {
+          await isar.reservas.put(remota);
+          continue;
         }
-        await isar.reservas.put(remota);
+
+        remota.fechaCreacion = local.fechaCreacion;
+
+        if (remota.estado == EstadoReserva.cancelada) {
+          await isar.reservas.put(remota);
+          continue;
+        }
+
+        if (local.estado == EstadoReserva.sentada ||
+            local.estado == EstadoReserva.cobrada) {
+          continue;
+        }
+
+        if (!remota.fechaActualizacion.isBefore(local.fechaActualizacion)) {
+          await isar.reservas.put(remota);
+        }
       }
     });
   }

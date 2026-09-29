@@ -72,7 +72,7 @@ class Reserva {
   late DateTime fechaCreacion;
   late DateTime fechaActualizacion;
 
-  /// Marca de sincronización en caja (solo en respuestas del VPS; no se guarda en Isar).
+  /// Campo legacy del VPS (ya no se usa para sync; se ignora en Isar).
   @ignore
   DateTime? sincronizadaEnCajaAt;
 
@@ -97,7 +97,7 @@ class Reserva {
 
   bool get estaCobrada => estado == EstadoReserva.cobrada;
 
-  /// Ya descargada por la caja de escritorio (flag del VPS).
+  /// Compatibilidad con esquema Isar generado (campo legacy; no usar en UI).
   bool get sincronizadaEnCaja => sincronizadaEnCajaAt != null;
 
   double get totalItemsReservados =>
@@ -115,8 +115,6 @@ class Reserva {
         'mesaAsignada': mesaAsignada,
         'fechaCreacion': fechaCreacion.toIso8601String(),
         'fechaActualizacion': fechaActualizacion.toIso8601String(),
-        if (sincronizadaEnCajaAt != null)
-          'sincronizadaEnCajaAt': sincronizadaEnCajaAt!.toIso8601String(),
       };
 
   factory Reserva.fromJson(Map<String, dynamic> json) {

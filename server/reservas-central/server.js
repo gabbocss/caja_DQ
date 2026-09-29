@@ -293,7 +293,7 @@ server.listen(PORT, HOST, () => {
   );
   console.log(`  GET  /api`);
   console.log(`  GET  /api/reservas`);
-  console.log(`  POST /api/reservas/marcar-sincronizadas`);
+  console.log(`  POST /api/reservas/marcar-sincronizadas (deprecated no-op)`);
   console.log(`  GET/POST /api/productos`);
   console.log(`  GET/POST /api/lista-compra`);
   console.log(`  POST /api/lista-compra/vaciar-compra`);

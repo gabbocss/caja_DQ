@@ -92,7 +92,8 @@ class ReservaPersistenceService {
     return ok;
   }
 
-  /// Inserta/actualiza reservas del VPS sin borrar el histórico local (sentadas, canceladas, etc.).
+  /// Inserta/actualiza reservas del VPS por id + fechaActualizacion.
+  /// No borra el histórico local (sentadas, canceladas, etc.).
   Future<void> fusionarReservasRemotas(List<Reserva> remotas) async {
     if (_db.isInitialized) {
       await _db.fusionarReservasRemotas(remotas);

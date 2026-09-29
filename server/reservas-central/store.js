@@ -8,7 +8,7 @@ const LISTA_COMPRA_FILE = path.join(DATA_DIR, 'lista_compra.json');
 const SUPERMERCADOS_FILE = path.join(DATA_DIR, 'supermercados.json');
 const PRECIOS_LISTA_COMPRA_FILE = path.join(DATA_DIR, 'precios_lista_compra.json');
 
-/** Tras marcar sincronizadas en caja, el VPS puede purgar pasado este tiempo (ms). */
+/** Purga reservas cuya fechaHoraLlegada es más antigua que este margen (ms). */
 const RESERVAS_PURGE_MS = Number(
   process.env.RESERVAS_PURGE_MS || String(30 * 24 * 60 * 60 * 1000),
 );
@@ -60,11 +60,11 @@ function nextId(reservas) {
   return max + 1;
 }
 
-function purgeSincronizadasAntiguas(reservas) {
+/** Mantiene reservas con llegada dentro de la ventana de retención. */
+function purgeAntiguasPorFechaLlegada(reservas) {
   const cutoff = Date.now() - RESERVAS_PURGE_MS;
   const kept = reservas.filter((r) => {
-    if (!r.sincronizadaEnCajaAt) return true;
-    const t = new Date(r.sincronizadaEnCajaAt).getTime();
+    const t = new Date(r.fechaHoraLlegada).getTime();
     if (Number.isNaN(t)) return true;
     return t > cutoff;
   });
@@ -75,66 +75,80 @@ function purgeSincronizadasAntiguas(reservas) {
   return 0;
 }
 
+function sortPorLlegada(lista) {
+  return lista.sort(
+    (a, b) =>
+      new Date(a.fechaHoraLlegada).getTime() -
+      new Date(b.fechaHoraLlegada).getTime(),
+  );
+}
+
 /**
- * Reservas que la caja debe descargar o actualizar (nuevas, reeditadas o canceladas).
+ * Reservas para la caja: pendientes y canceladas (la caja hace upsert por id).
+ * Ya no se filtra por sincronizadaEnCajaAt.
  */
 function getPendientes() {
   const reservas = readAll();
-  purgeSincronizadasAntiguas(reservas);
-  const actuales = readAll();
-  return actuales
-    .filter(
-      (r) =>
-        !r.sincronizadaEnCajaAt &&
-        (r.estado === 'pendiente' || r.estado === 'cancelada'),
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.fechaHoraLlegada).getTime() -
-        new Date(b.fechaHoraLlegada).getTime(),
-    );
+  purgeAntiguasPorFechaLlegada(reservas);
+  let actuales = readAll();
+  actuales = stripLegacySyncFlags(actuales);
+  return sortPorLlegada(
+    actuales.filter(
+      (r) => r.estado === 'pendiente' || r.estado === 'cancelada',
+    ),
+  );
 }
 
 /**
- * Todas las reservas pendientes editables (incluye las ya confirmadas en caja).
- * Usado por la app móvil con GET /api/reservas?incluye=sincronizadas
+ * Pendientes editables (app móvil). Misma fuente de verdad; sin candado de sync.
+ * GET /api/reservas?incluye=sincronizadas se mantiene por compatibilidad.
  */
 function getPendientesEditables() {
   const reservas = readAll();
-  purgeSincronizadasAntiguas(reservas);
-  const actuales = readAll();
-  return actuales
-    .filter((r) => r.estado === 'pendiente')
-    .sort(
-      (a, b) =>
-        new Date(a.fechaHoraLlegada).getTime() -
-        new Date(b.fechaHoraLlegada).getTime(),
-    );
+  purgeAntiguasPorFechaLlegada(reservas);
+  let actuales = readAll();
+  actuales = stripLegacySyncFlags(actuales);
+  return sortPorLlegada(actuales.filter((r) => r.estado === 'pendiente'));
+}
+
+/** Elimina marcas legacy sincronizadaEnCajaAt (ya no se usan). */
+function stripLegacySyncFlags(reservas) {
+  let changed = false;
+  for (const r of reservas) {
+    if (r.sincronizadaEnCajaAt != null) {
+      delete r.sincronizadaEnCajaAt;
+      changed = true;
+    }
+  }
+  if (changed) writeAll(reservas);
+  return reservas;
 }
 
 /**
- * La caja confirma que ya guardó en disco estos IDs (candado de seguridad).
+ * @deprecated El sync es por id + fechaActualizacion en la caja.
+ * Se mantiene el endpoint como no-op para clientes antiguos.
  */
 function marcarSincronizadas(ids) {
   const lista = Array.isArray(ids) ? ids : [];
   const idSet = new Set(
     lista.map((x) => Number(x)).filter((n) => !Number.isNaN(n) && n > 0),
   );
+  // Limpia marcas legacy si existen (ya no afectan al GET).
   const reservas = readAll();
-  const now = new Date().toISOString();
-  let marcadas = 0;
+  let limpiadas = 0;
   for (const r of reservas) {
-    if (idSet.has(Number(r.id))) {
-      r.sincronizadaEnCajaAt = now;
-      marcadas++;
+    if (idSet.has(Number(r.id)) && r.sincronizadaEnCajaAt != null) {
+      delete r.sincronizadaEnCajaAt;
+      limpiadas++;
     }
   }
-  writeAll(reservas);
-  const purgadas = purgeSincronizadasAntiguas(readAll());
+  if (limpiadas > 0) writeAll(reservas);
+  const purgadas = purgeAntiguasPorFechaLlegada(readAll());
   return {
-    marcadas,
+    marcadas: 0,
     ids: [...idSet],
     purgadas,
+    deprecated: true,
   };
 }
 
@@ -154,6 +168,7 @@ function upsertReserva(body) {
         fechaCreacion: reservas[idx].fechaCreacion || now,
         fechaActualizacion: now,
       };
+      // Campo legacy; la caja ya no depende de él.
       delete reserva.sincronizadaEnCajaAt;
       reservas[idx] = reserva;
       writeAll(reservas);
@@ -166,6 +181,7 @@ function upsertReserva(body) {
   reserva.fechaActualizacion = now;
   reserva.estado = reserva.estado || 'pendiente';
   reserva.itemsReservados = reserva.itemsReservados || [];
+  delete reserva.sincronizadaEnCajaAt;
   reservas.push(reserva);
   writeAll(reservas);
   return reserva;
@@ -178,7 +194,6 @@ function updateEstado(id, estado, mesaAsignada) {
   reservas[idx].estado = estado;
   if (mesaAsignada != null) reservas[idx].mesaAsignada = mesaAsignada;
   reservas[idx].fechaActualizacion = new Date().toISOString();
-  // Reencolar para que la caja reciba cancelaciones u otros cambios de estado.
   delete reservas[idx].sincronizadaEnCajaAt;
   writeAll(reservas);
   return reservas[idx];

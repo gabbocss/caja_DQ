@@ -27,6 +27,7 @@ class ReservaSyncResult {
 /// Descarga reservas del servidor remoto.
 ///
 /// La subida del catálogo al VPS solo está permitida desde escritorio (caja).
+/// El sync de reservas es por **id** + `fechaActualizacion` (sin candado en el VPS).
 class ReservaSyncService {
   static final ReservaSyncService instance = ReservaSyncService._();
   ReservaSyncService._();
@@ -34,13 +35,15 @@ class ReservaSyncService {
   final ReservaPersistenceService _persistencia =
       ReservaPersistenceService.instance;
 
-  /// Sincroniza al arrancar.
+  /// Sincroniza al arrancar (solo escritorio: catálogo + reservas).
   ///
-  /// En móvil solo descarga reservas (nunca publica el menú).
-  /// En escritorio puede subir el catálogo local y luego bajar reservas.
+  /// En móvil no se hace pull de caja: la app lista/edita contra el VPS.
   Future<ReservaSyncResult> sincronizarAlInicio() async {
     if (PlatformUtils.isMobile) {
-      return sincronizarSoloReservasAlInicio();
+      debugPrint(
+        'Reservas: omitido sync de caja en móvil (lista/edición vía VPS).',
+      );
+      return const ReservaSyncResult(exito: true, descargadas: 0);
     }
 
     final url = await getReservasCentralUrlEfectiva();
@@ -60,6 +63,13 @@ class ReservaSyncService {
 
   /// Solo descarga reservas del VPS (sin subir catálogo). Para entrar en Reservas en caja.
   Future<ReservaSyncResult> sincronizarSoloReservasAlInicio() async {
+    if (PlatformUtils.isMobile) {
+      debugPrint(
+        'Reservas: omitido pull de caja en móvil.',
+      );
+      return const ReservaSyncResult(exito: true, descargadas: 0);
+    }
+
     final url = await getReservasCentralUrlEfectiva();
     if (url == null || url.isEmpty) {
       debugPrint(
@@ -105,11 +115,14 @@ class ReservaSyncService {
   }
 
   /// En escritorio: sube catálogo y descarga reservas.
-  /// En móvil/web: solo descarga reservas (sin tocar el menú del VPS).
+  /// En móvil: no-op (no publica menú ni hace pull de caja).
   Future<ReservaSyncResult> sincronizarDesdeRemoto(String baseUrl) async {
+    if (PlatformUtils.isMobile) {
+      return const ReservaSyncResult(exito: true, descargadas: 0);
+    }
+
     var productosSubidos = 0;
     String? errorCatalogo;
-    final puedeSubirCatalogo = PlatformUtils.isDesktop;
 
     try {
       final client = ApiClient(baseUrl);
@@ -121,23 +134,17 @@ class ReservaSyncService {
         );
       }
 
-      if (puedeSubirCatalogo) {
-        try {
-          productosSubidos =
-              await subirCatalogoProductosAlVps(baseUrl, client: client);
-          debugPrint('✅ Catálogo subido al VPS: $productosSubidos productos');
-        } catch (e, st) {
-          errorCatalogo = 'Catálogo: $e';
-          debugPrint('⚠️ Fallo subida catálogo al VPS: $e\n$st');
-        }
-      } else {
-        debugPrint(
-          'Catálogo: omitida subida al VPS (solo escritorio puede publicarlo).',
-        );
+      try {
+        productosSubidos =
+            await subirCatalogoProductosAlVps(baseUrl, client: client);
+        debugPrint('✅ Catálogo subido al VPS: $productosSubidos productos');
+      } catch (e, st) {
+        errorCatalogo = 'Catálogo: $e';
+        debugPrint('⚠️ Fallo subida catálogo al VPS: $e\n$st');
       }
 
       final remotas = await client.obtenerReservasPendientes();
-      await _fusionarEnDiscoYConfirmarVps(client, remotas, baseUrl);
+      await _fusionarEnDisco(remotas);
       client.dispose();
       debugPrint('✅ Reservas sincronizadas: ${remotas.length} desde $baseUrl');
 
@@ -168,7 +175,7 @@ class ReservaSyncService {
     }
   }
 
-  /// Solo descarga reservas del VPS, fusiona en disco y confirma al VPS (candado).
+  /// Solo descarga reservas del VPS y fusiona en disco por id (sin marcar en el VPS).
   Future<List<Reserva>> descargarSoloReservasDesdeRemoto(String baseUrl) async {
     final client = ApiClient(baseUrl);
     try {
@@ -178,7 +185,7 @@ class ReservaSyncService {
         );
       }
       final remotas = await client.obtenerReservasPendientes();
-      await _fusionarEnDiscoYConfirmarVps(client, remotas, baseUrl);
+      await _fusionarEnDisco(remotas);
       debugPrint('✅ Reservas VPS (pull): ${remotas.length} desde $baseUrl');
       return remotas;
     } catch (e, st) {
@@ -189,19 +196,9 @@ class ReservaSyncService {
     }
   }
 
-  /// Guarda en Isar + backup JSON; luego POST marcar-sincronizadas en el VPS.
-  Future<void> _fusionarEnDiscoYConfirmarVps(
-    ApiClient client,
-    List<Reserva> remotas,
-    String baseUrl,
-  ) async {
+  /// Guarda en Isar + backup JSON por id / fechaActualizacion.
+  Future<void> _fusionarEnDisco(List<Reserva> remotas) async {
     await _persistencia.fusionarReservasRemotas(remotas);
-    final ids = remotas.map((r) => r.id).whereType<int>().toList();
-    if (ids.isEmpty) return;
-    await client.marcarReservasSincronizadas(ids);
-    debugPrint(
-      '🔒 Candado VPS: ${ids.length} reserva(s) confirmadas en $baseUrl',
-    );
   }
 
   /// Lee productos de Isar y los publica en el servidor central (POST /api/productos).
