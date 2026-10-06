@@ -123,6 +123,7 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
     provider.aplicarDistribucionOrdenPlato(
       numeroMesa: widget.numeroMesa,
       productoId: id,
+      total: result.total,
       segundo: result.segundo,
       tercero: result.tercero,
       variantes: result.variantes,
@@ -464,7 +465,18 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
                         );
                       },
                 onItemRemoved: (index) => mobileProvider.removeFromCart(widget.numeroMesa, index),
-                onOrdenChanged: (index, orden) => mobileProvider.changeOrder(widget.numeroMesa, index, orden),
+                onAplicarOrdenPlato: (producto, result) {
+                  final id = producto.id;
+                  if (id == null || id <= 0) return;
+                  mobileProvider.aplicarDistribucionOrdenPlato(
+                    numeroMesa: widget.numeroMesa,
+                    productoId: id,
+                    total: result.total,
+                    segundo: result.segundo,
+                    tercero: result.tercero,
+                    variantes: result.variantes,
+                  );
+                },
                 onEnviar: () async {
                   final itemsCarrito = mobileProvider.carritoMesa(widget.numeroMesa);
                   final result = _validarStockCarrito(itemsCarrito, _productos);

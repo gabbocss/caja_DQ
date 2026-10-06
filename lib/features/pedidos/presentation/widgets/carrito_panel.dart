@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/core.dart';
 import '../../../../core/services/registro_pago_service.dart';
 import '../pages/pedidos_page.dart';
+import '../utils/carrito_orden_utils.dart';
+import 'dialogo_orden_plato.dart';
 
 /// Panel lateral del carrito de compras
 /// 
@@ -19,8 +21,9 @@ class CarritoPanel extends StatelessWidget {
   final Future<void> Function(int mesa)? onMesaTap;
   final ValueChanged<int>? onMostrarQrMesa;
   final ValueChanged<int> onItemRemoved;
-  /// Callback para cambiar el orden del plato (1º, 2º, etc.) por índice
-  final void Function(int index, int orden)? onOrdenChanged;
+  /// Aplica distribución 1º/2º/3º y variantes tras el diálogo de orden del plato
+  final void Function(Producto producto, ResultadoOrdenPlato resultado)?
+      onAplicarOrdenPlato;
   final VoidCallback onEnviar;
   /// Se llama al pulsar LIBERAR (solo visible si la mesa tiene consumo actual)
   final VoidCallback? onLiberar;
@@ -46,7 +49,7 @@ class CarritoPanel extends StatelessWidget {
     this.onMesaTap,
     this.onMostrarQrMesa,
     required this.onItemRemoved,
-    this.onOrdenChanged,
+    this.onAplicarOrdenPlato,
     required this.onEnviar,
     this.onLiberar,
     this.onImprimirCuenta,
@@ -372,24 +375,52 @@ class CarritoPanel extends StatelessWidget {
   }
 
   Widget _buildListaItems() {
+    final grupos = CarritoOrdenUtils.agruparParaUi(items);
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: items.length,
+      itemCount: grupos.length,
       itemBuilder: (context, index) {
-        final item = items[index];
+        final grupo = grupos[index];
+        final item = grupo.representativo;
         final estaAgotado = item.producto.id != null &&
             productosAgotados.contains(item.producto.id);
         return _CarritoItemTile(
           item: item,
-          index: index,
-          onRemove: () => onItemRemoved(index),
-          onOrdenChanged: onOrdenChanged != null
-              ? (orden) => onOrdenChanged!(index, orden)
-              : null,
+          cantidad: grupo.cantidad,
+          subtotal: grupo.subtotal,
+          dismissKey:
+              '${CarritoOrdenUtils.claveGrupo(item)}#${grupo.indices.join(',')}',
+          onRemove: () => onItemRemoved(grupo.indiceParaEliminar),
+          onEditarOrden: onAplicarOrdenPlato == null
+              ? null
+              : () => _abrirDialogoOrdenPlato(context, item.producto),
           estaAgotado: estaAgotado,
         );
       },
     );
+  }
+
+  Future<void> _abrirDialogoOrdenPlato(
+    BuildContext context,
+    Producto producto,
+  ) async {
+    if (onAplicarOrdenPlato == null) return;
+    final id = producto.id;
+    if (id == null || id <= 0) return;
+
+    final dist = CarritoOrdenUtils.distribucion(items, id);
+    if (dist.total <= 0) return;
+
+    final result = await DialogoOrdenPlato.mostrar(
+      context: context,
+      nombrePlato: producto.nombre,
+      total: dist.total,
+      segundoInicial: dist.segundo,
+      terceroInicial: dist.tercero,
+      variantesIniciales: CarritoOrdenUtils.variantes(items, id),
+    );
+    if (result == null || !context.mounted) return;
+    onAplicarOrdenPlato!(producto, result);
   }
 
   Widget _buildResumen() {
@@ -772,76 +803,30 @@ class _MesaSelectorPaginadoState extends State<_MesaSelectorPaginado> {
   }
 }
 
-/// Tile individual de item en el carrito
+/// Tile de item en el carrito (puede representar varias líneas apiladas en UI).
 class _CarritoItemTile extends StatelessWidget {
   final ItemCarrito item;
-  final int index;
+  final int cantidad;
+  final double subtotal;
+  final String dismissKey;
   final VoidCallback onRemove;
-  final ValueChanged<int>? onOrdenChanged;
+  final VoidCallback? onEditarOrden;
   final bool estaAgotado;
 
   const _CarritoItemTile({
     required this.item,
-    required this.index,
+    required this.cantidad,
+    required this.subtotal,
+    required this.dismissKey,
     required this.onRemove,
-    this.onOrdenChanged,
+    this.onEditarOrden,
     this.estaAgotado = false,
   });
-
-  Future<void> _mostrarDialogoOrden(BuildContext context) async {
-    if (onOrdenChanged == null) return;
-    int seleccionado = item.orden;
-    final result = await showDialog<int>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          backgroundColor: const Color(0xFF16213E),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text(
-            '¿Orden de los platos?',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: SingleChildScrollView(
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: List.generate(9, (i) {
-                final n = i + 1;
-                final isSelected = seleccionado == n;
-                return ChoiceChip(
-                  label: Text('$nº'),
-                  selected: isSelected,
-                  onSelected: (_) => setState(() => seleccionado = n),
-                  selectedColor: const Color(0xFF00D9A5),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.black87 : Colors.white,
-                    fontWeight: isSelected ? FontWeight.bold : null,
-                  ),
-                );
-              }),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(seleccionado),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00D9A5)),
-              child: const Text('Aceptar'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (result != null) onOrdenChanged!(result);
-  }
 
   @override
   Widget build(BuildContext context) {
     return Dismissible(
-      key: ValueKey('$index-${item.producto.id ?? item.producto.nombre}'),
+      key: ValueKey(dismissKey),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => onRemove(),
       background: Container(
@@ -855,7 +840,7 @@ class _CarritoItemTile extends StatelessWidget {
         ),
       ),
       child: GestureDetector(
-        onDoubleTap: onOrdenChanged != null ? () => _mostrarDialogoOrden(context) : null,
+        onDoubleTap: onEditarOrden,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           padding: const EdgeInsets.all(12),
@@ -910,12 +895,36 @@ class _CarritoItemTile extends StatelessWidget {
                               color: estaAgotado ? Colors.white60 : Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
-                              decoration: estaAgotado ? TextDecoration.lineThrough : null,
+                              decoration: estaAgotado
+                                  ? TextDecoration.lineThrough
+                                  : null,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (cantidad > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F3460),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '×$cantidad',
+                                style: const TextStyle(
+                                  color: Color(0xFF00D9A5),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
                         if (item.producto.esBuffet && !estaAgotado)
                           const Padding(
                             padding: EdgeInsets.only(left: 4),
@@ -930,7 +939,10 @@ class _CarritoItemTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     if (estaAgotado)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE94560),
                           borderRadius: BorderRadius.circular(4),
@@ -950,7 +962,7 @@ class _CarritoItemTile extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '\$${item.subtotal.toStringAsFixed(2)}',
+                            '\$${subtotal.toStringAsFixed(2)}',
                             style: const TextStyle(
                               color: Color(0xFF00D9A5),
                               fontWeight: FontWeight.bold,
@@ -988,7 +1000,9 @@ class _CarritoItemTile extends StatelessWidget {
                 )
               else
                 Tooltip(
-                  message: 'Doble clic para cambiar orden del plato',
+                  message: onEditarOrden != null
+                      ? 'Doble clic: turno y variantes'
+                      : 'Orden del plato',
                   child: Container(
                     width: 36,
                     height: 36,

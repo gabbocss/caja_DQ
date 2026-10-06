@@ -16,15 +16,20 @@ class VariantePlato {
 
 /// Resultado del diálogo: turnos + variantes por turno.
 class ResultadoOrdenPlato {
+  /// Unidades que quedan en el carrito tras el diálogo (puede ser menor al abrir).
+  final int total;
   final int segundo;
   final int tercero;
   final List<VariantePlato> variantes;
 
   const ResultadoOrdenPlato({
+    required this.total,
     required this.segundo,
     required this.tercero,
     required this.variantes,
   });
+
+  int get primero => total - segundo - tercero;
 }
 
 /// Diálogo para repartir unidades entre 1º/2º/3º y añadir variantes por turno.
@@ -86,11 +91,12 @@ class _DialogoOrdenPlatoBody extends StatefulWidget {
 }
 
 class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
+  late int _total;
   late int _segundo;
   late int _tercero;
   final List<_VarianteEdicion> _variantes = [];
 
-  int get _primero => widget.total - _segundo - _tercero;
+  int get _primero => _total - _segundo - _tercero;
 
   int _cantidadTurno(int orden) {
     switch (orden) {
@@ -119,9 +125,9 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
   @override
   void initState() {
     super.initState();
-    final total = widget.total;
-    _segundo = widget.segundoInicial.clamp(0, total);
-    _tercero = widget.terceroInicial.clamp(0, total - _segundo);
+    _total = widget.total;
+    _segundo = widget.segundoInicial.clamp(0, _total);
+    _tercero = widget.terceroInicial.clamp(0, _total - _segundo);
 
     final usadosPorOrden = <int, int>{1: 0, 2: 0, 3: 0};
     for (final v in widget.variantesIniciales) {
@@ -175,9 +181,18 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
     }
   }
 
+  /// Quita una unidad del carrito (solo desde 1º).
+  void _quitarPrimero() {
+    if (_primero <= 0) return;
+    setState(() {
+      _total--;
+      _recortarVariantesTurno(1, _primero);
+    });
+  }
+
   void _cambiarSegundo(int delta) {
     final nuevo = _segundo + delta;
-    if (nuevo < 0 || nuevo + _tercero > widget.total) return;
+    if (nuevo < 0 || nuevo + _tercero > _total) return;
     setState(() {
       _segundo = nuevo;
       _recortarVariantesTurno(2, _segundo);
@@ -187,7 +202,7 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
 
   void _cambiarTercero(int delta) {
     final nuevo = _tercero + delta;
-    if (nuevo < 0 || _segundo + nuevo > widget.total) return;
+    if (nuevo < 0 || _segundo + nuevo > _total) return;
     setState(() {
       _tercero = nuevo;
       _recortarVariantesTurno(3, _tercero);
@@ -235,6 +250,7 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
     }
     Navigator.of(context).pop(
       ResultadoOrdenPlato(
+        total: _total,
         segundo: _segundo,
         tercero: _tercero,
         variantes: variantes,
@@ -312,7 +328,7 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${widget.total} ${widget.total == 1 ? 'unidad' : 'unidades'} en el pedido',
+            '$_total ${_total == 1 ? 'unidad' : 'unidades'} en el pedido',
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 14,
@@ -331,6 +347,8 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
                 orden: 1,
                 etiqueta: '1º  primero',
                 color: const Color(0xFF00D9A5),
+                onDecrement: _quitarPrimero,
+                puedeDecrementar: _primero > 0,
               ),
               const SizedBox(height: 12),
               _bloqueTurno(
@@ -462,7 +480,7 @@ class _FilaTurno extends StatelessWidget {
     this.puedeIncrementar = false,
   });
 
-  bool get _esEditable => onDecrement != null && onIncrement != null;
+  bool get _esEditable => onDecrement != null || onIncrement != null;
 
   @override
   Widget build(BuildContext context) {
@@ -497,12 +515,14 @@ class _FilaTurno extends StatelessWidget {
           if (_esEditable) ...[
             _BotonPaso(
               icon: Icons.remove,
-              onPressed: puedeDecrementar ? onDecrement : null,
+              onPressed:
+                  onDecrement != null && puedeDecrementar ? onDecrement : null,
             ),
             _CantidadTurno(cantidad: cantidad, color: color),
             _BotonPaso(
               icon: Icons.add,
-              onPressed: puedeIncrementar ? onIncrement : null,
+              onPressed:
+                  onIncrement != null && puedeIncrementar ? onIncrement : null,
             ),
           ] else
             _CantidadTurno(cantidad: cantidad, color: color),

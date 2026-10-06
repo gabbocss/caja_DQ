@@ -6,10 +6,12 @@ import '../../../../core/core.dart';
 import '../../../../core/services/registro_pago_service.dart';
 import '../../../estadisticas/data/estadisticas_service.dart';
 import '../providers/pedidos_provider.dart';
+import '../utils/carrito_orden_utils.dart';
 import '../widgets/categoria_selector.dart';
 import '../widgets/producto_grid.dart';
 import '../widgets/carrito_panel.dart';
 import '../widgets/dialogo_edicion_consumo.dart';
+import '../widgets/dialogo_orden_plato.dart';
 import '../models/linea_consumo_editable.dart';
 import '../models/modificacion_consumo_rechazada.dart';
 
@@ -1516,7 +1518,7 @@ class _PedidosPageState extends State<PedidosPage> {
                     onMesaTap: _alSeleccionarMesa,
                     onMostrarQrMesa: _mostrarDialogoQrMesa,
                     onItemRemoved: _removerDelCarrito,
-                    onOrdenChanged: _cambiarOrden,
+                    onAplicarOrdenPlato: _aplicarOrdenPlato,
                     onEnviar: _enviarPedido,
                     onLiberar: _mostrarDialogoLiberarMesa,
                     onImprimirCuenta: _imprimirTicketCuenta,
@@ -1680,9 +1682,18 @@ class _PedidosPageState extends State<PedidosPage> {
     });
   }
 
-  void _cambiarOrden(int index, int orden) {
+  void _aplicarOrdenPlato(Producto producto, ResultadoOrdenPlato resultado) {
+    final id = producto.id;
+    if (id == null || id <= 0) return;
     setState(() {
-      _carrito[index].orden = orden;
+      CarritoOrdenUtils.aplicarDistribucion(
+        carrito: _carrito,
+        productoId: id,
+        total: resultado.total,
+        segundo: resultado.segundo,
+        tercero: resultado.tercero,
+        variantes: resultado.variantes,
+      );
     });
   }
 

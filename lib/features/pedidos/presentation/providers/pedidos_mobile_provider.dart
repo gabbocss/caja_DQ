@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/core.dart';
 import '../pages/pedidos_page.dart';
+import '../utils/carrito_orden_utils.dart';
 import '../widgets/dialogo_orden_plato.dart';
 
 /// Estado de apertura de una mesa (cubiertos o buffet)
@@ -140,142 +141,35 @@ class PedidosMobileProvider extends ChangeNotifier {
   }
 
   /// Cuenta unidades de un plato en el carrito por turno (1º / 2º / 3º).
-  /// Cualquier orden distinto de 2 o 3 se considera primero.
   ({int primero, int segundo, int tercero, int total}) distribucionOrdenPlato(
     int numeroMesa,
     int productoId,
-  ) {
-    var primero = 0;
-    var segundo = 0;
-    var tercero = 0;
-    for (final item in carritoMesa(numeroMesa)) {
-      if (item.producto.id != productoId) continue;
-      switch (item.orden) {
-        case 2:
-          segundo += item.cantidad;
-          break;
-        case 3:
-          tercero += item.cantidad;
-          break;
-        default:
-          primero += item.cantidad;
-          break;
-      }
-    }
-    return (
-      primero: primero,
-      segundo: segundo,
-      tercero: tercero,
-      total: primero + segundo + tercero,
-    );
-  }
+  ) =>
+      CarritoOrdenUtils.distribucion(carritoMesa(numeroMesa), productoId);
 
-  /// Agrupa las notas/variantes de un plato por turno (orden + texto → unidades).
-  List<VariantePlato> variantesOrdenPlato(int numeroMesa, int productoId) {
-    final porClave = <String, ({int orden, String texto, int cantidad})>{};
-    for (final item in carritoMesa(numeroMesa)) {
-      if (item.producto.id != productoId) continue;
-      final texto = item.notas?.trim() ?? '';
-      if (texto.isEmpty) continue;
-      final orden = switch (item.orden) {
-        2 => 2,
-        3 => 3,
-        _ => 1,
-      };
-      final key = '$orden|$texto';
-      final prev = porClave[key];
-      if (prev == null) {
-        porClave[key] = (orden: orden, texto: texto, cantidad: item.cantidad);
-      } else {
-        porClave[key] = (
-          orden: orden,
-          texto: texto,
-          cantidad: prev.cantidad + item.cantidad,
-        );
-      }
-    }
-    return [
-      for (final e in porClave.values)
-        VariantePlato(
-          orden: e.orden,
-          texto: e.texto,
-          cantidad: e.cantidad,
-        ),
-    ];
-  }
+  /// Agrupa las notas/variantes de un plato por turno.
+  List<VariantePlato> variantesOrdenPlato(int numeroMesa, int productoId) =>
+      CarritoOrdenUtils.variantes(carritoMesa(numeroMesa), productoId);
 
-  /// Deja exactamente [segundo] unidades en 2º y [tercero] en 3º.
-  /// Asigna [variantes] solo a líneas del turno indicado en cada variante.
+  /// Deja exactamente [total] unidades, con [segundo] en 2º y [tercero] en 3º.
   void aplicarDistribucionOrdenPlato({
     required int numeroMesa,
     required int productoId,
+    required int total,
     required int segundo,
     required int tercero,
     List<VariantePlato> variantes = const [],
   }) {
     final lista = _carritoByMesa[numeroMesa];
     if (lista == null) return;
-
-    final indices = <int>[];
-    for (var i = 0; i < lista.length; i++) {
-      if (lista[i].producto.id == productoId) indices.add(i);
-    }
-    if (indices.isEmpty) return;
-
-    final total = indices.fold<int>(0, (sum, i) => sum + lista[i].cantidad);
-    final n2 = segundo.clamp(0, total);
-    final n3 = tercero.clamp(0, total - n2);
-
-    var asignados2 = 0;
-    var asignados3 = 0;
-    for (final i in indices) {
-      if (asignados2 < n2) {
-        lista[i].orden = 2;
-        asignados2 += lista[i].cantidad;
-      } else if (asignados3 < n3) {
-        lista[i].orden = 3;
-        asignados3 += lista[i].cantidad;
-      } else {
-        lista[i].orden = 1;
-      }
-      lista[i].notas = null;
-    }
-
-    // Índices por turno tras asignar orden.
-    final porOrden = <int, List<int>>{1: [], 2: [], 3: []};
-    for (final i in indices) {
-      final o = switch (lista[i].orden) {
-        2 => 2,
-        3 => 3,
-        _ => 1,
-      };
-      porOrden[o]!.add(i);
-    }
-
-    for (final orden in [1, 2, 3]) {
-      final indicesTurno = porOrden[orden]!;
-      if (indicesTurno.isEmpty) continue;
-      var cursor = 0;
-      var usados = 0;
-      final cupo = indicesTurno.fold<int>(
-        0,
-        (sum, i) => sum + lista[i].cantidad,
-      );
-      for (final variante in variantes.where((v) => v.orden == orden)) {
-        final texto = variante.texto.trim();
-        if (texto.isEmpty || variante.cantidad <= 0) continue;
-        final n = variante.cantidad.clamp(0, cupo - usados);
-        if (n <= 0) break;
-        var asignados = 0;
-        while (asignados < n && cursor < indicesTurno.length) {
-          final i = indicesTurno[cursor++];
-          lista[i].notas = texto;
-          asignados += lista[i].cantidad;
-        }
-        usados += asignados;
-      }
-    }
-
+    CarritoOrdenUtils.aplicarDistribucion(
+      carrito: lista,
+      productoId: productoId,
+      total: total,
+      segundo: segundo,
+      tercero: tercero,
+      variantes: variantes,
+    );
     notifyListeners();
   }
 

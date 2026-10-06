@@ -435,8 +435,18 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
                         },
                   onItemRemoved: (index) =>
                       mobileProvider.removeFromCart(widget.numeroMesa, index),
-                  onOrdenChanged: (index, orden) =>
-                      mobileProvider.changeOrder(widget.numeroMesa, index, orden),
+                  onAplicarOrdenPlato: (producto, result) {
+                    final id = producto.id;
+                    if (id == null || id <= 0) return;
+                    mobileProvider.aplicarDistribucionOrdenPlato(
+                      numeroMesa: widget.numeroMesa,
+                      productoId: id,
+                      total: result.total,
+                      segundo: result.segundo,
+                      tercero: result.tercero,
+                      variantes: result.variantes,
+                    );
+                  },
                   onEnviar: () async {
                     final itemsCarrito = mobileProvider.carritoMesa(widget.numeroMesa);
                     final productos = await _obtenerProductos();
