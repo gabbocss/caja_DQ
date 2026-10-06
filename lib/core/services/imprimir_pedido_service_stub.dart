@@ -58,6 +58,13 @@ class ImprimirPedidoService {
   /// No-op en web/stub (lista paellas).
   Future<void> imprimirListaPaellas(List<String> lineas) async {}
 
+  /// No-op en web/stub (mesas asignadas del día).
+  Future<void> imprimirMesasAsignadasDia({
+    required List<Reserva> reservasConMesa,
+    required int reservasSinMesa,
+    DateTime? dia,
+  }) async {}
+
   /// No-op en web/stub (aviso barra).
   Future<void> imprimirAvisoBarra({
     required String titulo,

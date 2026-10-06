@@ -39,6 +39,7 @@ class _ReservasPageState extends State<ReservasPage>
   FranjaReserva _franjaActiva = FranjaReserva.comida;
   HorariosReservas _horarios = HorariosReservas.defaults;
   int? _destinoListaPaellasId;
+  int? _destinoListaMesasId;
   late final AnimationController _asportoBlinkCtrl;
 
   /// Proporción del panel agenda (0–1) en layout horizontal escritorio.
@@ -84,11 +85,13 @@ class _ReservasPageState extends State<ReservasPage>
 
   Future<void> _cargarConfigReservas() async {
     final h = await getHorariosReservas();
-    final destinoId = await getDestinoListaPaellasId();
+    final destinoPaellasId = await getDestinoListaPaellasId();
+    final destinoMesasId = await getDestinoListaMesasId();
     if (!mounted) return;
     setState(() {
       _horarios = h;
-      _destinoListaPaellasId = destinoId;
+      _destinoListaPaellasId = destinoPaellasId;
+      _destinoListaMesasId = destinoMesasId;
     });
   }
 
@@ -146,6 +149,7 @@ class _ReservasPageState extends State<ReservasPage>
   Future<void> _elegirFechaHora() async {
     final fecha = await showDatePicker(
       context: context,
+      locale: const Locale('es'),
       initialDate: _fechaHora,
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
@@ -163,14 +167,18 @@ class _ReservasPageState extends State<ReservasPage>
     final hora = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_fechaHora),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF00D9A5),
-            surface: Color(0xFF16213E),
+      builder: (ctx, child) => Localizations.override(
+        context: ctx,
+        locale: const Locale('es'),
+        child: Theme(
+          data: Theme.of(ctx).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF00D9A5),
+              surface: Color(0xFF16213E),
+            ),
           ),
+          child: child!,
         ),
-        child: child!,
       ),
     );
     if (hora == null || !mounted) return;
@@ -255,6 +263,7 @@ class _ReservasPageState extends State<ReservasPage>
   Future<void> _elegirDiaAgenda(ReservasProvider provider) async {
     final fecha = await showDatePicker(
       context: context,
+      locale: const Locale('es'),
       initialDate: provider.diaAgenda,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 730)),
@@ -377,6 +386,39 @@ class _ReservasPageState extends State<ReservasPage>
     }
   }
 
+  /// Imprime mesas asignadas del día de la agenda (excluye asporto y canceladas).
+  Future<void> _imprimirMesasAsignadasDia(ReservasProvider provider) async {
+    final relevantes = provider.reservasDelDia.where((r) {
+      if (r.estado == EstadoReserva.cancelada) return false;
+      if (r.numeroPersonas <= 0) return false; // asporto
+      return true;
+    }).toList();
+
+    if (relevantes.isEmpty) {
+      _snack('No hay reservas para imprimir', Colors.orange);
+      return;
+    }
+
+    final conMesa = relevantes
+        .where((r) => r.mesaAsignada != null)
+        .toList()
+      ..sort((a, b) => a.mesaAsignada!.compareTo(b.mesaAsignada!));
+    final sinMesa = relevantes.where((r) => r.mesaAsignada == null).length;
+
+    try {
+      await ImprimirPedidoService.instance.imprimirMesasAsignadasDia(
+        reservasConMesa: conMesa,
+        reservasSinMesa: sinMesa,
+        dia: provider.diaAgenda,
+      );
+      if (mounted) {
+        _snack('Lista de mesas enviada a imprimir', const Color(0xFF00D9A5));
+      }
+    } catch (e) {
+      _snack('Error al imprimir: $e', Colors.red);
+    }
+  }
+
   Future<void> _cobrarAsporto(
     ReservasProvider provider,
     Reserva reserva,
@@ -427,14 +469,17 @@ class _ReservasPageState extends State<ReservasPage>
       builder: (ctx) => _DialogoConfigReservas(
         horariosInicial: _horarios,
         destinoListaPaellasIdInicial: _destinoListaPaellasId,
+        destinoListaMesasIdInicial: _destinoListaMesasId,
       ),
     );
     if (actualizado == null || !mounted) return;
     await saveHorariosReservas(actualizado.horarios);
     await saveDestinoListaPaellasId(actualizado.destinoListaPaellasId);
+    await saveDestinoListaMesasId(actualizado.destinoListaMesasId);
     setState(() {
       _horarios = actualizado.horarios;
       _destinoListaPaellasId = actualizado.destinoListaPaellasId;
+      _destinoListaMesasId = actualizado.destinoListaMesasId;
     });
   }
 
@@ -522,6 +567,12 @@ class _ReservasPageState extends State<ReservasPage>
                   onPressed: _abrirConfigReservas,
                   icon: const Icon(Icons.settings),
                   tooltip: 'Configurar reservas (horarios e impresión)',
+                ),
+              if (!PlatformUtils.isAndroid)
+                IconButton(
+                  onPressed: () => _imprimirMesasAsignadasDia(provider),
+                  icon: const Icon(Icons.print),
+                  tooltip: 'Imprimir mesas asignadas del día',
                 ),
               IconButton(
                 onPressed: provider.sincronizando ? null : provider.sincronizar,
@@ -2167,21 +2218,25 @@ class _ResultadoConfigReservas {
   const _ResultadoConfigReservas({
     required this.horarios,
     this.destinoListaPaellasId,
+    this.destinoListaMesasId,
   });
 
   final HorariosReservas horarios;
   final int? destinoListaPaellasId;
+  final int? destinoListaMesasId;
 }
 
-/// Horarios comida/cena y destino de impresión para la lista automática.
+/// Horarios comida/cena y destinos de impresión (reservas / mesas).
 class _DialogoConfigReservas extends StatefulWidget {
   const _DialogoConfigReservas({
     required this.horariosInicial,
     this.destinoListaPaellasIdInicial,
+    this.destinoListaMesasIdInicial,
   });
 
   final HorariosReservas horariosInicial;
   final int? destinoListaPaellasIdInicial;
+  final int? destinoListaMesasIdInicial;
 
   @override
   State<_DialogoConfigReservas> createState() => _DialogoConfigReservasState();
@@ -2192,7 +2247,8 @@ class _DialogoConfigReservasState extends State<_DialogoConfigReservas> {
   late int _comidaFin;
   late int _cenaInicio;
   late int _cenaFin;
-  int? _destinoSeleccionadoId;
+  int? _destinoListaPaellasId;
+  int? _destinoListaMesasId;
   List<DestinoImpresion> _destinosImpresora = [];
   bool _cargandoDestinos = true;
 
@@ -2203,7 +2259,8 @@ class _DialogoConfigReservasState extends State<_DialogoConfigReservas> {
     _comidaFin = widget.horariosInicial.comidaFinMin;
     _cenaInicio = widget.horariosInicial.cenaInicioMin;
     _cenaFin = widget.horariosInicial.cenaFinMin;
-    _destinoSeleccionadoId = widget.destinoListaPaellasIdInicial;
+    _destinoListaPaellasId = widget.destinoListaPaellasIdInicial;
+    _destinoListaMesasId = widget.destinoListaMesasIdInicial;
     unawaited(_cargarDestinos());
   }
 
@@ -2223,11 +2280,14 @@ class _DialogoConfigReservasState extends State<_DialogoConfigReservas> {
       setState(() {
         _destinosImpresora = filtrados;
         _cargandoDestinos = false;
-        if (_destinoSeleccionadoId != null &&
-            !filtrados.any((d) => d.id == _destinoSeleccionadoId)) {
-          _destinoSeleccionadoId = null;
-        }
-        _destinoSeleccionadoId ??= _destinoPorDefecto(filtrados)?.id;
+        _destinoListaPaellasId = _validarODefault(
+          _destinoListaPaellasId,
+          filtrados,
+        );
+        _destinoListaMesasId = _validarODefault(
+          _destinoListaMesasId,
+          filtrados,
+        );
       });
     } catch (e) {
       if (!mounted) return;
@@ -2236,6 +2296,11 @@ class _DialogoConfigReservasState extends State<_DialogoConfigReservas> {
         _cargandoDestinos = false;
       });
     }
+  }
+
+  int? _validarODefault(int? actual, List<DestinoImpresion> lista) {
+    if (actual != null && lista.any((d) => d.id == actual)) return actual;
+    return _destinoPorDefecto(lista)?.id;
   }
 
   DestinoImpresion? _destinoPorDefecto(List<DestinoImpresion> lista) {
@@ -2251,20 +2316,59 @@ class _DialogoConfigReservasState extends State<_DialogoConfigReservas> {
     return '${d.nombre} · $ip:$port';
   }
 
+  Widget _dropdownDestino({
+    required String labelText,
+    required int? value,
+    required ValueChanged<int?> onChanged,
+  }) {
+    return DropdownButtonFormField<int>(
+      value: value,
+      dropdownColor: const Color(0xFF1A1A2E),
+      decoration: InputDecoration(
+        labelText: labelText,
+        labelStyle: const TextStyle(color: Colors.white54),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF0F3460)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF00D9A5)),
+        ),
+      ),
+      style: const TextStyle(color: Colors.white),
+      items: [
+        for (final d in _destinosImpresora)
+          DropdownMenuItem<int>(
+            value: d.id,
+            child: Text(
+              _etiquetaDestino(d),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: onChanged,
+    );
+  }
+
   Future<void> _elegir(String titulo, int actual, ValueChanged<int> onOk) async {
     final tod = TimeOfDay(hour: actual ~/ 60, minute: actual % 60);
     final elegido = await showTimePicker(
       context: context,
       initialTime: tod,
       helpText: titulo,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF00D9A5),
-            surface: Color(0xFF16213E),
+      builder: (ctx, child) => Localizations.override(
+        context: ctx,
+        locale: const Locale('es'),
+        child: Theme(
+          data: Theme.of(ctx).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF00D9A5),
+              surface: Color(0xFF16213E),
+            ),
           ),
+          child: child!,
         ),
-        child: child!,
       ),
     );
     if (elegido == null) return;
@@ -2372,35 +2476,33 @@ class _DialogoConfigReservasState extends State<_DialogoConfigReservas> {
                   'Configúralos en Destinos de impresión.',
                   style: TextStyle(color: Colors.orange, fontSize: 12),
                 )
-              else
-                DropdownButtonFormField<int>(
-                  value: _destinoSeleccionadoId,
-                  dropdownColor: const Color(0xFF1A1A2E),
-                  decoration: InputDecoration(
-                    labelText: 'Destino de impresión',
-                    labelStyle: const TextStyle(color: Colors.white54),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF0F3460)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF00D9A5)),
-                    ),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                  items: [
-                    for (final d in _destinosImpresora)
-                      DropdownMenuItem<int>(
-                        value: d.id,
-                        child: Text(
-                          _etiquetaDestino(d),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() => _destinoSeleccionadoId = v),
+              else ...[
+                _dropdownDestino(
+                  labelText: 'Destino lista de reservas',
+                  value: _destinoListaPaellasId,
+                  onChanged: (v) =>
+                      setState(() => _destinoListaPaellasId = v),
                 ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Lista de mesas',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Destino donde se imprime la lista de mesas al pulsar imprimir.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                _dropdownDestino(
+                  labelText: 'Destino lista de mesas',
+                  value: _destinoListaMesasId,
+                  onChanged: (v) => setState(() => _destinoListaMesasId = v),
+                ),
+              ],
             ],
           ),
         ),
@@ -2420,7 +2522,8 @@ class _DialogoConfigReservasState extends State<_DialogoConfigReservas> {
                   cenaInicioMin: _cenaInicio,
                   cenaFinMin: _cenaFin,
                 ),
-                destinoListaPaellasId: _destinoSeleccionadoId,
+                destinoListaPaellasId: _destinoListaPaellasId,
+                destinoListaMesasId: _destinoListaMesasId,
               ),
             );
           },

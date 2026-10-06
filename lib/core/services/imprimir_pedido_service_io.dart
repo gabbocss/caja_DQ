@@ -861,6 +861,125 @@ class ImprimirPedidoService {
     await _enviarAImpresoraCocina(payload);
   }
 
+  /// Lista de mesas asignadas del día (3 columnas) + aviso de sin mesa.
+  /// Destino: configurable en Reservas → «Lista de mesas».
+  Future<void> imprimirMesasAsignadasDia({
+    required List<Reserva> reservasConMesa,
+    required int reservasSinMesa,
+    DateTime? dia,
+  }) async {
+    if (reservasConMesa.isEmpty && reservasSinMesa <= 0) return;
+    final config = await ConfiguracionImpresionService.instance.cargar();
+    final payload = await _generarPayloadMesasAsignadasDia(
+      config,
+      reservasConMesa: reservasConMesa,
+      reservasSinMesa: reservasSinMesa,
+      dia: dia,
+    );
+    await _enviarAImpresoraListaMesas(payload);
+  }
+
+  String _lineaReservaMesaAsignada(Reserva r) {
+    final col1 = 'T. ${r.mesaAsignada}'.padRight(8);
+    final col2 = '${r.numeroPersonas}X'.padRight(6);
+    final col3 =
+        r.itemsReservados.isNotEmpty ? 'Paella SI' : 'Paella NO';
+    return '$col1$col2$col3';
+  }
+
+  Future<List<int>> _generarPayloadMesasAsignadasDia(
+    ConfiguracionImpresion config, {
+    required List<Reserva> reservasConMesa,
+    required int reservasSinMesa,
+    DateTime? dia,
+  }) async {
+    final out = <int>[];
+    void add(List<int> bytes) => out.addAll(bytes);
+    void addStr(String s) => out.addAll(utf8.encode(_textoImpresora(s)));
+
+    final margenEsp = _espaciosMargenIzq(config);
+    final sep = _lineaSeparadora(config);
+    final usarNumerico = config.modoTamanio == 'numerico';
+    final fecha = dia ?? DateTime.now();
+    final titulo =
+        'Reservas ${fecha.day.toString().padLeft(2, '0')}/'
+        '${fecha.month.toString().padLeft(2, '0')}';
+
+    add(_escInit);
+    for (var i = 0; i < config.margenSuperiorLineas; i++) addStr('\n');
+
+    if (config.negritaCabecera) add(_escBoldOn);
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCabecera, config.escalaAltoCabecera));
+    } else {
+      add(_escTamanioCabecera(config));
+    }
+    addStr(_aplicarMargen('$titulo\n', margenEsp));
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      add(_escSizeNormal);
+    }
+    add(_escBoldOff);
+
+    addStr(_aplicarMargen('$sep\n', margenEsp));
+
+    if (usarNumerico) {
+      add(_gsSize(config.escalaAnchoCuerpo, config.escalaAltoCuerpo));
+    } else {
+      _aplicarTamanioCuerpo(config, add);
+    }
+    if (config.negritaCuerpo) add(_escBoldOn);
+
+    for (final r in reservasConMesa) {
+      addStr(
+        _aplicarMargen('${_lineaReservaMesaAsignada(r)}\n', margenEsp),
+      );
+      addStr(_aplicarMargen('$sep\n', margenEsp));
+    }
+
+    if (reservasSinMesa > 0) {
+      if (reservasConMesa.isNotEmpty) {
+        addStr(_aplicarMargen('\n', margenEsp));
+      }
+      addStr(
+        _aplicarMargen(
+          '$reservasSinMesa reservas aun no tienen mesa asignada\n',
+          margenEsp,
+        ),
+      );
+    }
+
+    if (config.negritaCuerpo) add(_escBoldOff);
+    if (usarNumerico) {
+      add(_gsSize(1, 1));
+    } else {
+      _resetTamanioCuerpo(add);
+    }
+
+    if (config.mostrarFechaHora) {
+      addStr(_aplicarMargen('\n$sep\n', margenEsp));
+      final now = DateTime.now();
+      final fechaHora =
+          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')} '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      addStr(_aplicarMargen('$fechaHora\n', margenEsp));
+    }
+
+    for (var i = 0; i < config.margenInferiorLineas; i++) addStr('\n');
+
+    switch (config.tipoCorte) {
+      case 'parcial':
+        add(_escCutPartial);
+        break;
+      case 'ninguno':
+        break;
+      default:
+        add(_escCutFull);
+    }
+    return out;
+  }
+
   Future<List<int>> _generarPayloadListaPaellas(
     ConfiguracionImpresion config,
     List<String> lineas,
@@ -953,6 +1072,26 @@ class ImprimirPedidoService {
     }
   }
 
+  Future<void> _enviarAImpresoraListaMesas(List<int> payload) async {
+    final db = DatabaseService.instance;
+    final destino = await _resolverDestinoListaMesas(db);
+    if (destino == null) {
+      debugPrint(
+        'Lista mesas: no hay destino con impresora configurado para reservas',
+      );
+      return;
+    }
+
+    final ip = destino.direccionImpresora!.trim();
+    final port = destino.puertoImpresora ?? _puertoPorDefecto;
+    final ok = await _enviarAImpresora(ip, port, payload);
+    if (!ok) {
+      debugPrint(
+        'No se pudo imprimir lista mesas en ${destino.nombre} ($ip:$port)',
+      );
+    }
+  }
+
   bool _destinoTieneImpresora(DestinoImpresion destino) {
     if (destino.tipo != TipoDestino.impresora &&
         destino.tipo != TipoDestino.ambos) {
@@ -963,10 +1102,10 @@ class ImprimirPedidoService {
   }
 
   /// Destino elegido en Reservas → configuración; si no, «Cocina»; si no, el primero con IP.
-  Future<DestinoImpresion?> _resolverDestinoListaPaellas(
+  Future<DestinoImpresion?> _resolverDestinoPorIdConFallback(
     DatabaseService db,
+    int? configuradoId,
   ) async {
-    final configuradoId = await getDestinoListaPaellasId();
     if (configuradoId != null) {
       final elegido = await db.obtenerDestinoPorId(configuradoId);
       if (elegido != null &&
@@ -987,6 +1126,24 @@ class ImprimirPedidoService {
       if (_destinoTieneImpresora(destino)) return destino;
     }
     return null;
+  }
+
+  Future<DestinoImpresion?> _resolverDestinoListaPaellas(
+    DatabaseService db,
+  ) async {
+    return _resolverDestinoPorIdConFallback(
+      db,
+      await getDestinoListaPaellasId(),
+    );
+  }
+
+  Future<DestinoImpresion?> _resolverDestinoListaMesas(
+    DatabaseService db,
+  ) async {
+    return _resolverDestinoPorIdConFallback(
+      db,
+      await getDestinoListaMesasId(),
+    );
   }
 
   /// Comandas por destino al sentar una reserva (solo platos pre-reservados).
