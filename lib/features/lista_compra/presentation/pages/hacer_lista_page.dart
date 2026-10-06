@@ -4,9 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/navigation/app_router.dart';
 import '../../domain/entities/item_lista_compra.dart';
-import '../../domain/entities/unidad_medida.dart';
 import '../providers/lista_compra_provider.dart';
-import '../widgets/dialogo_precio_producto.dart';
 
 /// Catálogo de productos de una zona (cocina o sala).
 class HacerListaPage extends StatefulWidget {
@@ -31,19 +29,15 @@ class _HacerListaPageState extends State<HacerListaPage> {
     final nombreCtrl = TextEditingController(text: existente?.nombre ?? '');
     final cantidadCtrl =
         TextEditingController(text: existente?.cantidad ?? '');
-    final contenidoCtrl = TextEditingController(
-      text: existente?.contenidoCantidad?.toString() ?? '',
-    );
-    final minimaCtrl = TextEditingController(
-      text: '${existente?.cantidadMinima ?? 1}',
-    );
-    var unidadBase = existente?.unidadBase ?? UnidadBase.unidad;
-    var contenidoUnidad = existente?.contenidoUnidad ??
-        ContenidoUnidad.paraBase(unidadBase).first;
     var zona = existente?.zona ?? widget.zona;
+    var supermercadoId = existente?.supermercadoId;
     final provider = context.read<ListaCompraProvider>();
+    final idsSuper = provider.supermercados.map((s) => s.id).toSet();
+    if (supermercadoId != null && !idsSuper.contains(supermercadoId)) {
+      supermercadoId = null;
+    }
 
-    final ok = await showDialog<bool>(
+    final resultado = await showDialog<String>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
@@ -113,188 +107,70 @@ class _HacerListaPageState extends State<HacerListaPage> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int?>(
+                      value: supermercadoId,
+                      dropdownColor: const Color(0xFF16213E),
+                      decoration: const InputDecoration(
+                        labelText: 'Comprar en',
+                        labelStyle: TextStyle(color: Colors.white70),
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('Sin asignar'),
+                        ),
+                        ...provider.supermercados.map(
+                          (s) => DropdownMenuItem<int?>(
+                            value: s.id,
+                            child: Text(s.nombre),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) => setLocal(() => supermercadoId = v),
+                    ),
                     TextField(
                       controller: cantidadCtrl,
                       style: const TextStyle(color: Colors.white),
                       decoration: const InputDecoration(
                         labelText: 'Nota cantidad (opcional)',
                         labelStyle: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                    TextField(
-                      controller: minimaCtrl,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Cantidad mínima a comprar',
-                        labelStyle: TextStyle(color: Colors.white70),
-                        hintText: '1, 2, 3…',
+                        hintText: 'p. ej. 2 packs, 1 caja…',
                         hintStyle: TextStyle(color: Colors.white38),
-                        helperText:
-                            'Envases/unidades que sueles comprar de este producto',
-                        helperStyle: TextStyle(color: Colors.white38, fontSize: 11),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Se compra / compara por',
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: SegmentedButton<UnidadBase>(
-                        segments: const [
-                          ButtonSegment(
-                            value: UnidadBase.kilo,
-                            label: Text('Kilo'),
-                            icon: Icon(Icons.scale, size: 16),
-                          ),
-                          ButtonSegment(
-                            value: UnidadBase.litro,
-                            label: Text('Litro'),
-                            icon: Icon(Icons.water_drop_outlined, size: 16),
-                          ),
-                          ButtonSegment(
-                            value: UnidadBase.unidad,
-                            label: Text('Unidad'),
-                            icon: Icon(Icons.tag, size: 16),
-                          ),
-                        ],
-                        selected: {unidadBase},
-                        onSelectionChanged: (sel) {
-                          final v = sel.first;
-                          setLocal(() {
-                            unidadBase = v;
-                            contenidoUnidad =
-                                ContenidoUnidad.paraBase(v).first;
-                          });
-                        },
-                        style: ButtonStyle(
-                          foregroundColor:
-                              WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return Colors.black87;
-                            }
-                            return Colors.white70;
-                          }),
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return const Color(0xFFFFB74D);
-                            }
-                            return const Color(0xFF0D0D0D);
-                          }),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (unidadBase == UnidadBase.unidad)
-                      TextField(
-                        controller: contenidoCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          labelText: 'Unidades por envase (opcional)',
-                          labelStyle: TextStyle(color: Colors.white70),
-                          hintText: '1',
-                          hintStyle: TextStyle(color: Colors.white38),
-                        ),
-                      )
-                    else ...[
-                      TextField(
-                        controller: contenidoCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: unidadBase == UnidadBase.litro
-                              ? 'Tamaño del envase'
-                              : 'Peso del envase',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          hintText: unidadBase == UnidadBase.litro
-                              ? '750'
-                              : '500',
-                          hintStyle: const TextStyle(color: Colors.white38),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Medida del envase',
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<ContenidoUnidad>(
-                          segments: ContenidoUnidad.paraBase(unidadBase)
-                              .map(
-                                (u) => ButtonSegment(
-                                  value: u,
-                                  label: Text(u.etiquetaLarga),
-                                ),
-                              )
-                              .toList(),
-                          selected: {
-                            ContenidoUnidad.paraBase(unidadBase)
-                                    .contains(contenidoUnidad)
-                                ? contenidoUnidad
-                                : ContenidoUnidad.paraBase(unidadBase).first,
-                          },
-                          onSelectionChanged: (sel) {
-                            setLocal(() => contenidoUnidad = sel.first);
-                          },
-                          style: ButtonStyle(
-                            foregroundColor:
-                                WidgetStateProperty.resolveWith((states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return Colors.black87;
-                              }
-                              return Colors.white70;
-                            }),
-                            backgroundColor:
-                                WidgetStateProperty.resolveWith((states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return const Color(0xFF4FC3F7);
-                              }
-                              return const Color(0xFF0D0D0D);
-                            }),
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      unidadBase == UnidadBase.litro
-                          ? 'Los precios se compararán en €/L'
-                          : unidadBase == UnidadBase.kilo
-                              ? 'Los precios se compararán en €/kg'
-                              : 'Los precios se compararán en €/unidad',
-                      style: const TextStyle(
-                        color: Color(0xFF66BB6A),
-                        fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
+              actionsAlignment: MainAxisAlignment.spaceBetween,
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Guardar'),
+                if (existente != null)
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx, 'eliminar'),
+                    tooltip: 'Eliminar',
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Color(0xFFE94560),
+                    ),
+                  )
+                else
+                  const SizedBox.shrink(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx, 'cancelar'),
+                      tooltip: 'Cancelar',
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx, 'guardar'),
+                      tooltip: 'Guardar',
+                      icon: const Icon(Icons.check, color: Color(0xFF66BB6A)),
+                    ),
+                  ],
                 ),
               ],
             );
@@ -303,37 +179,27 @@ class _HacerListaPageState extends State<HacerListaPage> {
       },
     );
 
-    if (ok != true || !mounted) return;
-
-    if (unidadBase == UnidadBase.unidad) {
-      contenidoUnidad = ContenidoUnidad.ud;
+    if (!mounted) return;
+    if (resultado == 'eliminar' && existente != null) {
+      await _confirmarBorrar(existente);
+      return;
     }
-
-    final contenido = double.tryParse(
-      contenidoCtrl.text.trim().replaceAll(',', '.'),
-    );
-    final minima = int.tryParse(minimaCtrl.text.trim()) ?? 1;
+    if (resultado != 'guardar') return;
 
     final exito = existente == null
         ? await provider.anadir(
             nombre: nombreCtrl.text,
             cantidad: cantidadCtrl.text,
-            unidadBase: unidadBase,
-            contenidoCantidad: contenido,
-            contenidoUnidad: contenidoUnidad,
-            cantidadMinima: minima,
             zona: zona,
+            supermercadoId: supermercadoId,
           )
         : await provider.editar(
             existente,
             nombre: nombreCtrl.text,
             cantidad: cantidadCtrl.text,
-            unidadBase: unidadBase,
-            contenidoCantidad: contenido,
-            clearContenido: contenidoCtrl.text.trim().isEmpty,
-            contenidoUnidad: contenidoUnidad,
-            cantidadMinima: minima,
             zona: zona,
+            supermercadoId: supermercadoId,
+            clearSupermercado: supermercadoId == null,
           );
 
     if (!mounted) return;
@@ -344,13 +210,41 @@ class _HacerListaPageState extends State<HacerListaPage> {
     }
   }
 
-  Future<void> _dialogoPrecio(ItemListaCompra item) async {
-    await mostrarDialogoPrecioProducto(
-      context,
-      item: item,
-      supermercadoIdPreferido:
-          context.read<ListaCompraProvider>().supermercadoActualId,
+  Future<void> _confirmarBorrar(ItemListaCompra item) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+        content: Text(
+          '¿Eliminar "${item.nombre}" de la lista?\n'
+          'Se borrará también del catálogo.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE94560),
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
     );
+    if (ok != true || !mounted) return;
+    final provider = context.read<ListaCompraProvider>();
+    final exito = await provider.eliminar(item);
+    if (!mounted) return;
+    if (!exito && provider.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(provider.error!)),
+      );
+    }
   }
 
   @override
@@ -375,7 +269,7 @@ class _HacerListaPageState extends State<HacerListaPage> {
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Text(
-                'Marca qué hay que comprar. Usa € para precios por súper. '
+                'Marca qué hay que comprar. Asigna el súper al crear o editar. '
                 'Mantén pulsado para ordenar.',
                 style: TextStyle(color: Colors.white54, fontSize: 13),
               ),
@@ -424,7 +318,6 @@ class _HacerListaPageState extends State<HacerListaPage> {
                       },
                       itemBuilder: (context, index) {
                         final item = items[index];
-                        final precios = provider.preciosDeProducto(item.id);
                         return Padding(
                           key: ValueKey(item.id),
                           padding: const EdgeInsets.only(bottom: 8),
@@ -432,19 +325,9 @@ class _HacerListaPageState extends State<HacerListaPage> {
                             index: index,
                             child: _CatalogTile(
                               item: item,
-                              preciosCount: precios.length,
-                              mejorPrecio: precios.isEmpty
-                                  ? null
-                                  : precios
-                                      .reduce(
-                                        (a, b) => a.precioPorBase <
-                                                b.precioPorBase
-                                            ? a
-                                            : b,
-                                      )
-                                      .precioPorBase,
+                              nombreSuper:
+                                  provider.nombreSupermercado(item.supermercadoId),
                               onEdit: () => _dialogoItem(existente: item),
-                              onPrecio: () => _dialogoPrecio(item),
                               onToggleHayQueComprar: (v) =>
                                   provider.marcarHayQueComprar(item, v),
                             ),
@@ -509,23 +392,24 @@ class _Header extends StatelessWidget {
 
 class _CatalogTile extends StatelessWidget {
   final ItemListaCompra item;
-  final int preciosCount;
-  final double? mejorPrecio;
+  final String? nombreSuper;
   final VoidCallback onEdit;
-  final VoidCallback onPrecio;
   final ValueChanged<bool> onToggleHayQueComprar;
 
   const _CatalogTile({
     required this.item,
-    required this.preciosCount,
-    required this.mejorPrecio,
+    required this.nombreSuper,
     required this.onEdit,
-    required this.onPrecio,
     required this.onToggleHayQueComprar,
   });
 
   @override
   Widget build(BuildContext context) {
+    final detalle = [
+      if (item.cantidad.isNotEmpty) item.cantidad,
+      if (item.hayQueComprar) 'Hay que comprar',
+    ].join(' · ');
+
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
       decoration: BoxDecoration(
@@ -560,33 +444,27 @@ class _CatalogTile extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                Text(
-                  '${item.unidadBase.etiqueta}'
-                  '${item.contenidoCantidad != null ? ' · ${item.contenidoCantidad} ${item.contenidoUnidad.etiquetaLarga}' : ''}'
-                  ' · Mín. ${item.cantidadMinima}'
-                  '${item.hayQueComprar ? ' · Hay que comprar' : ''}',
-                  style: TextStyle(
-                    color: item.hayQueComprar
-                        ? const Color(0xFFFFB74D)
-                        : Colors.white54,
-                    fontSize: 12,
-                  ),
-                ),
-                if (mejorPrecio != null)
+                if (detalle.isNotEmpty)
                   Text(
-                    'Mejor: ${formatearPrecioPorBase(mejorPrecio, item.unidadBase)} ($preciosCount súper)',
-                    style: const TextStyle(
-                      color: Color(0xFF66BB6A),
+                    detalle,
+                    style: TextStyle(
+                      color: item.hayQueComprar
+                          ? const Color(0xFFFFB74D)
+                          : Colors.white54,
                       fontSize: 12,
                     ),
                   ),
+                Text(
+                  nombreSuper ?? 'Sin súper asignado',
+                  style: TextStyle(
+                    color: nombreSuper != null
+                        ? const Color(0xFF4FC3F7)
+                        : Colors.white38,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
-          ),
-          IconButton(
-            onPressed: onPrecio,
-            tooltip: 'Guardar precio',
-            icon: const Icon(Icons.euro, color: Color(0xFF66BB6A)),
           ),
           IconButton(
             onPressed: onEdit,

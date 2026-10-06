@@ -9,7 +9,6 @@ abstract final class ApiEndpoints {
   static const String listaCompraVaciarCompra =
       '/api/lista-compra/vaciar-compra';
   static const String listaCompraReordenar = '/api/lista-compra/reordenar';
-  static const String listaCompraPrecios = '/api/lista-compra/precios';
   static const String supermercados = '/api/supermercados';
   static const String supermercadosReordenar = '/api/supermercados/reordenar';
   static const String health = '/health';
@@ -42,9 +41,6 @@ abstract final class ApiEndpoints {
 
   static Uri listaCompraItem(String baseUrl, int id) =>
       uri(baseUrl, '/api/lista-compra/$id');
-
-  static Uri listaCompraPrecioItem(String baseUrl, int id) =>
-      uri(baseUrl, '/api/lista-compra/precios/$id');
 
   static Uri supermercadoItem(String baseUrl, int id) =>
       uri(baseUrl, '/api/supermercados/$id');

@@ -153,8 +153,8 @@ class _SupermercadosPageState extends State<SupermercadosPage> {
               padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Text(
                 'Añade los supermercados a los que sueles ir. '
-                'Mantén pulsado para reordenar. Más adelante podrás asignar '
-                'productos a cada uno.',
+                'Mantén pulsado para reordenar. Al crear un producto '
+                'puedes asignarle uno de estos súpers.',
                 style: TextStyle(color: Colors.white54, fontSize: 13),
               ),
             ),

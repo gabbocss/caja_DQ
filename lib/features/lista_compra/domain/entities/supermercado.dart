@@ -1,5 +1,4 @@
-/// Supermercado del catálogo (VPS). Más adelante los productos podrán
-/// referenciar [id] con un campo supermercadoId.
+/// Supermercado del catálogo (VPS). Los productos pueden referenciar [id].
 class Supermercado {
   final int id;
   final String nombre;

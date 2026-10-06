@@ -4,12 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/navigation/app_router.dart';
 import '../../domain/entities/item_lista_compra.dart';
-import '../../domain/entities/precio_producto.dart';
-import '../../domain/entities/unidad_medida.dart';
 import '../providers/lista_compra_provider.dart';
-import '../widgets/dialogo_precio_producto.dart';
 
-/// Checklist de compra: elige súper y prioriza lo más barato ahí.
+/// Checklist de compra: elige súper y marca lo comprado.
 class ComprarPage extends StatefulWidget {
   const ComprarPage({super.key});
 
@@ -24,15 +21,6 @@ class _ComprarPageState extends State<ComprarPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ListaCompraProvider>().cargar();
     });
-  }
-
-  Future<void> _editarPrecio(ItemListaCompra item) async {
-    final provider = context.read<ListaCompraProvider>();
-    await mostrarDialogoPrecioProducto(
-      context,
-      item: item,
-      supermercadoIdPreferido: provider.supermercadoActualId,
-    );
   }
 
   Future<void> _confirmarVaciar() async {
@@ -79,61 +67,6 @@ class _ComprarPageState extends State<ComprarPage> {
     }
   }
 
-  String? _textoPrecioAqui(PrecioProducto? p, ItemListaCompra item) {
-    if (p == null) return null;
-    return formatearPrecioCompleto(
-      precioEnvase: p.precioEnvase,
-      precioPorBase: p.precioPorBase,
-      unidadBase: item.unidadBase,
-    );
-  }
-
-  String? _textoComparativa(ComparativaPrecio c) {
-    if (c.sinDatos) return 'Sin precios guardados';
-    final lineas = <String>[];
-    if (c.precioAqui != null) {
-      lineas.add(
-        'Aquí ${formatearPrecioCompleto(
-          precioEnvase: c.precioAqui!.precioEnvase,
-          precioPorBase: c.precioAqui!.precioPorBase,
-          unidadBase: c.producto.unidadBase,
-        )}',
-      );
-    }
-    if (c.mejorPrecio != null && !c.esMasBaratoAqui) {
-      lineas.add(
-        'Mejor ${formatearPrecioCompleto(
-          precioEnvase: c.mejorPrecio!.precioEnvase,
-          precioPorBase: c.mejorPrecio!.precioPorBase,
-          unidadBase: c.producto.unidadBase,
-        )}'
-        '${c.mejorSupermercado != null ? ' (${c.mejorSupermercado!.nombre})' : ''}',
-      );
-    } else if (c.mejorPrecio != null && c.precioAqui == null) {
-      lineas.add(
-        'Mejor ${formatearPrecioCompleto(
-          precioEnvase: c.mejorPrecio!.precioEnvase,
-          precioPorBase: c.mejorPrecio!.precioPorBase,
-          unidadBase: c.producto.unidadBase,
-        )}'
-        '${c.mejorSupermercado != null ? ' en ${c.mejorSupermercado!.nombre}' : ''}',
-      );
-    }
-    return lineas.isEmpty ? null : lineas.join('\n');
-  }
-
-  PrecioProducto? _precioEnActual(
-    ListaCompraProvider provider,
-    ItemListaCompra item,
-  ) {
-    final sid = provider.supermercadoActualId;
-    if (sid == null) return null;
-    for (final p in provider.preciosDeProducto(item.id)) {
-      if (p.supermercadoId == sid) return p;
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -173,12 +106,21 @@ class _ComprarPageState extends State<ComprarPage> {
                     );
                   }
 
-                  final pendientes = provider.pendientesConComparativa;
-                  final comprados = provider.compradosCompra;
-                  final masBaratos =
-                      pendientes.where((c) => c.esMasBaratoAqui).toList();
-                  final otros =
-                      pendientes.where((c) => !c.esMasBaratoAqui).toList();
+                  final sid = provider.supermercadoActualId;
+                  final pendientes =
+                      provider.pendientesParaSupermercado(sid);
+                  final comprados = provider.compradosParaSupermercado(sid);
+                  final deEsteSuper = pendientes
+                      .where((i) => i.supermercadoId == sid && sid != null)
+                      .toList();
+                  final sinAsignar = pendientes
+                      .where((i) => i.supermercadoId == null)
+                      .toList();
+                  final otros = sid == null
+                      ? pendientes
+                          .where((i) => i.supermercadoId != null)
+                          .toList()
+                      : <ItemListaCompra>[];
 
                   return Column(
                     children: [
@@ -202,7 +144,7 @@ class _ComprarPageState extends State<ComprarPage> {
                           items: [
                             const DropdownMenuItem<int?>(
                               value: null,
-                              child: Text('Sin seleccionar'),
+                              child: Text('Todos'),
                             ),
                             ...provider.supermercados.map(
                               (s) => DropdownMenuItem<int?>(
@@ -214,72 +156,78 @@ class _ComprarPageState extends State<ComprarPage> {
                           onChanged: provider.seleccionarSupermercado,
                         ),
                       ),
-                      if (provider.supermercadoActualId == null)
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: Text(
-                            'Selecciona el súper para ver qué te conviene comprar aquí.',
-                            style:
-                                TextStyle(color: Colors.white54, fontSize: 13),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Text(
+                          sid == null
+                              ? 'Viendo todos. Elige un súper para filtrar.'
+                              : 'Mostrando productos de este súper y los sin asignar.',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 13,
                           ),
                         ),
+                      ),
                       Expanded(
                         child: RefreshIndicator(
                           onRefresh: provider.cargar,
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                             children: [
-                              if (masBaratos.isNotEmpty) ...[
-                                const _SeccionTitulo(
-                                  'Más barato aquí — cómpralo',
-                                ),
-                                ...masBaratos.map(
-                                  (c) => Padding(
+                              if (sid != null && deEsteSuper.isNotEmpty) ...[
+                                const _SeccionTitulo('En este súper'),
+                                ...deEsteSuper.map(
+                                  (item) => Padding(
                                     padding: const EdgeInsets.only(bottom: 8),
                                     child: _CheckTile(
-                                      item: c.producto,
+                                      item: item,
                                       comprado: false,
-                                      subtitulo: _textoPrecioAqui(
-                                            c.precioAqui,
-                                            c.producto,
-                                          ) ??
-                                          _textoComparativa(c),
-                                      badge: 'Aquí',
-                                      badgeColor: const Color(0xFF66BB6A),
-                                      onChanged: (v) =>
-                                          provider.marcarComprado(
-                                        c.producto,
+                                      badge: provider
+                                          .nombreSupermercado(item.supermercadoId),
+                                      badgeColor: const Color(0xFF4FC3F7),
+                                      onChanged: (v) => provider.marcarComprado(
+                                        item,
                                         v ?? false,
                                       ),
-                                      onEditarPrecio: () =>
-                                          _editarPrecio(c.producto),
                                     ),
                                   ),
                                 ),
                               ],
-                              if (otros.isNotEmpty) ...[
-                                const SizedBox(height: 8),
+                              if (sid == null && otros.isNotEmpty) ...[
                                 const _SeccionTitulo('Por comprar'),
                                 ...otros.map(
-                                  (c) => Padding(
+                                  (item) => Padding(
                                     padding: const EdgeInsets.only(bottom: 8),
                                     child: _CheckTile(
-                                      item: c.producto,
+                                      item: item,
                                       comprado: false,
-                                      subtitulo: _textoComparativa(c),
-                                      badge: c.sinDatos
-                                          ? 'Sin precio'
-                                          : (c.mejorSupermercado?.nombre),
-                                      badgeColor: c.sinDatos
-                                          ? Colors.white38
-                                          : const Color(0xFFFFB74D),
-                                      onChanged: (v) =>
-                                          provider.marcarComprado(
-                                        c.producto,
+                                      badge: provider
+                                          .nombreSupermercado(item.supermercadoId),
+                                      badgeColor: const Color(0xFF4FC3F7),
+                                      onChanged: (v) => provider.marcarComprado(
+                                        item,
                                         v ?? false,
                                       ),
-                                      onEditarPrecio: () =>
-                                          _editarPrecio(c.producto),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (sinAsignar.isNotEmpty) ...[
+                                if (deEsteSuper.isNotEmpty || otros.isNotEmpty)
+                                  const SizedBox(height: 8),
+                                const _SeccionTitulo('Sin súper asignado'),
+                                ...sinAsignar.map(
+                                  (item) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: _CheckTile(
+                                      item: item,
+                                      comprado: false,
+                                      badge: 'Sin asignar',
+                                      badgeColor: Colors.white38,
+                                      onChanged: (v) => provider.marcarComprado(
+                                        item,
+                                        v ?? false,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -288,30 +236,33 @@ class _ComprarPageState extends State<ComprarPage> {
                                 const SizedBox(height: 8),
                                 const _SeccionTitulo('Ya comprado'),
                                 ...comprados.map(
-                                  (item) {
-                                    final precio =
-                                        _precioEnActual(provider, item);
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: _CheckTile(
-                                        item: item,
-                                        comprado: true,
-                                        subtitulo: _textoPrecioAqui(
-                                          precio,
-                                          item,
-                                        ),
-                                        onChanged: (v) =>
-                                            provider.marcarComprado(
-                                          item,
-                                          v ?? false,
-                                        ),
-                                        onEditarPrecio: () =>
-                                            _editarPrecio(item),
+                                  (item) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: _CheckTile(
+                                      item: item,
+                                      comprado: true,
+                                      badge: provider.nombreSupermercado(
+                                            item.supermercadoId,
+                                          ) ??
+                                          'Sin asignar',
+                                      badgeColor: Colors.white38,
+                                      onChanged: (v) => provider.marcarComprado(
+                                        item,
+                                        v ?? false,
                                       ),
-                                    );
-                                  },
+                                    ),
+                                  ),
                                 ),
                               ],
+                              if (pendientes.isEmpty && comprados.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Text(
+                                    'Nada que comprar en este súper.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.white54),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -413,24 +364,22 @@ class _SeccionTitulo extends StatelessWidget {
 class _CheckTile extends StatelessWidget {
   final ItemListaCompra item;
   final bool comprado;
-  final String? subtitulo;
   final String? badge;
   final Color? badgeColor;
   final ValueChanged<bool?> onChanged;
-  final VoidCallback onEditarPrecio;
 
   const _CheckTile({
     required this.item,
     required this.comprado,
     required this.onChanged,
-    required this.onEditarPrecio,
-    this.subtitulo,
     this.badge,
     this.badgeColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final subtitulo = item.cantidad.isEmpty ? null : item.cantidad;
+
     return Container(
       decoration: BoxDecoration(
         color: comprado ? const Color(0xFF1A1A1A) : const Color(0xFF16213E),
@@ -446,11 +395,6 @@ class _CheckTile extends StatelessWidget {
         onChanged: onChanged,
         activeColor: const Color(0xFF66BB6A),
         controlAffinity: ListTileControlAffinity.leading,
-        secondary: IconButton(
-          onPressed: onEditarPrecio,
-          tooltip: 'Modificar precio',
-          icon: const Icon(Icons.euro, color: Color(0xFF66BB6A)),
-        ),
         title: Row(
           children: [
             Expanded(
@@ -482,13 +426,10 @@ class _CheckTile extends StatelessWidget {
               ),
           ],
         ),
-        subtitle: (subtitulo == null && item.cantidad.isEmpty)
+        subtitle: subtitulo == null
             ? null
             : Text(
-                [
-                  if (subtitulo != null) subtitulo!,
-                  if (item.cantidad.isNotEmpty) item.cantidad,
-                ].join('\n'),
+                subtitulo,
                 style: TextStyle(
                   color: comprado ? Colors.white24 : Colors.white54,
                   fontSize: 12,

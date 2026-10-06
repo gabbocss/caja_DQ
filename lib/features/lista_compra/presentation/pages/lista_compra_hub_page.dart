@@ -35,16 +35,15 @@ class _ListaCompraHubPageState extends State<ListaCompraHubPage> {
             Expanded(
               child: Consumer<ListaCompraProvider>(
                 builder: (context, provider, _) {
-                  final gasto = provider.gastoEstimadoMinimo;
-                  final sinPrecio = provider.productosSinPrecioEnEstimacion;
+                  final pendientes = provider.pendientesCompra.length;
                   final hayLista = provider.enListaCompra.isNotEmpty;
                   final trailing = !hayLista
                       ? null
-                      : provider.cargando && gasto == 0 && sinPrecio == 0
+                      : provider.cargando && pendientes == 0
                           ? '…'
-                          : gasto > 0
-                              ? '~ ${gasto.toStringAsFixed(2)} €'
-                              : (sinPrecio > 0 ? 'Sin precios' : null);
+                          : pendientes > 0
+                              ? '$pendientes'
+                              : null;
 
                   return ListView(
                     padding: const EdgeInsets.all(20),
@@ -52,11 +51,9 @@ class _ListaCompraHubPageState extends State<ListaCompraHubPage> {
                       _Tile(
                         titulo: 'Comprar',
                         subtitulo: hayLista
-                            ? (sinPrecio > 0 && gasto > 0
-                                ? 'Estimado con mínimas (faltan $sinPrecio sin precio)'
-                                : sinPrecio > 0 && gasto == 0
-                                    ? 'Marca precios para estimar el gasto'
-                                    : 'Estimado con cantidades mínimas')
+                            ? (pendientes > 0
+                                ? '$pendientes pendiente${pendientes == 1 ? '' : 's'}'
+                                : 'Marcar lo comprado y vaciar al terminar')
                             : 'Marcar lo comprado y vaciar al terminar',
                         icono: Icons.shopping_cart_outlined,
                         color: const Color(0xFF66BB6A),
@@ -66,7 +63,7 @@ class _ListaCompraHubPageState extends State<ListaCompraHubPage> {
                       const SizedBox(height: 12),
                       _Tile(
                         titulo: 'Hacer lista',
-                        subtitulo: 'Catálogo, mínimas y qué hay que comprar',
+                        subtitulo: 'Catálogo, súper y qué hay que comprar',
                         icono: Icons.edit_note,
                         color: const Color(0xFFFFB74D),
                         onTap: () => context.go(AppRoutes.listaCompraHacer),

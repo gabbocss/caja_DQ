@@ -801,62 +801,6 @@ class ApiClient {
     }
   }
 
-  Future<List<Map<String, dynamic>>> obtenerPreciosListaCompra({
-    int? productoId,
-    int? supermercadoId,
-  }) async {
-    var uri = _apiUri(ApiEndpoints.listaCompraPrecios);
-    final q = <String, String>{};
-    if (productoId != null) q['productoId'] = '$productoId';
-    if (supermercadoId != null) q['supermercadoId'] = '$supermercadoId';
-    if (q.isNotEmpty) uri = uri.replace(queryParameters: q);
-    try {
-      final response = await _client.get(
-        uri,
-        headers: {'Accept': 'application/json'},
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-      }
-      throw Exception(
-        'GET $uri → ${response.statusCode}. '
-        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
-      );
-    } catch (e) {
-      debugPrint('Error en obtenerPreciosListaCompra ($uri): $e');
-      rethrow;
-    }
-  }
-
-  Future<Map<String, dynamic>> guardarPrecioListaCompra(
-    Map<String, dynamic> body,
-  ) async {
-    final uri = _apiUri(ApiEndpoints.listaCompraPrecios);
-    try {
-      final response = await _client.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: json.encode(body),
-      );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return Map<String, dynamic>.from(json.decode(response.body) as Map);
-      }
-      throw Exception(
-        'POST $uri → ${response.statusCode}. '
-        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
-      );
-    } catch (e) {
-      debugPrint('Error en guardarPrecioListaCompra ($uri): $e');
-      rethrow;
-    }
-  }
-
   // ==================== SUPERMERCADOS (VPS) ====================
 
   Future<List<Map<String, dynamic>>> obtenerSupermercados() async {

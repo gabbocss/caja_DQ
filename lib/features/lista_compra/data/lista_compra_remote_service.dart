@@ -1,10 +1,9 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/prefs/reservas_central_prefs.dart';
 import '../domain/entities/item_lista_compra.dart';
-import '../domain/entities/precio_producto.dart';
 import '../domain/entities/supermercado.dart';
 
-/// Acceso a la lista de la compra / precios / súpers en el VPS.
+/// Acceso a la lista de la compra y súpers en el VPS.
 class ListaCompraRemoteService {
   Future<ApiClient> _cliente() async {
     final url = await getReservasCentralUrlEfectiva();
@@ -47,6 +46,15 @@ class ListaCompraRemoteService {
     }
   }
 
+  Future<void> eliminar(int id) async {
+    final client = await _cliente();
+    try {
+      await client.eliminarItemListaCompra(id);
+    } finally {
+      client.dispose();
+    }
+  }
+
   Future<void> vaciarCompra() async {
     final client = await _cliente();
     try {
@@ -61,32 +69,6 @@ class ListaCompraRemoteService {
     try {
       final raw = await client.reordenarListaCompra(ids);
       return raw.map(ItemListaCompra.fromJson).toList();
-    } finally {
-      client.dispose();
-    }
-  }
-
-  Future<List<PrecioProducto>> obtenerPrecios({
-    int? productoId,
-    int? supermercadoId,
-  }) async {
-    final client = await _cliente();
-    try {
-      final raw = await client.obtenerPreciosListaCompra(
-        productoId: productoId,
-        supermercadoId: supermercadoId,
-      );
-      return raw.map(PrecioProducto.fromJson).toList();
-    } finally {
-      client.dispose();
-    }
-  }
-
-  Future<PrecioProducto> guardarPrecio(PrecioProducto precio) async {
-    final client = await _cliente();
-    try {
-      final raw = await client.guardarPrecioListaCompra(precio.toJson());
-      return PrecioProducto.fromJson(raw);
     } finally {
       client.dispose();
     }

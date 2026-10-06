@@ -231,60 +231,15 @@ function nextListaCompraId(items) {
   return max + 1;
 }
 
-function normalizarUnidadBase(v) {
-  const s = String(v || 'unidad').toLowerCase();
-  if (s === 'kilo' || s === 'litro' || s === 'unidad') return s;
-  return 'unidad';
-}
-
 function normalizarZona(v) {
   return String(v || '').toLowerCase() === 'sala' ? 'sala' : 'cocina';
 }
 
-function normalizarContenidoUnidad(v, unidadBase) {
-  const s = String(v || '').toLowerCase();
-  const permitidas =
-    unidadBase === 'litro'
-      ? ['ml', 'l']
-      : unidadBase === 'kilo'
-        ? ['g', 'kg']
-        : ['ud'];
-  if (permitidas.includes(s)) return s;
-  return unidadBase === 'litro' ? 'ml' : unidadBase === 'kilo' ? 'g' : 'ud';
-}
-
-function aCantidadBase(cantidad, contenidoUnidad, unidadBase) {
-  const c = Number(cantidad);
-  if (!(c > 0)) return null;
-  if (unidadBase === 'litro') {
-    if (contenidoUnidad === 'ml') return c / 1000;
-    if (contenidoUnidad === 'l') return c;
-  } else if (unidadBase === 'kilo') {
-    if (contenidoUnidad === 'g') return c / 1000;
-    if (contenidoUnidad === 'kg') return c;
-  } else if (unidadBase === 'unidad') {
-    if (contenidoUnidad === 'ud') return c;
-  }
-  return null;
-}
-
-function calcularPrecioPorBase(
-  precioEnvase,
-  contenidoCantidad,
-  contenidoUnidad,
-  unidadBase,
-) {
-  const base = aCantidadBase(contenidoCantidad, contenidoUnidad, unidadBase);
-  if (base == null) {
-    throw new Error(
-      'Contenido incompatible con la unidad (kilo/litro/unidad)',
-    );
-  }
-  const p = Number(precioEnvase);
-  if (Number.isNaN(p) || p < 0) {
-    throw new Error('Precio inválido');
-  }
-  return p / base;
+/** Súper asignado al producto; null = sin asignar. */
+function normalizarSupermercadoId(value) {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
 }
 
 function normalizarItemListaCompra(item, now) {
@@ -292,15 +247,6 @@ function normalizarItemListaCompra(item, now) {
   const comprado = hayQueComprar ? Boolean(item.comprado) : false;
   const ordenRaw = Number(item.orden);
   const orden = Number.isNaN(ordenRaw) ? 0 : ordenRaw;
-  const unidadBase = normalizarUnidadBase(item.unidadBase);
-  const contenidoCantidadRaw = Number(item.contenidoCantidad);
-  const contenidoCantidad =
-    !Number.isNaN(contenidoCantidadRaw) && contenidoCantidadRaw > 0
-      ? contenidoCantidadRaw
-      : null;
-  const minRaw = Number(item.cantidadMinima);
-  const cantidadMinima =
-    Number.isFinite(minRaw) && minRaw >= 1 ? Math.floor(minRaw) : 1;
   const urlMetroRaw = item.urlMetro != null
     ? String(item.urlMetro).trim()
     : '';
@@ -308,22 +254,18 @@ function normalizarItemListaCompra(item, now) {
   // Migración: urlProveedor antiguo → urlMetro.
   const urlMetro =
     urlMetroRaw || String(item.urlProveedor || '').trim();
-  const { urlProveedor: _omitUrlProveedor, ...rest } = item;
   return {
-    ...rest,
+    id: Number(item.id),
+    nombre: String(item.nombre || '').trim(),
+    cantidad: item.cantidad != null ? String(item.cantidad) : '',
     hayQueComprar,
     comprado,
     orden,
-    unidadBase,
-    contenidoCantidad,
-    contenidoUnidad: normalizarContenidoUnidad(
-      item.contenidoUnidad,
-      unidadBase,
-    ),
-    cantidadMinima,
     zona: normalizarZona(item.zona),
+    supermercadoId: normalizarSupermercadoId(item.supermercadoId),
     urlMetro,
     urlCc,
+    fechaCreacion: item.fechaCreacion || now,
     fechaActualizacion: now,
   };
 }
@@ -383,21 +325,11 @@ function upsertItemListaCompra(body) {
             : Boolean(items[idx].comprado),
         orden:
           item.orden != null ? Number(item.orden) : Number(items[idx].orden ?? idx),
-        unidadBase:
-          item.unidadBase != null ? item.unidadBase : items[idx].unidadBase,
-        contenidoCantidad:
-          item.contenidoCantidad !== undefined
-            ? item.contenidoCantidad
-            : items[idx].contenidoCantidad,
-        contenidoUnidad:
-          item.contenidoUnidad != null
-            ? item.contenidoUnidad
-            : items[idx].contenidoUnidad,
-        cantidadMinima:
-          item.cantidadMinima != null
-            ? item.cantidadMinima
-            : items[idx].cantidadMinima,
         zona: item.zona != null ? item.zona : items[idx].zona,
+        supermercadoId:
+          item.supermercadoId !== undefined
+            ? item.supermercadoId
+            : items[idx].supermercadoId,
         urlMetro:
           item.urlMetro != null
             ? item.urlMetro
@@ -430,11 +362,8 @@ function upsertItemListaCompra(body) {
       hayQueComprar: Boolean(item.hayQueComprar),
       comprado: Boolean(item.comprado),
       orden: item.orden != null ? Number(item.orden) : nextOrden(items),
-      unidadBase: item.unidadBase || 'unidad',
-      contenidoCantidad: item.contenidoCantidad,
-      contenidoUnidad: item.contenidoUnidad,
-      cantidadMinima: item.cantidadMinima != null ? item.cantidadMinima : 1,
       zona: item.zona,
+      supermercadoId: item.supermercadoId,
       urlMetro: item.urlMetro != null ? item.urlMetro : item.urlProveedor,
       urlCc: item.urlCc,
       fechaCreacion: now,
@@ -587,72 +516,10 @@ function getPreciosListaCompra(filtro = {}) {
 }
 
 /**
- * Guarda/actualiza el último precio de un producto en un supermercado.
- * Calcula precioPorBase (€/litro, €/kg o €/ud).
+ * Legacy: precios por súper (ya no usados por la app).
  */
-function upsertPrecioListaCompra(body) {
-  const productoId = Number(body.productoId);
-  const supermercadoId = Number(body.supermercadoId);
-  if (!(productoId > 0) || !(supermercadoId > 0)) {
-    throw new Error('productoId y supermercadoId son obligatorios');
-  }
-
-  const productos = readListaCompra();
-  const producto = productos.find((p) => Number(p.id) === productoId);
-  if (!producto) throw new Error('Producto no encontrado');
-
-  const supers = readSupermercados();
-  if (!supers.some((s) => Number(s.id) === supermercadoId)) {
-    throw new Error('Supermercado no encontrado');
-  }
-
-  const unidadBase = normalizarUnidadBase(
-    body.unidadBase != null ? body.unidadBase : producto.unidadBase,
-  );
-  const contenidoCantidad =
-    body.contenidoCantidad != null
-      ? Number(body.contenidoCantidad)
-      : Number(producto.contenidoCantidad);
-  const contenidoUnidad = normalizarContenidoUnidad(
-    body.contenidoUnidad != null
-      ? body.contenidoUnidad
-      : producto.contenidoUnidad,
-    unidadBase,
-  );
-  const precioEnvase = Number(body.precioEnvase);
-  const precioPorBase = calcularPrecioPorBase(
-    precioEnvase,
-    contenidoCantidad,
-    contenidoUnidad,
-    unidadBase,
-  );
-
-  const now = new Date().toISOString();
-  const items = readPreciosListaCompra();
-  const idx = items.findIndex(
-    (p) =>
-      Number(p.productoId) === productoId &&
-      Number(p.supermercadoId) === supermercadoId,
-  );
-
-  const registro = {
-    id: idx >= 0 ? items[idx].id : nextPrecioId(items),
-    productoId,
-    supermercadoId,
-    precioEnvase,
-    contenidoCantidad,
-    contenidoUnidad,
-    unidadBase,
-    precioPorBase,
-    fecha: now,
-    fechaCreacion: idx >= 0 ? items[idx].fechaCreacion || now : now,
-  };
-
-  if (idx >= 0) items[idx] = registro;
-  else items.push(registro);
-
-  writePreciosListaCompra(items);
-  return registro;
+function upsertPrecioListaCompra() {
+  throw new Error('Los precios de lista de compra ya no están soportados');
 }
 
 function deletePrecioListaCompra(id) {
@@ -850,7 +717,6 @@ module.exports = {
   getPreciosListaCompra,
   upsertPrecioListaCompra,
   deletePrecioListaCompra,
-  calcularPrecioPorBase,
   getSupermercados,
   upsertSupermercado,
   updateSupermercado,

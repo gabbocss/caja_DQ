@@ -1,30 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/lista_compra_remote_service.dart';
-import '../../data/supermercados_remote_service.dart';
 import '../../domain/entities/item_lista_compra.dart';
-import '../../domain/entities/precio_producto.dart';
 import '../../domain/entities/supermercado.dart';
-import '../../domain/entities/unidad_medida.dart';
-
-/// Comparativa de precios de un producto respecto al súper actual.
-class ComparativaPrecio {
-  final ItemListaCompra producto;
-  final PrecioProducto? precioAqui;
-  final PrecioProducto? mejorPrecio;
-  final Supermercado? mejorSupermercado;
-  final bool esMasBaratoAqui;
-  final bool sinDatos;
-
-  const ComparativaPrecio({
-    required this.producto,
-    this.precioAqui,
-    this.mejorPrecio,
-    this.mejorSupermercado,
-    required this.esMasBaratoAqui,
-    required this.sinDatos,
-  });
-}
 
 /// Estado de la lista de la compra: solo memoria de sesión + VPS.
 class ListaCompraProvider extends ChangeNotifier {
@@ -34,7 +12,6 @@ class ListaCompraProvider extends ChangeNotifier {
   final ListaCompraRemoteService _remote;
 
   List<ItemListaCompra> _items = [];
-  List<PrecioProducto> _precios = [];
   List<Supermercado> _supermercados = [];
   int? _supermercadoActualId;
   bool _cargando = false;
@@ -45,7 +22,6 @@ class ListaCompraProvider extends ChangeNotifier {
 
   List<ItemListaCompra> itemsDe(ZonaListaCompra zona) =>
       _items.where((i) => i.zona == zona).toList();
-  List<PrecioProducto> get precios => List.unmodifiable(_precios);
   List<Supermercado> get supermercados => List.unmodifiable(_supermercados);
   int? get supermercadoActualId => _supermercadoActualId;
 
@@ -63,38 +39,51 @@ class ListaCompraProvider extends ChangeNotifier {
   List<ItemListaCompra> get enListaCompra =>
       _items.where((i) => i.hayQueComprar).toList();
 
-  /// Gasto estimado: cantidadMinima × precioEnvase más barato conocido.
-  double get gastoEstimadoMinimo {
-    var total = 0.0;
-    for (final item in enListaCompra) {
-      final precios = preciosDeProducto(item.id);
-      if (precios.isEmpty) continue;
-      var mejor = precios.first;
-      for (final p in precios.skip(1)) {
-        if (p.precioEnvase < mejor.precioEnvase) mejor = p;
-      }
-      total += mejor.precioEnvase * item.cantidadMinima;
-    }
-    return total;
-  }
-
-  /// Cuántos de la lista no tienen ningún precio guardado.
-  int get productosSinPrecioEnEstimacion => enListaCompra
-      .where((i) => preciosDeProducto(i.id).isEmpty)
-      .length;
-
   bool get cargando => _cargando;
   String? get error => _error;
   DateTime? get ultimaActualizacionOk => _ultimaOk;
 
-  Future<void> cargar({bool incluirPreciosYSupers = true}) async {
+  Supermercado? supermercadoDe(int? id) {
+    if (id == null) return null;
+    for (final s in _supermercados) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  String? nombreSupermercado(int? id) => supermercadoDe(id)?.nombre;
+
+  /// Pendientes visibles según el súper seleccionado en Comprar.
+  /// Sin filtro: todos. Con filtro: los de ese súper + los sin asignar.
+  List<ItemListaCompra> pendientesParaSupermercado(int? supermercadoId) {
+    final lista = pendientesCompra;
+    if (supermercadoId == null) return lista;
+    return lista
+        .where(
+          (i) =>
+              i.supermercadoId == null || i.supermercadoId == supermercadoId,
+        )
+        .toList();
+  }
+
+  List<ItemListaCompra> compradosParaSupermercado(int? supermercadoId) {
+    final lista = compradosCompra;
+    if (supermercadoId == null) return lista;
+    return lista
+        .where(
+          (i) =>
+              i.supermercadoId == null || i.supermercadoId == supermercadoId,
+        )
+        .toList();
+  }
+
+  Future<void> cargar({bool incluirSupers = true}) async {
     _cargando = true;
     _error = null;
     notifyListeners();
     try {
       _items = await _remote.obtenerLista();
-      if (incluirPreciosYSupers) {
-        _precios = await _remote.obtenerPrecios();
+      if (incluirSupers) {
         _supermercados = await _remote.obtenerSupermercados();
         if (_supermercadoActualId != null &&
             !_supermercados.any((s) => s.id == _supermercadoActualId)) {
@@ -117,78 +106,11 @@ class ListaCompraProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<PrecioProducto> preciosDeProducto(int productoId) =>
-      _precios.where((p) => p.productoId == productoId).toList();
-
-  ComparativaPrecio comparativa(ItemListaCompra producto) {
-    final preciosProd = preciosDeProducto(producto.id);
-    if (preciosProd.isEmpty) {
-      return ComparativaPrecio(
-        producto: producto,
-        esMasBaratoAqui: false,
-        sinDatos: true,
-      );
-    }
-
-    PrecioProducto mejor = preciosProd.first;
-    for (final p in preciosProd.skip(1)) {
-      if (p.precioPorBase < mejor.precioPorBase) mejor = p;
-    }
-
-    PrecioProducto? precioAqui;
-    if (_supermercadoActualId != null) {
-      for (final p in preciosProd) {
-        if (p.supermercadoId == _supermercadoActualId) {
-          precioAqui = p;
-          break;
-        }
-      }
-    }
-
-    final esMasBaratoAqui = precioAqui != null &&
-        (precioAqui.precioPorBase - mejor.precioPorBase).abs() < 0.0001;
-
-    Supermercado? mejorSuper;
-    for (final s in _supermercados) {
-      if (s.id == mejor.supermercadoId) {
-        mejorSuper = s;
-        break;
-      }
-    }
-
-    return ComparativaPrecio(
-      producto: producto,
-      precioAqui: precioAqui,
-      mejorPrecio: mejor,
-      mejorSupermercado: mejorSuper,
-      esMasBaratoAqui: esMasBaratoAqui,
-      sinDatos: false,
-    );
-  }
-
-  /// Pendientes ordenados: más baratos aquí primero, luego el resto.
-  List<ComparativaPrecio> get pendientesConComparativa {
-    final lista = pendientesCompra.map(comparativa).toList();
-    lista.sort((a, b) {
-      if (a.esMasBaratoAqui != b.esMasBaratoAqui) {
-        return a.esMasBaratoAqui ? -1 : 1;
-      }
-      if (a.sinDatos != b.sinDatos) return a.sinDatos ? 1 : -1;
-      return a.producto.orden.compareTo(b.producto.orden);
-    });
-    return lista;
-  }
-
   Future<bool> anadir({
     required String nombre,
     String cantidad = '',
-    UnidadBase unidadBase = UnidadBase.unidad,
-    double? contenidoCantidad,
-    ContenidoUnidad? contenidoUnidad,
-    int cantidadMinima = 1,
     ZonaListaCompra zona = ZonaListaCompra.cocina,
-    String urlMetro = '',
-    String urlCc = '',
+    int? supermercadoId,
   }) async {
     final n = nombre.trim();
     if (n.isEmpty) {
@@ -202,14 +124,8 @@ class ListaCompraProvider extends ChangeNotifier {
           id: 0,
           nombre: n,
           cantidad: cantidad.trim(),
-          unidadBase: unidadBase,
-          contenidoCantidad: contenidoCantidad,
-          contenidoUnidad:
-              contenidoUnidad ?? ContenidoUnidad.paraBase(unidadBase).first,
-          cantidadMinima: cantidadMinima < 1 ? 1 : cantidadMinima,
           zona: zona,
-          urlMetro: urlMetro.trim(),
-          urlCc: urlCc.trim(),
+          supermercadoId: supermercadoId,
         ),
       );
       await cargar();
@@ -225,14 +141,9 @@ class ListaCompraProvider extends ChangeNotifier {
     ItemListaCompra item, {
     required String nombre,
     String cantidad = '',
-    UnidadBase? unidadBase,
-    double? contenidoCantidad,
-    bool clearContenido = false,
-    ContenidoUnidad? contenidoUnidad,
-    int? cantidadMinima,
     ZonaListaCompra? zona,
-    String? urlMetro,
-    String? urlCc,
+    int? supermercadoId,
+    bool clearSupermercado = false,
   }) async {
     final n = nombre.trim();
     if (n.isEmpty) {
@@ -245,14 +156,9 @@ class ListaCompraProvider extends ChangeNotifier {
         item.copyWith(
           nombre: n,
           cantidad: cantidad.trim(),
-          unidadBase: unidadBase,
-          contenidoCantidad: contenidoCantidad,
-          clearContenido: clearContenido,
-          contenidoUnidad: contenidoUnidad,
-          cantidadMinima: cantidadMinima,
           zona: zona,
-          urlMetro: urlMetro,
-          urlCc: urlCc,
+          supermercadoId: supermercadoId,
+          clearSupermercado: clearSupermercado,
         ),
       );
       await cargar();
@@ -264,38 +170,9 @@ class ListaCompraProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> guardarPrecio({
-    required ItemListaCompra producto,
-    required int supermercadoId,
-    required double precioEnvase,
-    required double contenidoCantidad,
-    required ContenidoUnidad contenidoUnidad,
-  }) async {
+  Future<bool> eliminar(ItemListaCompra item) async {
     try {
-      await _remote.guardarPrecio(
-        PrecioProducto(
-          id: 0,
-          productoId: producto.id,
-          supermercadoId: supermercadoId,
-          precioEnvase: precioEnvase,
-          contenidoCantidad: contenidoCantidad,
-          contenidoUnidad: contenidoUnidad,
-          unidadBase: producto.unidadBase,
-          precioPorBase: calcularPrecioPorBase(
-                precioEnvase: precioEnvase,
-                contenidoCantidad: contenidoCantidad,
-                contenidoUnidad: contenidoUnidad,
-                unidadBase: producto.unidadBase,
-              ) ??
-              0,
-        ),
-      );
-      // Actualiza también el contenido típico del producto.
-      await _remote.actualizar(producto.id, {
-        'contenidoCantidad': contenidoCantidad,
-        'contenidoUnidad': contenidoUnidad.name,
-        'unidadBase': producto.unidadBase.apiValue,
-      });
+      await _remote.eliminar(item.id);
       await cargar();
       return _error == null;
     } catch (e) {
@@ -343,86 +220,6 @@ class ListaCompraProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-  }
-
-  /// Guarda enlaces Metro / C&C del producto (uso desktop).
-  Future<bool> guardarUrlsProveedor(
-    ItemListaCompra item, {
-    String? urlMetro,
-    String? urlCc,
-  }) async {
-    try {
-      await _remote.actualizar(item.id, {
-        if (urlMetro != null) 'urlMetro': urlMetro.trim(),
-        if (urlCc != null) 'urlCc': urlCc.trim(),
-      });
-      await cargar();
-      return _error == null;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
-
-  bool _esMetro(Supermercado s) =>
-      s.nombre.toLowerCase().contains('metro');
-
-  bool _esCc(Supermercado s) {
-    final n = s.nombre.toLowerCase().replaceAll(' ', '');
-    return n.contains('c&c') ||
-        n.contains('c+c') ||
-        n.contains('cash&carry') ||
-        n.contains('cashandcarry') ||
-        s.nombre.toLowerCase() == 'c&c' ||
-        s.nombre.toLowerCase() == 'c + c';
-  }
-
-  /// Busca el súper «Metro» o lo crea si no existe.
-  Future<Supermercado?> asegurarSupermercadoMetro() async {
-    for (final s in _supermercados) {
-      if (_esMetro(s)) return s;
-    }
-    try {
-      final remoto = SupermercadosRemoteService();
-      final creado = await remoto.guardar(
-        const Supermercado(id: 0, nombre: 'Metro'),
-      );
-      _supermercados = await _remote.obtenerSupermercados();
-      notifyListeners();
-      return creado;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return null;
-    }
-  }
-
-  /// Busca el súper «C&C» o lo crea si no existe.
-  Future<Supermercado?> asegurarSupermercadoCc() async {
-    for (final s in _supermercados) {
-      if (_esCc(s)) return s;
-    }
-    try {
-      final remoto = SupermercadosRemoteService();
-      final creado = await remoto.guardar(
-        const Supermercado(id: 0, nombre: 'C&C'),
-      );
-      _supermercados = await _remote.obtenerSupermercados();
-      notifyListeners();
-      return creado;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return null;
-    }
-  }
-
-  PrecioProducto? precioEnSuper(int productoId, int supermercadoId) {
-    for (final p in preciosDeProducto(productoId)) {
-      if (p.supermercadoId == supermercadoId) return p;
-    }
-    return null;
   }
 
   Future<bool> reordenar(
