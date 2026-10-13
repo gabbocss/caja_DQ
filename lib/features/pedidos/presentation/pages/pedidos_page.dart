@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -75,6 +76,10 @@ class _PedidosPageState extends State<PedidosPage> {
   int _adultosBuffet = 0;
   int _ninosBuffet = 0;
   int _cubiertos = 0;
+  /// Búsqueda de platos dentro de la categoría activa (campo siempre visible).
+  String _textoBusqueda = '';
+  final TextEditingController _busquedaController = TextEditingController();
+  final FocusNode _busquedaFocus = FocusNode();
 
   @override
   void initState() {
@@ -85,6 +90,20 @@ class _PedidosPageState extends State<PedidosPage> {
     _cargarMesasConCuentaAbierta();
     _cargarCuentaMesa(_mesaSeleccionada);
     _cargarPopularidadProductos();
+  }
+
+  @override
+  void dispose() {
+    _busquedaController.dispose();
+    _busquedaFocus.dispose();
+    super.dispose();
+  }
+
+  /// Limpia el texto de búsqueda y quita el foco del campo.
+  void _limpiarBusqueda() {
+    _busquedaController.clear();
+    _busquedaFocus.unfocus();
+    setState(() => _textoBusqueda = '');
   }
 
   /// Orden del grid por popularidad (solo con BD local; requiere histórico de pedidos).
@@ -1478,6 +1497,71 @@ class _PedidosPageState extends State<PedidosPage> {
                       children: [
                         // Header con selector de mesa
                         _buildHeader(context),
+
+                        // Campo de búsqueda siempre visible (filtra dentro de la categoría activa)
+                        Container(
+                          color: const Color(0xFF16213E),
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: Focus(
+                            onKeyEvent: (node, event) {
+                              if (event is KeyDownEvent &&
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.escape) {
+                                _limpiarBusqueda();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: TextField(
+                              controller: _busquedaController,
+                              focusNode: _busquedaFocus,
+                              style: const TextStyle(color: Colors.white),
+                              cursorColor: const Color(0xFFE94560),
+                              decoration: InputDecoration(
+                                hintText: _categoriaSeleccionada == null
+                                    ? 'Buscar en todos los platos...'
+                                    : 'Buscar en ${_categoriaSeleccionada!.toUpperCase()}...',
+                                hintStyle: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.white54,
+                                ),
+                                suffixIcon: _textoBusqueda.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(
+                                          Icons.clear,
+                                          color: Colors.white54,
+                                        ),
+                                        tooltip: 'Dejar de buscar',
+                                        onPressed: _limpiarBusqueda,
+                                      )
+                                    : null,
+                                filled: true,
+                                fillColor: const Color(0xFF0F3460),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE94560),
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                              onChanged: (value) {
+                                setState(() => _textoBusqueda = value);
+                              },
+                            ),
+                          ),
+                        ),
                         
                         // Selector de categorías
                         CategoriaSelector(
@@ -1492,6 +1576,7 @@ class _PedidosPageState extends State<PedidosPage> {
                         Expanded(
                           child: ProductoGrid(
                             categoriaFiltro: _categoriaSeleccionada,
+                            textoBusqueda: _textoBusqueda,
                             productos: provider.productos,
                             onProductoTap: _agregarAlCarrito,
                             popularidadPorProductoId: _popularidadPorProductoId,
@@ -1577,7 +1662,7 @@ class _PedidosPageState extends State<PedidosPage> {
               ],
             ),
           ),
-          
+
           const Spacer(),
 
           // Refrescar mesas (tras cambiar Config > Mesas)

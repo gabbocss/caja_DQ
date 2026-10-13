@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -6,8 +7,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/core.dart';
 import '../../../../core/services/reserva_carta_cache_service.dart';
 import '../providers/pedidos_mobile_provider.dart';
+import '../widgets/barra_busqueda_pedidos.dart';
 import '../widgets/carrito_panel.dart';
 import '../widgets/dialogo_consumo_actual_lectura.dart';
+import '../widgets/dialogo_orden_plato.dart';
+import '../widgets/producto_grid.dart';
 import 'pedidos_page.dart' show ItemCarrito;
 
 enum _DecisionSalidaMesa {
@@ -31,11 +35,17 @@ class MesaCategoriasPage extends StatefulWidget {
 class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<String> _categorias = [];
+  List<Producto> _productos = [];
   bool _cargando = true;
   String? _qrUrl;
   bool _qrCargando = true;
   String? _qrError;
   bool _manejandoSalida = false;
+  /// Búsqueda de platos en todas las categorías (no filtra nombres de categoría).
+  String _textoBusqueda = '';
+  final TextEditingController _busquedaController = TextEditingController();
+  final FocusNode _busquedaFocus = FocusNode();
+  int? _flashProductoId;
 
   Future<List<Producto>> _obtenerProductos() async {
     if (sl.isRegistered<ApiClient>()) {
@@ -222,12 +232,81 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
   @override
   void initState() {
     super.initState();
-    _cargarCategorias();
+    _cargarCategoriasYProductos();
     _cargarUrlQr();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<PedidosMobileProvider>().loadCuentaMesa(widget.numeroMesa);
     });
+  }
+
+  @override
+  void dispose() {
+    _busquedaController.dispose();
+    _busquedaFocus.dispose();
+    super.dispose();
+  }
+
+  void _limpiarBusqueda() {
+    _busquedaController.clear();
+    _busquedaFocus.unfocus();
+    setState(() => _textoBusqueda = '');
+  }
+
+  void _iluminarBordeBreve(int? productoId) {
+    if (productoId == null || productoId <= 0) return;
+    setState(() => _flashProductoId = productoId);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      if (_flashProductoId == productoId) {
+        setState(() => _flashProductoId = null);
+      }
+    });
+  }
+
+  /// Long-press: reparte las unidades del plato entre 1º / 2º / 3º.
+  Future<void> _mostrarDialogoOrdenPlato(
+    Producto producto,
+    PedidosMobileProvider provider,
+  ) async {
+    final id = producto.id;
+    if (id == null || id <= 0 || !producto.isAvailable) return;
+
+    HapticFeedback.mediumImpact();
+
+    final dist = provider.distribucionOrdenPlato(widget.numeroMesa, id);
+    if (dist.total <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Añade ${producto.nombre} al pedido antes de asignar el turno',
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final result = await DialogoOrdenPlato.mostrar(
+      context: context,
+      nombrePlato: producto.nombre,
+      total: dist.total,
+      segundoInicial: dist.segundo,
+      terceroInicial: dist.tercero,
+      variantesIniciales: provider.variantesOrdenPlato(widget.numeroMesa, id),
+    );
+    if (result == null || !mounted) return;
+
+    provider.aplicarDistribucionOrdenPlato(
+      numeroMesa: widget.numeroMesa,
+      productoId: id,
+      total: result.total,
+      segundo: result.segundo,
+      tercero: result.tercero,
+      variantes: result.variantes,
+    );
   }
 
   Future<void> _openCarrito() async {
@@ -273,7 +352,7 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
     return base.endsWith('/') ? base.substring(0, base.length - 1) : base;
   }
 
-  Future<void> _cargarCategorias() async {
+  Future<void> _cargarCategoriasYProductos() async {
     setState(() => _cargando = true);
     try {
       List<String> cats;
@@ -284,16 +363,23 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
         final list = await DatabaseService.instance.obtenerCategorias();
         cats = list.map((c) => c.nombre).toList();
       }
-      if (mounted) setState(() {
-        _categorias = cats.isNotEmpty ? cats : CategoriaProducto.todas;
-        _cargando = false;
-      });
+      final productos = await _obtenerProductos();
+      if (mounted) {
+        setState(() {
+          _categorias = cats.isNotEmpty ? cats : CategoriaProducto.todas;
+          _productos = productos;
+          _cargando = false;
+        });
+      }
     } catch (e) {
-      debugPrint('Error al cargar categorías: $e');
-      if (mounted) setState(() {
-        _categorias = CategoriaProducto.todas;
-        _cargando = false;
-      });
+      debugPrint('Error al cargar categorías/productos: $e');
+      if (mounted) {
+        setState(() {
+          _categorias = CategoriaProducto.todas;
+          _productos = [];
+          _cargando = false;
+        });
+      }
     }
   }
 
@@ -348,6 +434,13 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
           final items = mobileProvider.carritoMesa(widget.numeroMesa);
           final cuenta = mobileProvider.cuentaMesa(widget.numeroMesa);
           final mesasCuenta = mobileProvider.mesasConCuentaAbierta;
+          final cantidadesEnCarrito = <int, int>{};
+          for (final item in items) {
+            final id = item.producto.id;
+            if (id == null || id <= 0) continue;
+            cantidadesEnCarrito[id] = (cantidadesEnCarrito[id] ?? 0) + item.cantidad;
+          }
+          final buscando = _textoBusqueda.trim().isNotEmpty;
 
           return Scaffold(
             key: _scaffoldKey,
@@ -412,7 +505,58 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
             ),
             body: _cargando
                 ? const Center(child: CircularProgressIndicator())
-                : _buildListaCategorias(),
+                : Column(
+                    children: [
+                      BarraBusquedaPedidos(
+                        controller: _busquedaController,
+                        focusNode: _busquedaFocus,
+                        hintText: 'Buscar en todos los platos...',
+                        textoActual: _textoBusqueda,
+                        onChanged: (value) {
+                          setState(() => _textoBusqueda = value);
+                        },
+                        onLimpiar: _limpiarBusqueda,
+                      ),
+                      Expanded(
+                        child: buscando
+                            ? ProductoGrid(
+                                // Sin filtro de categoría: busca platos en toda la carta
+                                textoBusqueda: _textoBusqueda,
+                                productos: _productos,
+                                crossAxisCount: 2,
+                                gridAltoFraccion: 0.5,
+                                cantidadesEnCarrito: cantidadesEnCarrito,
+                                productoIdBordeIluminado: _flashProductoId,
+                                onProductoTap: (producto) {
+                                  if (!producto.isAvailable) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '${producto.nombre} está agotado',
+                                        ),
+                                        backgroundColor: Colors.orange,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  mobileProvider.addToCart(
+                                    widget.numeroMesa,
+                                    producto,
+                                  );
+                                  _iluminarBordeBreve(producto.id);
+                                },
+                                onProductoLongPress: (producto) {
+                                  _mostrarDialogoOrdenPlato(
+                                    producto,
+                                    mobileProvider,
+                                  );
+                                },
+                              )
+                            : _buildListaCategorias(),
+                      ),
+                    ],
+                  ),
             endDrawer: Drawer(
               backgroundColor: const Color(0xFF1A1A2E),
               width: MediaQuery.of(context).size.width * 0.9,

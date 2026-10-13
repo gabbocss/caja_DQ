@@ -13,6 +13,8 @@ import '../../../../core/core.dart';
 /// [cantidadesEnCarrito]: productoId → unidades en el carrito pendiente (badge en app).
 class ProductoGrid extends StatelessWidget {
   final String? categoriaFiltro;
+  /// Texto de búsqueda; filtra por nombre dentro de la categoría ya seleccionada.
+  final String? textoBusqueda;
   final List<Producto> productos;
   final ValueChanged<Producto> onProductoTap;
   /// Mantener pulsado un plato (app móvil: asignar 1º / 2º / 3º).
@@ -30,6 +32,7 @@ class ProductoGrid extends StatelessWidget {
   const ProductoGrid({
     super.key,
     this.categoriaFiltro,
+    this.textoBusqueda,
     required this.productos,
     required this.onProductoTap,
     this.onProductoLongPress,
@@ -53,7 +56,15 @@ class ProductoGrid extends StatelessWidget {
           .toList();
     }
 
-    final esSabado = DateTime.now().weekday == DateTime.saturday;
+    // Filtrar por nombre dentro de la categoría activa (o de todos si no hay categoría)
+    final query = textoBusqueda?.trim().toLowerCase() ?? '';
+    if (query.isNotEmpty) {
+      productosFiltrados = productosFiltrados
+          .where((p) => p.nombre.toLowerCase().contains(query))
+          .toList();
+    }
+
+    final esSabado = false;
     final pop = popularidadPorProductoId;
     productosFiltrados.sort((a, b) {
       if (pop != null) {
@@ -84,7 +95,9 @@ class ProductoGrid extends StatelessWidget {
             ),
             SizedBox(height: 16 * f),
             Text(
-              'No hay productos en esta categoría',
+              query.isNotEmpty
+                  ? 'No hay platos que coincidan con la búsqueda'
+                  : 'No hay productos en esta categoría',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 16 * f,

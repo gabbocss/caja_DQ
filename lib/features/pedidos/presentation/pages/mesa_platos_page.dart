@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/core.dart';
 import '../../../../core/services/reserva_carta_cache_service.dart';
 import '../providers/pedidos_mobile_provider.dart';
+import '../widgets/barra_busqueda_pedidos.dart';
 import '../widgets/producto_grid.dart';
 import '../widgets/carrito_panel.dart';
 import '../widgets/dialogo_consumo_actual_lectura.dart';
@@ -33,6 +34,10 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
   bool _cargandoProductos = true;
   /// Id del plato cuyo borde se ilumina brevemente al añadirlo.
   int? _flashProductoId;
+  /// Búsqueda de platos dentro de la categoría actual.
+  String _textoBusqueda = '';
+  final TextEditingController _busquedaController = TextEditingController();
+  final FocusNode _busquedaFocus = FocusNode();
 
   @override
   void initState() {
@@ -42,6 +47,19 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
       if (!mounted) return;
       context.read<PedidosMobileProvider>().loadCuentaMesa(widget.numeroMesa);
     });
+  }
+
+  @override
+  void dispose() {
+    _busquedaController.dispose();
+    _busquedaFocus.dispose();
+    super.dispose();
+  }
+
+  void _limpiarBusqueda() {
+    _busquedaController.clear();
+    _busquedaFocus.unfocus();
+    setState(() => _textoBusqueda = '');
   }
 
   void _iluminarBordeBreve(int? productoId) {
@@ -412,37 +430,64 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
           ),
           body: _cargandoProductos
               ? const Center(child: CircularProgressIndicator())
-              : GestureDetector(
-                  onHorizontalDragEnd: (details) {
-                    if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-                      _openCarrito();
-                    }
-                  },
-                  child: ProductoGrid(
-                    categoriaFiltro: widget.categoriaNombre,
-                    productos: _productos,
-                    crossAxisCount: 2,
-                    gridAltoFraccion: 0.5,
-                    cantidadesEnCarrito: cantidadesEnCarrito,
-                    productoIdBordeIluminado: _flashProductoId,
-                    onProductoTap: (producto) {
-                      if (!producto.isAvailable) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${producto.nombre} está agotado'),
-                            backgroundColor: Colors.orange,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                        return;
-                      }
-                      mobileProvider.addToCart(widget.numeroMesa, producto);
-                      _iluminarBordeBreve(producto.id);
-                    },
-                    onProductoLongPress: (producto) {
-                      _mostrarDialogoOrdenPlato(producto, mobileProvider);
-                    },
-                  ),
+              : Column(
+                  children: [
+                    BarraBusquedaPedidos(
+                      controller: _busquedaController,
+                      focusNode: _busquedaFocus,
+                      hintText:
+                          'Buscar en ${widget.categoriaNombre.toUpperCase()}...',
+                      textoActual: _textoBusqueda,
+                      onChanged: (value) {
+                        setState(() => _textoBusqueda = value);
+                      },
+                      onLimpiar: _limpiarBusqueda,
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onHorizontalDragEnd: (details) {
+                          if (details.primaryVelocity != null &&
+                              details.primaryVelocity! > 300) {
+                            _openCarrito();
+                          }
+                        },
+                        child: ProductoGrid(
+                          categoriaFiltro: widget.categoriaNombre,
+                          textoBusqueda: _textoBusqueda,
+                          productos: _productos,
+                          crossAxisCount: 2,
+                          gridAltoFraccion: 0.5,
+                          cantidadesEnCarrito: cantidadesEnCarrito,
+                          productoIdBordeIluminado: _flashProductoId,
+                          onProductoTap: (producto) {
+                            if (!producto.isAvailable) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${producto.nombre} está agotado',
+                                  ),
+                                  backgroundColor: Colors.orange,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                              return;
+                            }
+                            mobileProvider.addToCart(
+                              widget.numeroMesa,
+                              producto,
+                            );
+                            _iluminarBordeBreve(producto.id);
+                          },
+                          onProductoLongPress: (producto) {
+                            _mostrarDialogoOrdenPlato(
+                              producto,
+                              mobileProvider,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
           endDrawer: Drawer(
             backgroundColor: const Color(0xFF1A1A2E),
