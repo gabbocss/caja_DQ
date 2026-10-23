@@ -1,177 +1,235 @@
-# Sistema de Restaurante - Programa Caja
+# Sistema de Restaurante — Programa Caja
 
-Sistema modular y escalable para gestión de restaurante desarrollado en Flutter con Clean Architecture.
+Sistema modular de gestión de restaurante en Flutter (escritorio, Android y web). La caja de Windows o Linux es el servidor local: guarda los datos del servicio, imprime tickets y atiende a camareros, cocina y clientes. Un servidor Node aparte, en un VPS, mantiene reservas y la lista de la compra disponibles las 24 horas, aunque la caja esté apagada.
 
-## 🍽️ Características
+## Qué hace
 
-- **Toma de Pedidos**: Gestión de comandas por mesa
-- **Pantalla de Cocina**: Visualización en tiempo real de pedidos
-- **Buffet del Sábado**: Sistema All You Can Eat con precios diferenciados
-- **Facturación**: Generación de tickets e integración con impresora térmica
-- **Conectividad Local**: Comunicación entre dispositivos vía WiFi
+- **Pedidos y mesas.** Comandas por mesa, categorías, búsqueda, orden de platos (1º, 2º…), notas, stock y pagos parciales o totales (efectivo, tarjeta, otros).
+- **Cocina.** Pantalla en tiempo real, estado por plato (pendiente, preparando, listo), pitido en web y tickets por destino.
+- **Reservas.** Agenda de comida, cena y asporto (para llevar, 0 cubiertos). Estados: pendiente, sentada, cancelada y cobrada. El móvil crea y edita; la caja sincroniza con el VPS cada 15 segundos y puede sentar, cobrar asporto e imprimir.
+- **Lista de paellas.** Impresión automática de reservas nuevas antes de abrir (mesas, asporto y aviso en barra), según los horarios de la agenda.
+- **Buffet.** All you can eat con precios de adulto, niño y menor, horario, cubierto fuera de buffet y límite de tipos distintos por comensal en el pedido QR.
+- **Pedido por QR.** Cada mesa tiene una URL. El cliente arma el carrito en el móvil y lo envía a cocina. Se pueden regenerar los enlaces para invalidar los antiguos.
+- **Caja.** Fondo inicial por denominaciones de euro, retiros, arqueo, cierre de turno e historial. Los cobros quedan ligados a la sesión.
+- **Estadísticas.** Platos más pedidos y tiempos de preparación (desde «Empezar» hasta «Listo»), con gráficos y exportación a PDF.
+- **Lista de la compra.** Catálogo en el VPS, zonas Cocina y Sala, supermercados, precios por envase y precio por kilo, litro o unidad. En el móvil: comprar o hacer la lista. En escritorio: pantalla de compra.
+- **Carta y destinos.** Productos, categorías, mesas, alérgenos, inventario opcional y destinos de impresión (cocina, barra, impresora de red).
+- **WiFi.** QR para que el personal se una a la red del local.
+- **SumUp.** Aviso de cobro en terminal cuando el pago es con tarjeta (Cloud API, opcional).
 
-## 🏗️ Arquitectura
+## Plataformas
 
-El proyecto sigue **Clean Architecture** con estructura por Features:
+| Plataforma | Rol | Arranque | Qué muestra |
+|------------|-----|----------|-------------|
+| **Windows / Linux** | Caja y servidor local (puerto 8080) | Pedidos | Pedidos, Reservas, Cocina, Configuración, WiFi, Estadísticas, Caja, Compra |
+| **Android** | Camarero | Mesas (pide la URL del servidor la primera vez) | Mesas, Menús (reservas, servidor, lista de la compra), WiFi |
+| **Web** | Cocina | Cocina (`lib/main_web.dart`) | Cocina y Configuración, contra la API del servidor local |
+
+La compilación de Windows empaqueta también la web de cocina junto al ejecutable (ver el workflow de GitHub Actions).
+
+## Arquitectura
+
+Clean Architecture por features. La lógica de datos y de red vive fuera de los widgets. Inyección con GetIt; estado de UI con Provider; rutas con go_router.
 
 ```
 lib/
-├── core/                          # Módulo central compartido
-│   ├── constants/                 # Constantes de la aplicación
-│   ├── database/                  # Configuración de Isar DB
-│   ├── di/                        # Inyección de dependencias
-│   ├── models/                    # Modelos de datos (Isar Collections)
-│   ├── network/                   # Servidor HTTP local y cliente API
-│   └── utils/                     # Utilidades
+├── core/
+│   ├── constants/          # Precios, puerto, intervalos
+│   ├── database/           # Isar (solo escritorio y Android)
+│   ├── di/                 # GetIt
+│   ├── models/             # Colecciones Isar y modelos de red
+│   ├── network/            # Servidor HTTP local (shelf) y ApiClient
+│   ├── navigation/         # Rutas y barra lateral
+│   ├── prefs/              # Preferencias (URL, horarios, impresión)
+│   └── services/           # Impresión, sync de reservas, pagos, paellas
 │
-├── features/                      # Funcionalidades del sistema
-│   ├── pedidos/                   # Feature de toma de comandas
-│   │   ├── data/                  # Implementación de repositorios
-│   │   ├── domain/                # Entidades y contratos
-│   │   └── presentation/          # UI, páginas, providers
-│   │
-│   ├── cocina/                    # Feature de visualización cocina
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── buffet_sabado/             # Feature del All You Can Eat
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   └── facturacion/               # Feature de tickets e impresión
-│       ├── data/
-│       ├── domain/
-│       └── presentation/
+├── features/
+│   ├── pedidos/            # Comandas, mesas, carrito, cobro
+│   ├── cocina/             # Pantalla de cocina
+│   ├── reservas/           # Agenda, asporto, cobro
+│   ├── buffet_sabado/      # Reglas del buffet
+│   ├── caja/               # Apertura, retiros, cierre
+│   ├── estadisticas/       # Consultas, gráficos y PDF
+│   ├── lista_compra/       # Catálogo, compra y supermercados (VPS)
+│   ├── configuracion/      # Carta, mesas, destinos, red, impresora
+│   └── facturacion/        # Tickets
 │
-└── main.dart                      # Punto de entrada
+├── main.dart               # Escritorio y Android
+└── main_web.dart           # Cocina web
+
+server/reservas-central/    # API Node 24/7 (reservas, carta, compra)
+tool/                       # Empaquetado Windows + web
 ```
 
-## 📱 Plataformas Soportadas
+En web no hay base de datos local: cocina habla solo por HTTP. En Android la URL del servidor se guarda con `shared_preferences`.
 
-| Plataforma | Rol Sugerido | Funciones Principales |
-|------------|--------------|----------------------|
-| **Windows** | Servidor/Caja | Base de datos central, impresión de tickets |
-| **Android** | Mesero | Toma de pedidos, gestión de mesas |
-| **Web** | Cocina | Visualización de pedidos en tiempo real |
+## Modelos principales (Isar, en la caja)
 
-## 🗄️ Modelos de Datos
+**Producto.** Nombre, precio, categoría, orden, imagen, alérgenos, buffet, destino de impresión, activo, disponible y stock opcional.
 
-### Producto
-- `id`: Identificador único
-- `nombre`: Nombre del producto
-- `precio`: Precio unitario
-- `descripcion`: Descripción detallada
-- `imagen`: Ruta de imagen
-- `esBuffet`: Indica si forma parte del buffet
-- `categoria`: Categoría del producto
+**Pedido.** Mesa, ítems (notas, destino, orden de salida, tiempos de preparación), estado (`pendiente`, `preparando`, `listo`, `servido`, `cancelado`, `pagado`), total con IVA incluido, pendiente y cobrado acumulado, camarero, origen (`camarero`, `qr`, `web`).
 
-### Pedido
-- `id`: Identificador único
-- `mesaNumero`: Número de mesa
-- `items`: Lista de productos ordenados
-- `estado`: pendiente/preparando/listo/servido/cancelado/pagado
-- `total`: Monto total
-- `usuarioCamarero`: Quién tomó el pedido
+**Mesa.** Número único, estado (`libre`, `ocupada`, `reservada`, `enLimpieza`), capacidad y ubicación.
 
-### Mesa
-- `id`: Identificador único
-- `numero`: Número visible de la mesa
-- `estado`: libre/ocupada/reservada/enLimpieza
-- `capacidad`: Número de personas
-- `ubicacion`: Interior/Terraza/Privado/Barra
+**Reserva.** Cliente, personas, llegada, alergias, ítems anticipados, mesa asignada y estado (`pendiente`, `sentada`, `cancelada`, `cobrada`).
 
-## 🔧 Configuración
+**Destino de impresión.** Pantalla, impresora de red (IP y puerto, por defecto 9100) o ambos.
 
-### Requisitos
-- Flutter SDK 3.10+
-- Dart 3.0+
+**Configuración de buffet.** Día, horario, precios, cubierto y límites del pedido QR.
 
-### Instalación
+La caja (sesiones, retiros, cierres y registro de cobros) y la lista de la compra no van en Isar: la caja se guarda en archivos locales del PC y la compra vive en JSON del VPS.
+
+## Puesta en marcha
+
+Requisitos: Flutter estable con el SDK de Dart indicado en `pubspec.yaml` (3.10+).
 
 ```bash
-# Clonar el repositorio
 git clone <url-del-repo>
 cd programa_caja
-
-# Instalar dependencias
 flutter pub get
 
-# Generar código de Isar
-dart run build_runner build --force-jit --delete-conflicting-outputs
+# Solo si cambian los modelos Isar
+dart run build_runner build --delete-conflicting-outputs
 
-# Ejecutar en modo debug
-flutter run
+# Caja (Windows o Linux): levanta el servidor en :8080
+flutter run -d windows   # o -d linux
+
+# Camarero
+flutter run -d android
+
+# Cocina en el navegador
+flutter run -d chrome -t lib/main_web.dart
 ```
 
-### Configuración de Red
+En el móvil, la primera apertura pide la URL de la caja, por ejemplo `http://192.168.1.100:8080`. Escritorio y Linux arrancan solos como servidor; no hace falta tocar `main.dart`.
 
-El sistema utiliza un servidor HTTP local para comunicación entre dispositivos:
+### Compilar para el local
 
-1. **Servidor (Windows/Linux)**: Al iniciar, automáticamente levanta un servidor HTTP
-2. **Clientes (Android/Web)**: Deben configurar la URL del servidor en `main.dart`:
+El workflow `.github/workflows/build_windows.yml` (push a `main` o ejecución manual) genera el release de Windows, parchea Isar para la web, construye la cocina con `lib/main_web.dart` y la mete en el paquete de Windows.
+
+En local, los mismos pasos están en `tool/`:
+
+```bash
+flutter build windows --release
+dart run tool/patch_g_for_web.dart
+flutter build web -t lib/main_web.dart
+dart run tool/package_windows_with_web.dart
+```
+
+## Red
+
+Hay dos servidores distintos:
+
+1. **Caja (shelf, puerto 8080).** Mesas, pedidos, cocina, carta, pagos, QR y una copia de las reservas. Solo está encendido con la app de escritorio.
+2. **Central (Node, puerto 8888, PM2).** Reservas, copia de productos, lista de la compra y supermercados. Sigue activo con la caja apagada. Detalle de despliegue, variables y JSON en [`server/reservas-central/README.md`](server/reservas-central/README.md).
+
+La caja hace `GET /api/reservas` cada 15 segundos, fusiona por id (no pisa una reserva ya `sentada` o `cobrada` en local) y el móvil edita o cancela en el VPS. `POST /api/reservas/marcar-sincronizadas` se mantiene por compatibilidad y no bloquea la entrega.
+
+En la app: **Configuración → Configurar Servidor Central** (pide contraseña de administrador). Ejemplo de URL: `http://<ip-del-vps>:8888` o la URL HTTPS del proxy.
+
+## API de la caja (puerto 8080)
+
+Índice: `GET /api`. Salud: `GET /health` y `GET /api/health`.
+
+```
+GET    /api/productos
+GET    /api/productos/buffet
+GET    /api/productos/disponibles
+POST   /api/productos
+PUT    /api/productos/<id>/disponibilidad
+DELETE /api/productos/<id>
+POST   /api/productos/validar-stock
+GET    /api/categorias
+
+GET    /api/mesas
+GET    /api/mesas/cuentas-abiertas
+GET    /api/mesas/<numero>
+GET    /api/mesas/<numero>/qr
+GET    /api/mesas/<numero>/cuenta
+PUT    /api/mesas/<numero>/estado
+POST   /api/mesas/pago
+POST   /api/mesas/liberar
+
+GET    /api/pedidos
+GET    /api/pedidos/cocina
+GET    /api/pedidos/mesa/<numero>
+GET    /api/pedidos/destino/<destinoId>
+POST   /api/pedidos
+PUT    /api/pedidos/<id>/estado
+PUT    /api/pedidos/<id>/item/<index>/estado
+POST   /api/cocina/imprimir-ticket
+
+GET    /api/reservas
+POST   /api/reservas
+PUT    /api/reservas/<id>/estado
+
+GET    /api/destinos
+GET    /api/destinos/activos
+GET    /api/destinos/<id>
+POST   /api/destinos
+DELETE /api/destinos/<id>
+
+GET    /api/configuracion-buffet
+
+GET    /qr/<token>                         # Carta del cliente
+GET    /api/qr/carrito/<token>
+POST   /api/qr/carrito/<token>/add|set|remove|clear
+POST   /api/qr/pedido
+```
+
+## API central (VPS, puerto 8888)
+
+Reservas, productos (copia para el móvil), lista de la compra y supermercados. La compra no borra el catálogo al vaciar: solo resetea `hayQueComprar` y `comprado`.
+
+```
+GET/POST  /api/reservas
+PUT       /api/reservas/<id>/estado
+POST      /api/reservas/marcar-sincronizadas
+
+GET/POST  /api/productos
+
+GET/POST  /api/lista-compra
+PUT/DELETE /api/lista-compra/<id>
+POST      /api/lista-compra/vaciar-compra
+POST      /api/lista-compra/reordenar
+GET/POST  /api/lista-compra/precios
+DELETE    /api/lista-compra/precios/<id>
+
+GET/POST  /api/supermercados
+PUT/DELETE /api/supermercados/<id>
+POST      /api/supermercados/reordenar
+```
+
+Datos en `data/*.json` del proceso Node. Retención de reservas: 30 días (`RESERVAS_PURGE_MS`).
+
+## Buffet
+
+La configuración viva está en la app (**Configuración → Configurar Buffet**): día, horario, precios y reglas del QR. Los valores de `lib/core/constants/app_constants.dart` son el respaldo inicial:
 
 ```dart
-await initializeDependencies(
-  asServer: false,
-  remoteServerUrl: 'http://192.168.1.100:8080', // IP del servidor
-);
+static const double precioBuffet = 199.00;
+static const double precioBuffetNinos = 99.00;
+static const int edadMaximaNino = 10;
 ```
 
-## 📡 API Endpoints
+En buffet se puede enviar el ticket de «Hecho» a una impresora concreta (IP y puerto) en lugar del destino habitual del plato.
 
-Cuando el servidor está activo, expone los siguientes endpoints:
+## Impresión
 
-```
-GET  /health                    - Estado del servidor
-GET  /api/productos             - Listar productos
-GET  /api/productos/buffet      - Productos del buffet
-POST /api/productos             - Crear/actualizar producto
+Destinos configurables (pantalla, impresora de red o ambos). Los tickets salen por TCP al puerto 9100 de la impresora. También hay prueba de impresión desde Configuración y la lista automática de paellas ligada a los horarios de reservas.
 
-GET  /api/mesas                 - Listar mesas
-GET  /api/mesas/<numero>        - Obtener mesa
-PUT  /api/mesas/<numero>/estado - Actualizar estado de mesa
+## Dependencias
 
-GET  /api/pedidos               - Pedidos activos
-GET  /api/pedidos/cocina        - Pedidos para cocina
-GET  /api/pedidos/mesa/<numero> - Pedidos de una mesa
-POST /api/pedidos               - Crear pedido
-PUT  /api/pedidos/<id>/estado   - Actualizar estado de pedido
-```
+- `isar_community` — base local
+- `shelf` / `shelf_router` — servidor de la caja
+- `get_it`, `provider`, `go_router`
+- `http`, `shared_preferences`, `network_info_plus`
+- `qr_flutter` — QR de mesa y de WiFi
+- `pdf`, `printing`, `fl_chart` — estadísticas
+- `file_picker`, `path_provider`, `intl`, `uuid`
 
-## 💰 Configuración del Buffet
+El servidor central es Node 18+ sin dependencias npm, gestionado con PM2 (`server/reservas-central`).
 
-Editar constantes en `lib/core/constants/app_constants.dart`:
+## Licencia
 
-```dart
-static const double precioBuffet = 199.00;      // Precio adulto
-static const double precioBuffetNinos = 99.00;  // Precio niño
-static const int edadMaximaNino = 10;           // Edad máxima niño
-```
-
-## 🖨️ Impresión
-
-El sistema soporta impresoras térmicas vía:
-- **Windows**: API nativa (win32)
-- **Android**: Bluetooth (requiere configuración adicional)
-
-## 📋 Dependencias Principales
-
-- `isar_community`: Base de datos local NoSQL (fork comunitario de Isar 3.3)
-- `shelf`: Servidor HTTP
-- `get_it`: Inyección de dependencias
-- `provider`: Manejo de estado
-- `go_router`: Navegación
-
-## 🚀 Próximos Pasos
-
-1. [ ] Implementar páginas de UI para cada feature
-2. [ ] Agregar autenticación de usuarios
-3. [ ] Integrar impresora térmica real
-4. [ ] Añadir reportes y estadísticas
-5. [ ] Implementar sincronización offline
-
-## 📄 Licencia
-
-Proyecto privado - Todos los derechos reservados
+Proyecto privado. Todos los derechos reservados.
