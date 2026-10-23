@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/navigation/app_router.dart';
+import '../../../pedidos/presentation/widgets/barra_busqueda_pedidos.dart';
 import '../../domain/entities/item_lista_compra.dart';
 import '../providers/lista_compra_provider.dart';
 
@@ -17,12 +18,35 @@ class HacerListaPage extends StatefulWidget {
 }
 
 class _HacerListaPageState extends State<HacerListaPage> {
+  String _textoBusqueda = '';
+  final TextEditingController _busquedaController = TextEditingController();
+  final FocusNode _busquedaFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ListaCompraProvider>().cargar();
     });
+  }
+
+  @override
+  void dispose() {
+    _busquedaController.dispose();
+    _busquedaFocus.dispose();
+    super.dispose();
+  }
+
+  void _limpiarBusqueda() {
+    _busquedaController.clear();
+    _busquedaFocus.unfocus();
+    setState(() => _textoBusqueda = '');
+  }
+
+  List<ItemListaCompra> _filtrarZona(List<ItemListaCompra> items) {
+    final q = _textoBusqueda.trim().toLowerCase();
+    if (q.isEmpty) return items;
+    return items.where((i) => i.nombre.toLowerCase().contains(q)).toList();
   }
 
   Future<void> _dialogoItem({ItemListaCompra? existente}) async {
@@ -266,8 +290,18 @@ class _HacerListaPageState extends State<HacerListaPage> {
               onBack: () => context.go(AppRoutes.listaCompraHacer),
               onRefresh: () => context.read<ListaCompraProvider>().cargar(),
             ),
+            BarraBusquedaPedidos(
+              controller: _busquedaController,
+              focusNode: _busquedaFocus,
+              hintText:
+                  'Buscar en ${widget.zona.etiqueta.toUpperCase()}...',
+              textoActual: _textoBusqueda,
+              onChanged: (value) => setState(() => _textoBusqueda = value),
+              onLimpiar: _limpiarBusqueda,
+              cerrarConEscape: true,
+            ),
             const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
               child: Text(
                 'Marca qué hay que comprar. Asigna el súper al crear o editar. '
                 'Mantén pulsado para ordenar.',
@@ -286,8 +320,10 @@ class _HacerListaPageState extends State<HacerListaPage> {
                       onRetry: provider.cargar,
                     );
                   }
-                  final items = provider.itemsDe(widget.zona);
-                  if (items.isEmpty) {
+                  final deZona = provider.itemsDe(widget.zona);
+                  final buscando = _textoBusqueda.trim().isNotEmpty;
+                  final items = _filtrarZona(deZona);
+                  if (deZona.isEmpty) {
                     return Center(
                       child: Text(
                         'No hay productos en ${widget.zona.etiqueta.toLowerCase()}.\n'
@@ -298,6 +334,36 @@ class _HacerListaPageState extends State<HacerListaPage> {
                           fontSize: 15,
                         ),
                       ),
+                    );
+                  }
+                  if (buscando && items.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'Ningún producto coincide',
+                        style: TextStyle(color: Colors.white54, fontSize: 15),
+                      ),
+                    );
+                  }
+                  // Al buscar no se puede reordenar (índices no coinciden con la zona).
+                  if (buscando) {
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _CatalogTile(
+                            item: item,
+                            mostrarArrastre: false,
+                            nombreSuper: provider
+                                .nombreSupermercado(item.supermercadoId),
+                            onEdit: () => _dialogoItem(existente: item),
+                            onToggleHayQueComprar: (v) =>
+                                provider.marcarHayQueComprar(item, v),
+                          ),
+                        );
+                      },
                     );
                   }
                   return RefreshIndicator(
@@ -395,12 +461,14 @@ class _CatalogTile extends StatelessWidget {
   final String? nombreSuper;
   final VoidCallback onEdit;
   final ValueChanged<bool> onToggleHayQueComprar;
+  final bool mostrarArrastre;
 
   const _CatalogTile({
     required this.item,
     required this.nombreSuper,
     required this.onEdit,
     required this.onToggleHayQueComprar,
+    this.mostrarArrastre = true,
   });
 
   @override
@@ -423,10 +491,11 @@ class _CatalogTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, right: 2),
-            child: Icon(Icons.drag_handle, color: Colors.white38),
-          ),
+          if (mostrarArrastre)
+            const Padding(
+              padding: EdgeInsets.only(left: 4, right: 2),
+              child: Icon(Icons.drag_handle, color: Colors.white38),
+            ),
           Switch(
             value: item.hayQueComprar,
             activeThumbColor: const Color(0xFFFFB74D),

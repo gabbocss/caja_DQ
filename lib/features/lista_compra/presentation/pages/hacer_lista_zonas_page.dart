@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/navigation/app_router.dart';
+import '../../../pedidos/presentation/widgets/barra_busqueda_pedidos.dart';
 import '../../domain/entities/item_lista_compra.dart';
 import '../providers/lista_compra_provider.dart';
 
@@ -15,6 +16,10 @@ class HacerListaZonasPage extends StatefulWidget {
 }
 
 class _HacerListaZonasPageState extends State<HacerListaZonasPage> {
+  String _textoBusqueda = '';
+  final TextEditingController _busquedaController = TextEditingController();
+  final FocusNode _busquedaFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -25,7 +30,28 @@ class _HacerListaZonasPageState extends State<HacerListaZonasPage> {
   }
 
   @override
+  void dispose() {
+    _busquedaController.dispose();
+    _busquedaFocus.dispose();
+    super.dispose();
+  }
+
+  void _limpiarBusqueda() {
+    _busquedaController.clear();
+    _busquedaFocus.unfocus();
+    setState(() => _textoBusqueda = '');
+  }
+
+  List<ItemListaCompra> _filtrarTodos(List<ItemListaCompra> items) {
+    final q = _textoBusqueda.trim().toLowerCase();
+    if (q.isEmpty) return items;
+    return items.where((i) => i.nombre.toLowerCase().contains(q)).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final buscando = _textoBusqueda.trim().isNotEmpty;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       body: SafeArea(
@@ -33,9 +59,51 @@ class _HacerListaZonasPageState extends State<HacerListaZonasPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _Header(onBack: () => context.go(AppRoutes.listaCompra)),
+            BarraBusquedaPedidos(
+              controller: _busquedaController,
+              focusNode: _busquedaFocus,
+              hintText: 'Buscar en todos los productos...',
+              textoActual: _textoBusqueda,
+              onChanged: (value) => setState(() => _textoBusqueda = value),
+              onLimpiar: _limpiarBusqueda,
+              cerrarConEscape: true,
+            ),
             Expanded(
               child: Consumer<ListaCompraProvider>(
                 builder: (context, provider, _) {
+                  if (buscando) {
+                    final resultados = _filtrarTodos(provider.items);
+                    if (resultados.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'Ningún producto coincide',
+                          style: TextStyle(color: Colors.white54, fontSize: 15),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                      itemCount: resultados.length,
+                      itemBuilder: (context, index) {
+                        final item = resultados[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _ResultadoBusquedaTile(
+                            item: item,
+                            nombreSuper: provider.nombreSupermercado(
+                              item.supermercadoId,
+                            ),
+                            onTap: () => context.go(
+                              AppRoutes.listaCompraHacerZona(item.zona),
+                            ),
+                            onToggleHayQueComprar: (v) =>
+                                provider.marcarHayQueComprar(item, v),
+                          ),
+                        );
+                      },
+                    );
+                  }
+
                   final cocina = provider.itemsDe(ZonaListaCompra.cocina);
                   final sala = provider.itemsDe(ZonaListaCompra.sala);
                   return ListView(
@@ -102,6 +170,95 @@ class _Header extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ResultadoBusquedaTile extends StatelessWidget {
+  final ItemListaCompra item;
+  final String? nombreSuper;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onToggleHayQueComprar;
+
+  const _ResultadoBusquedaTile({
+    required this.item,
+    required this.nombreSuper,
+    required this.onTap,
+    required this.onToggleHayQueComprar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final detalle = [
+      item.zona.etiqueta,
+      if (item.cantidad.isNotEmpty) item.cantidad,
+      if (item.hayQueComprar) 'Hay que comprar',
+    ].join(' · ');
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF16213E),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: item.hayQueComprar
+                  ? const Color(0xFFFFB74D).withValues(alpha: 0.45)
+                  : Colors.white24,
+            ),
+          ),
+          child: Row(
+            children: [
+              Switch(
+                value: item.hayQueComprar,
+                activeThumbColor: const Color(0xFFFFB74D),
+                onChanged: onToggleHayQueComprar,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.nombre,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      detalle,
+                      style: TextStyle(
+                        color: item.hayQueComprar
+                            ? const Color(0xFFFFB74D)
+                            : Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    Text(
+                      nombreSuper ?? 'Sin súper asignado',
+                      style: TextStyle(
+                        color: nombreSuper != null
+                            ? const Color(0xFF4FC3F7)
+                            : Colors.white38,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: const Color(0xFFFFB74D).withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
