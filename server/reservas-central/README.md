@@ -2,7 +2,7 @@
 
 Servidor HTTP **sin Flutter**, compatible con `ApiClient` de programa_caja (`GET /api`, `GET /api/reservas`, etc.).
 
-**Fase 0–3:** reservas y **ventas/analytics** en **PostgreSQL**. Teléfono opcional → `cliente`. Cierres de mesa → `POST /api/analytics/venta` (sin purge de 30 días). Productos / lista compra / supermercados aún en JSON hasta la fase 4.
+**Fase 0–4:** casi todo el central en **PostgreSQL**: reservas, clientes, ventas, productos (copia), lista de compra y supermercados. Teléfono opcional → `cliente`. Cierres de mesa → `POST /api/analytics/venta`. Los JSON en `data/` quedan solo como backup/import.
 
 ## Requisitos
 

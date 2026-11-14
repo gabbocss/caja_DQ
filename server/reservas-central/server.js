@@ -62,8 +62,9 @@ async function healthPayload() {
     database: dbOk ? 'up' : 'down',
     storage: {
       reservas: 'postgresql',
-      productos: 'json',
-      listaCompra: 'json',
+      productos: 'postgresql',
+      listaCompra: 'postgresql',
+      supermercados: 'postgresql',
     },
   };
 }
@@ -143,14 +144,14 @@ async function handle(req, res) {
     }
 
     if (method === 'GET' && path === '/api/productos') {
-      send(res, 200, store.readProductos());
+      send(res, 200, await store.readProductos());
       return;
     }
 
     if (method === 'POST' && path === '/api/productos') {
       const raw = await readBody(req);
       const data = JSON.parse(raw || '[]');
-      const guardados = store.replaceProductos(data);
+      const guardados = await store.replaceProductos(data);
       send(res, 200, guardados);
       return;
     }
@@ -191,21 +192,21 @@ async function handle(req, res) {
     }
 
     if (method === 'GET' && path === '/api/lista-compra') {
-      send(res, 200, store.getListaCompra());
+      send(res, 200, await store.getListaCompra());
       return;
     }
 
     if (method === 'POST' && path === '/api/lista-compra') {
       const raw = await readBody(req);
       const data = JSON.parse(raw || '{}');
-      const guardado = store.upsertItemListaCompra(data);
+      const guardado = await store.upsertItemListaCompra(data);
       send(res, 200, guardado);
       return;
     }
 
     // Resetea flags de compra; NUNCA borra el catálogo.
     if (method === 'POST' && path === '/api/lista-compra/vaciar-compra') {
-      send(res, 200, store.vaciarCompraListaCompra());
+      send(res, 200, await store.vaciarCompraListaCompra());
       return;
     }
 
@@ -213,7 +214,7 @@ async function handle(req, res) {
       const raw = await readBody(req);
       const data = JSON.parse(raw || '{}');
       const ids = data.ids != null ? data.ids : [];
-      send(res, 200, store.reordenarListaCompra(ids));
+      send(res, 200, await store.reordenarListaCompra(ids));
       return;
     }
 
@@ -221,7 +222,7 @@ async function handle(req, res) {
       send(
         res,
         200,
-        store.getPreciosListaCompra({
+        await store.getPreciosListaCompra({
           productoId: url.searchParams.get('productoId'),
           supermercadoId: url.searchParams.get('supermercadoId'),
         }),
@@ -232,13 +233,13 @@ async function handle(req, res) {
     if (method === 'POST' && path === '/api/lista-compra/precios') {
       const raw = await readBody(req);
       const data = JSON.parse(raw || '{}');
-      send(res, 200, store.upsertPrecioListaCompra(data));
+      send(res, 200, await store.upsertPrecioListaCompra(data));
       return;
     }
 
     const precioMatch = path.match(/^\/api\/lista-compra\/precios\/(\d+)$/);
     if (method === 'DELETE' && precioMatch) {
-      const ok = store.deletePrecioListaCompra(precioMatch[1]);
+      const ok = await store.deletePrecioListaCompra(precioMatch[1]);
       if (!ok) {
         send(res, 404, { error: 'Precio no encontrado' });
         return;
@@ -253,7 +254,7 @@ async function handle(req, res) {
       if (method === 'PUT') {
         const raw = await readBody(req);
         const data = JSON.parse(raw || '{}');
-        const actualizado = store.updateItemListaCompra(id, data);
+        const actualizado = await store.updateItemListaCompra(id, data);
         if (!actualizado) {
           send(res, 404, { error: 'Ítem no encontrado' });
           return;
@@ -262,7 +263,7 @@ async function handle(req, res) {
         return;
       }
       if (method === 'DELETE') {
-        const ok = store.deleteItemListaCompra(id);
+        const ok = await store.deleteItemListaCompra(id);
         if (!ok) {
           send(res, 404, { error: 'Ítem no encontrado' });
           return;
@@ -273,14 +274,14 @@ async function handle(req, res) {
     }
 
     if (method === 'GET' && path === '/api/supermercados') {
-      send(res, 200, store.getSupermercados());
+      send(res, 200, await store.getSupermercados());
       return;
     }
 
     if (method === 'POST' && path === '/api/supermercados') {
       const raw = await readBody(req);
       const data = JSON.parse(raw || '{}');
-      send(res, 200, store.upsertSupermercado(data));
+      send(res, 200, await store.upsertSupermercado(data));
       return;
     }
 
@@ -288,7 +289,7 @@ async function handle(req, res) {
       const raw = await readBody(req);
       const data = JSON.parse(raw || '{}');
       const ids = data.ids != null ? data.ids : [];
-      send(res, 200, store.reordenarSupermercados(ids));
+      send(res, 200, await store.reordenarSupermercados(ids));
       return;
     }
 
@@ -298,7 +299,7 @@ async function handle(req, res) {
       if (method === 'PUT') {
         const raw = await readBody(req);
         const data = JSON.parse(raw || '{}');
-        const actualizado = store.updateSupermercado(id, data);
+        const actualizado = await store.updateSupermercado(id, data);
         if (!actualizado) {
           send(res, 404, { error: 'Supermercado no encontrado' });
           return;
@@ -307,7 +308,7 @@ async function handle(req, res) {
         return;
       }
       if (method === 'DELETE') {
-        const ok = store.deleteSupermercado(id);
+        const ok = await store.deleteSupermercado(id);
         if (!ok) {
           send(res, 404, { error: 'Supermercado no encontrado' });
           return;
@@ -340,8 +341,8 @@ async function start() {
     console.log(`  GET  /api`);
     console.log(`  GET  /api/reservas  (PostgreSQL)`);
     console.log(`  POST /api/reservas/marcar-sincronizadas (deprecated no-op)`);
-    console.log(`  GET/POST /api/productos  (JSON)`);
-    console.log(`  GET/POST /api/lista-compra  (JSON)`);
+    console.log(`  GET/POST /api/productos  (PostgreSQL)`);
+    console.log(`  GET/POST /api/lista-compra  (PostgreSQL)`);
     console.log(`  POST /api/lista-compra/vaciar-compra`);
     console.log(`  POST /api/lista-compra/reordenar`);
     console.log(`  GET/POST /api/lista-compra/precios`);

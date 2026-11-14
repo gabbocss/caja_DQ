@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "migrate": "node migrate.js",
-    "import:reservas": "node scripts/import-reservas-json.js"
+    "import:reservas": "node scripts/import-reservas-json.js",
+    "import:catalogo": "node scripts/import-catalogo-json.js"
   },
   "engines": {
     "node": ">=18"
