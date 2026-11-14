@@ -65,6 +65,9 @@ class ReservaAsignacionService {
       items: itemsPedido,
       numeroComensales: reserva.numeroPersonas,
       notas: reserva.alergiasNotas.isEmpty ? null : reserva.alergiasNotas,
+      // Enlace CRM / analítica (fase 2).
+      reservaId: reserva.id,
+      clienteId: reserva.clienteId,
     );
     pedido.calcularTotal();
 

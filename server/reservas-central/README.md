@@ -1,119 +1,124 @@
-# API de reservas 24/7 (Node.js)
+# API de reservas 24/7 (Node.js + PostgreSQL)
 
 Servidor HTTP **sin Flutter**, compatible con `ApiClient` de programa_caja (`GET /api`, `GET /api/reservas`, etc.).
 
-## Respuesta a tu pregunta
+**Fase 0–3:** reservas y **ventas/analytics** en **PostgreSQL**. Teléfono opcional → `cliente`. Cierres de mesa → `POST /api/analytics/venta` (sin purge de 30 días). Productos / lista compra / supermercados aún en JSON hasta la fase 4.
 
-| Opción | ¿Existe? | Velocidad en VPS |
-|--------|----------|------------------|
-| Backend Node listo | **Este directorio** (nuevo) | **Más rápido** — ya tienes Node + PM2 |
-| `local_server.dart` solo | No separado; depende de Flutter/Isar/GTK | Lento / inviable (Exit 134) |
-| `dart compile exe` del monolito | Habría que extraer paquete Dart puro | Días de refactor |
+## Requisitos
 
-## Despliegue en Ubuntu 24.04 (puerto 8888)
+- Node.js ≥ 18
+- PostgreSQL ≥ 14 (16 recomendado)
+- Variable `DATABASE_URL` (obligatoria)
 
-### 1. Subir al VPS
+## Arranque rápido (Docker Compose)
 
 ```bash
-# En tu PC
-cd /ruta/programa_caja
-rsync -avz server/reservas-central/ usuario@64.227.113.139:~/reservas-central/
+cd server/reservas-central
+cp .env.example .env
+docker compose up -d
+npm install
+npm run migrate
+# Opcional: importar el JSON antiguo
+npm run import:reservas
+npm start
 ```
 
-### 2. En el VPS
+`DATABASE_URL` por defecto en `.env.example`:
+
+`postgresql://caja:caja@127.0.0.1:5432/programa_caja`
+
+## Instalación en VPS (Ubuntu)
+
+### 1. PostgreSQL
 
 ```bash
 cd ~/reservas-central
-node -v   # debe ser >= 18
-npm install   # no hay dependencias npm; opcional
-pm2 start ecosystem.config.cjs
+sudo bash scripts/setup-postgres-vps.sh
+# Opcional: DB_PASS=secreto sudo -E bash scripts/setup-postgres-vps.sh
+```
+
+### 2. Subir código y dependencias
+
+```bash
+# En tu PC
+rsync -avz --exclude node_modules --exclude data \
+  server/reservas-central/ usuario@TU_VPS:~/reservas-central/
+```
+
+```bash
+# En el VPS
+cd ~/reservas-central
+cp .env.example .env   # edita DATABASE_URL y contraseña
+npm install
+npm run migrate
+# Si aún tienes el JSON antiguo en data/reservas.json:
+npm run import:reservas
+pm2 start ecosystem.config.cjs   # o: pm2 restart reservas-central
 pm2 save
-pm2 status
 ```
 
 ### 3. Comprobar
 
 ```bash
 curl -s http://127.0.0.1:8888/api | jq .
+curl -s http://127.0.0.1:8888/health | jq .
 curl -s http://127.0.0.1:8888/api/reservas
 ```
 
-Debe devolver JSON con `"endpoints"` y `"reservas": "/api/reservas"`.
+`/health` debe indicar `"reservas": "postgresql"`.
 
 ### 4. Firewall / proxy
 
-- Abre el puerto **8888** en el firewall del VPS, o
-- Configura Nginx/Caddy: `https://64.227.113.139` → `http://127.0.0.1:8888`
+- Puerto **8888**, o Nginx/Caddy → `127.0.0.1:8888`
 
-### 5. En la app (Configuración → Servidor central)
+### 5. App (Configuración → Servidor central)
 
-- HTTP directo: `http://64.227.113.139:8888`
-- HTTPS con proxy: `https://64.227.113.139` (si el proxy termina TLS en 443 y reenvía a 8888)
+- HTTP: `http://TU_VPS:8888`
+- HTTPS con proxy en 443
 
 ## Variables de entorno
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `PORT` | `8888` | Puerto de escucha |
+| `DATABASE_URL` | *(obligatoria)* | Conexión Postgres |
+| `PORT` | `8888` | Puerto HTTP |
 | `HOST` | `0.0.0.0` | Interfaz |
-| `DATA_DIR` | `./data` | Carpeta de `reservas.json` |
-| `RESERVAS_PURGE_MS` | `2592000000` (30 días) | Borra del VPS reservas cuya `fechaHoraLlegada` es más antigua que este margen |
+| `DATA_DIR` | `./data` | JSON legacy (productos, compra, …) |
+| `RESERVAS_PURGE_MS` | `2592000000` (30 días) | Borra reservas operativas antiguas por `fecha_hora_llegada` |
+| `PG_POOL_MAX` | `10` | Tamaño del pool `pg` |
 
-### Sincronización por id (caja ← VPS)
+Puedes ponerlas en `.env` (cargado al arrancar) o en `ecosystem.config.cjs`.
 
-1. La caja hace `GET /api/reservas` (todas las `pendiente` y `cancelada` dentro de la ventana de retención).
-2. Fusiona en Isar por **id**: inserta si no existe; actualiza si `fechaActualizacion` remota es ≥ local (sin pisar `sentada`/`cobrada` locales).
-3. No hay candado `sincronizadaEnCajaAt`: el móvil no puede “robar” la entrega.
-4. `POST /api/reservas/marcar-sincronizadas` queda como **no-op** (compatibilidad con clientes antiguos) y limpia marcas legacy si las hay.
+## Scripts npm
 
-### Edición desde la app móvil
+| Script | Qué hace |
+|--------|----------|
+| `npm start` | Arranca API (aplica migraciones al inicio) |
+| `npm run migrate` | Solo aplica `migrations/*.sql` |
+| `npm run import:reservas` | Importa `data/reservas.json` → Postgres |
 
-- `GET /api/reservas?incluye=sincronizadas` (o el GET normal) lista pendientes editables.
-- Al editar (`POST /api/reservas` con `id`) o cancelar (`PUT .../estado`), se actualiza `fechaActualizacion` y la caja aplica el cambio en el siguiente poll.
+## Esquema (fase 0)
 
-Tras desplegar, reinicia: `pm2 restart reservas-central`.
+- `schema_migrations` — control de migraciones
+- `reserva` — cabecera (mismo contrato API camelCase)
+- `reserva_item` — ítems anticipados (`ON DELETE CASCADE`)
 
-## Lista de la compra (móvil)
+Migraciones en `migrations/001_init_reservas.sql`.
 
-Endpoints adicionales (JSON en `data/lista_compra.json`):
+## Sincronización caja ← VPS
 
-- `GET /api/lista-compra`
-- `POST /api/lista-compra` (crear/editar: `{ nombre, cantidad?, hayQueComprar?, comprado?, id? }`)
-- `PUT /api/lista-compra/:id`
-- `POST /api/lista-compra/vaciar-compra` — resetea `hayQueComprar`/`comprado`; **no borra el catálogo**
-- `POST /api/lista-compra/reordenar` — `{ "ids": [3,1,2] }` fija el orden del catálogo
-- `GET /api/lista-compra/precios` — precios por producto/súper (`?productoId=&supermercadoId=`)
-- `POST /api/lista-compra/precios` — `{ productoId, supermercadoId, precioEnvase, contenidoCantidad, contenidoUnidad }` → calcula `precioPorBase`
-- `DELETE /api/lista-compra/precios/:id`
-- Producto admite `unidadBase` (`kilo`|`litro`|`unidad`), `contenidoCantidad`, `contenidoUnidad`, `cantidadMinima` (envases a comprar, default 1)
-- `DELETE /api/lista-compra/:id` (solo mantenimiento; la app móvil no lo usa al vaciar)
+1. La caja hace `GET /api/reservas` (`pendiente` y `cancelada` dentro de la retención).
+2. Fusiona en Isar por **id** (sin pisar `sentada`/`cobrada` locales).
+3. `POST /api/reservas/marcar-sincronizadas` es **no-op** (compatibilidad).
 
-### Supermercados
+## Lista de la compra / supermercados
 
-- `GET /api/supermercados`
-- `POST /api/supermercados` (`{ nombre, id?, orden? }`)
-- `POST /api/supermercados/reordenar` — `{ "ids": [...] }`
-- `PUT/DELETE /api/supermercados/:id`
-- Datos en `data/supermercados.json` (IDs listos para asignar productos más adelante)
+Siguen en JSON bajo `DATA_DIR` (misma API de siempre). Se migrarán a Postgres en la fase 4.
 
-## PM2 útiles
+## PM2
 
 ```bash
 pm2 logs reservas-central
 pm2 restart reservas-central
 pm2 stop reservas-central
 ```
-
-## Alternativa Dart (solo referencia)
-
-Si en el futuro quisieras Dart sin Flutter:
-
-```bash
-# Ubuntu 24.04
-sudo apt-get install apt-transport-https
-wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/dart.gpg
-echo "deb [signed-by=/usr/share/keyrings/dart.gpg] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main" | sudo tee /etc/apt/sources.list.d/dart-stable.list
-sudo apt-get update && sudo apt-get install dart
-```
-
-Luego haría falta un **paquete Dart nuevo** (`server/reservas_dart/`) con solo `shelf` + JSON, sin `flutter`, `isar` ni `path_provider`. No está en el repo hoy; el camino rápido es este servidor Node.

@@ -60,6 +60,19 @@ class Reserva {
   /// Alergias, trona, celíaco, etc.
   late String alergiasNotas;
 
+  /// Teléfono opcional (ficha cliente en VPS). @ignore evita migrar Isar
+  /// antes del pranzo; la fuente de verdad del teléfono es el VPS.
+  @ignore
+  String telefono = '';
+
+  /// Id de cliente en PostgreSQL (solo si hay teléfono). No se guarda en Isar.
+  @ignore
+  int? clienteId;
+
+  /// Si true, toJson incluye `telefono` aunque esté vacío (para borrarlo en VPS).
+  @ignore
+  bool sincronizarTelefono = false;
+
   @Enumerated(EnumType.name)
   @Index()
   EstadoReserva estado = EstadoReserva.pendiente;
@@ -83,6 +96,8 @@ class Reserva {
     required this.numeroPersonas,
     required this.fechaHoraLlegada,
     this.alergiasNotas = '',
+    this.telefono = '',
+    this.clienteId,
     this.itemsReservados = const [],
     this.estado = EstadoReserva.pendiente,
     this.mesaAsignada,
@@ -109,6 +124,10 @@ class Reserva {
         'numeroPersonas': numeroPersonas,
         'fechaHoraLlegada': fechaHoraLlegada.toIso8601String(),
         'alergiasNotas': alergiasNotas,
+        // Solo si hay número o el formulario pidió sincronizar (evitar borrar en VPS).
+        if (sincronizarTelefono || telefono.trim().isNotEmpty)
+          'telefono': telefono.trim(),
+        if (clienteId != null) 'clienteId': clienteId,
         'estado': estado.name,
         'itemsReservados':
             itemsReservados.map((i) => i.toJson()).toList(),
@@ -124,6 +143,8 @@ class Reserva {
       ..fechaHoraLlegada =
           DateTime.parse(json['fechaHoraLlegada'] as String)
       ..alergiasNotas = json['alergiasNotas'] as String? ?? ''
+      ..telefono = json['telefono'] as String? ?? ''
+      ..clienteId = json['clienteId'] as int?
       ..estado = EstadoReserva.values.firstWhere(
         (e) => e.name == json['estado'],
         orElse: () => EstadoReserva.pendiente,

@@ -253,8 +253,13 @@ class ApiClient {
     return json.decode(response.body) as Map<String, dynamic>;
   }
 
-  /// Libera una mesa: cierra la cuenta (marca pedidos como pagados) y deja la mesa libre
-  Future<void> liberarMesa(int numeroMesa, {bool isBuffetClose = false}) async {
+  /// Libera una mesa: cierra la cuenta (marca pedidos como pagados) y deja la mesa libre.
+  /// [registrarEnAnalytics] solo en cobros; el botón Liberar deja el default `false`.
+  Future<void> liberarMesa(
+    int numeroMesa, {
+    bool isBuffetClose = false,
+    bool registrarEnAnalytics = false,
+  }) async {
     try {
       final response = await _client.post(
         Uri.parse('$baseUrl/api/mesas/liberar'),
@@ -262,7 +267,11 @@ class ApiClient {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: json.encode({'numero': numeroMesa, 'isBuffetClose': isBuffetClose}),
+        body: json.encode({
+          'numero': numeroMesa,
+          'isBuffetClose': isBuffetClose,
+          'registrarEnAnalytics': registrarEnAnalytics,
+        }),
       );
       if (response.statusCode != 200) {
         throw Exception('Error al liberar mesa: ${response.statusCode}');
@@ -615,6 +624,33 @@ class ApiClient {
       }
     } catch (e) {
       debugPrint('Error en marcarReservasSincronizadas ($uri): $e');
+      rethrow;
+    }
+  }
+
+  /// POST /api/analytics/venta — histórico de cierre de mesa/asporto (fase 3).
+  Future<Map<String, dynamic>> enviarVentaAnalytics(
+    Map<String, dynamic> payload,
+  ) async {
+    final uri = _apiUri(ApiEndpoints.analyticsVenta);
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(payload),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception(
+        'POST $uri → ${response.statusCode}. '
+        'Cuerpo: ${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    } catch (e) {
+      debugPrint('Error en enviarVentaAnalytics ($uri): $e');
       rethrow;
     }
   }

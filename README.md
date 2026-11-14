@@ -200,7 +200,7 @@ PUT/DELETE /api/supermercados/<id>
 POST      /api/supermercados/reordenar
 ```
 
-Datos en `data/*.json` del proceso Node. Retención de reservas: 30 días (`RESERVAS_PURGE_MS`).
+Reservas en **PostgreSQL** (`DATABASE_URL`). Productos, lista de compra y supermercados aún en `data/*.json`. Retención operativa de reservas: 30 días (`RESERVAS_PURGE_MS`). Detalle en [`server/reservas-central/README.md`](server/reservas-central/README.md).
 
 ## Buffet
 

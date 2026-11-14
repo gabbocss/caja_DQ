@@ -1,10 +1,16 @@
 /**
  * API de reservas 24/7 — compatible con programa_caja (LocalServer / ApiClient).
  * Sin Flutter ni UI. Pensado para PM2 en VPS.
+ * Fase 0: reservas en PostgreSQL; lista compra / productos aún en JSON.
  */
+require('./load_env').loadEnv();
+
 const http = require('http');
 const { URL } = require('url');
 const store = require('./store');
+const ventasStore = require('./ventas_store');
+const db = require('./db');
+const { run: runMigrations } = require('./migrate');
 
 const PORT = Number(process.env.PORT || 8888);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -41,18 +47,31 @@ function readBody(req) {
   });
 }
 
-function healthPayload() {
+async function healthPayload() {
+  let dbOk = false;
+  try {
+    await db.query('SELECT 1 AS ok');
+    dbOk = true;
+  } catch (_) {
+    dbOk = false;
+  }
   return {
-    status: 'ok',
+    status: dbOk ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
     service: 'programa-caja-reservas-central',
+    database: dbOk ? 'up' : 'down',
+    storage: {
+      reservas: 'postgresql',
+      productos: 'json',
+      listaCompra: 'json',
+    },
   };
 }
 
 function apiIndexPayload() {
   return {
     mensaje: 'API del Sistema de Restaurante',
-    version: '1.0.0',
+    version: '1.1.0',
     endpoints: {
       reservas: '/api/reservas',
       reservasMarcarSincronizadas: '/api/reservas/marcar-sincronizadas',
@@ -63,6 +82,8 @@ function apiIndexPayload() {
       listaCompraPrecios: '/api/lista-compra/precios',
       supermercados: '/api/supermercados',
       supermercadosReordenar: '/api/supermercados/reordenar',
+      analyticsVenta: '/api/analytics/venta',
+      analyticsVentas: '/api/analytics/ventas',
       health: '/health',
       healthApi: '/api/health',
     },
@@ -82,7 +103,8 @@ async function handle(req, res) {
 
   try {
     if (method === 'GET' && (path === '/health' || path === '/api/health')) {
-      send(res, 200, healthPayload());
+      const health = await healthPayload();
+      send(res, health.database === 'up' ? 200 : 503, health);
       return;
     }
 
@@ -95,8 +117,27 @@ async function handle(req, res) {
       const incluye = url.searchParams.get('incluye');
       const lista =
         incluye === 'sincronizadas'
-          ? store.getPendientesEditables()
-          : store.getPendientes();
+          ? await store.getPendientesEditables()
+          : await store.getPendientes();
+      send(res, 200, lista);
+      return;
+    }
+
+    // Histórico de ventas (fase 3) — no se purga con RESERVAS_PURGE_MS.
+    if (method === 'POST' && path === '/api/analytics/venta') {
+      const raw = await readBody(req);
+      const data = JSON.parse(raw || '{}');
+      const guardada = await ventasStore.registrarVenta(data);
+      send(res, guardada.duplicated ? 200 : 201, guardada);
+      return;
+    }
+
+    if (method === 'GET' && path === '/api/analytics/ventas') {
+      const lista = await ventasStore.listarVentas({
+        desde: url.searchParams.get('desde'),
+        hasta: url.searchParams.get('hasta'),
+        limit: url.searchParams.get('limit'),
+      });
       send(res, 200, lista);
       return;
     }
@@ -117,7 +158,7 @@ async function handle(req, res) {
     if (method === 'POST' && path === '/api/reservas') {
       const raw = await readBody(req);
       const data = JSON.parse(raw || '{}');
-      const guardada = store.upsertReserva(data);
+      const guardada = await store.upsertReserva(data);
       send(res, 200, guardada);
       return;
     }
@@ -126,7 +167,7 @@ async function handle(req, res) {
       const raw = await readBody(req);
       const data = JSON.parse(raw || '{}');
       const ids = data.ids != null ? data.ids : [];
-      const resultado = store.marcarSincronizadas(ids);
+      const resultado = await store.marcarSincronizadas(ids);
       send(res, 200, resultado);
       return;
     }
@@ -136,7 +177,7 @@ async function handle(req, res) {
       const id = estadoMatch[1];
       const raw = await readBody(req);
       const data = JSON.parse(raw || '{}');
-      const actualizada = store.updateEstado(
+      const actualizada = await store.updateEstado(
         id,
         data.estado || 'pendiente',
         data.mesaAsignada,
@@ -283,27 +324,38 @@ async function handle(req, res) {
   }
 }
 
-const server = http.createServer((req, res) => {
-  handle(req, res);
-});
+async function start() {
+  db.getDatabaseUrl();
+  console.log('Aplicando migraciones PostgreSQL…');
+  await runMigrations();
 
-server.listen(PORT, HOST, () => {
-  console.log(
-    `Reservas central: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`,
-  );
-  console.log(`  GET  /api`);
-  console.log(`  GET  /api/reservas`);
-  console.log(`  POST /api/reservas/marcar-sincronizadas (deprecated no-op)`);
-  console.log(`  GET/POST /api/productos`);
-  console.log(`  GET/POST /api/lista-compra`);
-  console.log(`  POST /api/lista-compra/vaciar-compra`);
-  console.log(`  POST /api/lista-compra/reordenar`);
-  console.log(`  GET/POST /api/lista-compra/precios`);
-  console.log(`  PUT/DELETE /api/lista-compra/:id`);
-  console.log(`  GET/POST /api/supermercados`);
-  console.log(`  POST /api/supermercados/reordenar`);
-  console.log(`  PUT/DELETE /api/supermercados/:id`);
-  console.log(
-    `  Datos: ${store.DATA_FILE}, ${store.PRODUCTOS_FILE}, ${store.LISTA_COMPRA_FILE}, ${store.SUPERMERCADOS_FILE}, ${store.PRECIOS_LISTA_COMPRA_FILE}`,
-  );
+  const server = http.createServer((req, res) => {
+    handle(req, res);
+  });
+
+  server.listen(PORT, HOST, () => {
+    console.log(
+      `Reservas central: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`,
+    );
+    console.log(`  GET  /api`);
+    console.log(`  GET  /api/reservas  (PostgreSQL)`);
+    console.log(`  POST /api/reservas/marcar-sincronizadas (deprecated no-op)`);
+    console.log(`  GET/POST /api/productos  (JSON)`);
+    console.log(`  GET/POST /api/lista-compra  (JSON)`);
+    console.log(`  POST /api/lista-compra/vaciar-compra`);
+    console.log(`  POST /api/lista-compra/reordenar`);
+    console.log(`  GET/POST /api/lista-compra/precios`);
+    console.log(`  PUT/DELETE /api/lista-compra/:id`);
+    console.log(`  GET/POST /api/supermercados`);
+    console.log(`  POST /api/supermercados/reordenar`);
+    console.log(`  PUT/DELETE /api/supermercados/:id`);
+    console.log(
+      `  JSON legacy: ${store.PRODUCTOS_FILE}, ${store.LISTA_COMPRA_FILE}, ${store.SUPERMERCADOS_FILE}`,
+    );
+  });
+}
+
+start().catch((e) => {
+  console.error('No se pudo arrancar reservas-central:', e);
+  process.exit(1);
 });

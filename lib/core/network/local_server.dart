@@ -704,7 +704,11 @@ class LocalServer {
           );
           pendienteRestante = 0;
           final isBuffetClose = data['isBuffetClose'] as bool? ?? false;
-          await _db.liberarMesa(numero, isBuffetClose: isBuffetClose);
+          await _db.liberarMesa(
+            numero,
+            isBuffetClose: isBuffetClose,
+            registrarEnAnalytics: true,
+          );
         } else {
           pendienteRestante = await _db.aplicarPagoMesa(numero, importeCobrado);
           await RegistroPagoService.instance.registrar(
@@ -743,7 +747,14 @@ class LocalServer {
         final json = jsonDecode(body) as Map<String, dynamic>;
         final numero = json['numero'] as int;
         final isBuffetClose = json['isBuffetClose'] as bool? ?? false;
-        await _db.liberarMesa(numero, isBuffetClose: isBuffetClose);
+        // Botón «Liberar»: no cuenta en estadísticas (solo los cobros).
+        final registrarEnAnalytics =
+            json['registrarEnAnalytics'] as bool? ?? false;
+        await _db.liberarMesa(
+          numero,
+          isBuffetClose: isBuffetClose,
+          registrarEnAnalytics: registrarEnAnalytics,
+        );
         return Response.ok(
           jsonEncode({'mensaje': 'Mesa $numero liberada correctamente'}),
           headers: {'Content-Type': 'application/json'},

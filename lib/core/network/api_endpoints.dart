@@ -11,6 +11,8 @@ abstract final class ApiEndpoints {
   static const String listaCompraReordenar = '/api/lista-compra/reordenar';
   static const String supermercados = '/api/supermercados';
   static const String supermercadosReordenar = '/api/supermercados/reordenar';
+  static const String analyticsVenta = '/api/analytics/venta';
+  static const String analyticsVentas = '/api/analytics/ventas';
   static const String health = '/health';
   static const String healthApi = '/api/health';
 

@@ -89,6 +89,17 @@ const PedidoSchema = CollectionSchema(
       name: r'usuarioCamarero',
       type: IsarType.string,
     ),
+    // Fase 2: nombres zz* al final para no reordenar IDs existentes.
+    r'zzClienteId': PropertySchema(
+      id: 16,
+      name: r'zzClienteId',
+      type: IsarType.long,
+    ),
+    r'zzReservaId': PropertySchema(
+      id: 17,
+      name: r'zzReservaId',
+      type: IsarType.long,
+    ),
   },
 
   estimateSize: _pedidoEstimateSize,
@@ -212,6 +223,8 @@ void _pedidoSerialize(
   writer.writeDouble(offsets[13], object.total);
   writer.writeDouble(offsets[14], object.totalPendiente);
   writer.writeString(offsets[15], object.usuarioCamarero);
+  writer.writeLong(offsets[16], object.clienteId);
+  writer.writeLong(offsets[17], object.reservaId);
 }
 
 Pedido _pedidoDeserialize(
@@ -249,6 +262,8 @@ Pedido _pedidoDeserialize(
   object.total = reader.readDouble(offsets[13]);
   object.totalPendiente = reader.readDouble(offsets[14]);
   object.usuarioCamarero = reader.readString(offsets[15]);
+  object.clienteId = reader.readLongOrNull(offsets[16]);
+  object.reservaId = reader.readLongOrNull(offsets[17]);
   return object;
 }
 
@@ -302,6 +317,10 @@ P _pedidoDeserializeProp<P>(
       return (reader.readDouble(offset)) as P;
     case 15:
       return (reader.readString(offset)) as P;
+    case 16:
+      return (reader.readLongOrNull(offset)) as P;
+    case 17:
+      return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }

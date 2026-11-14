@@ -1,0 +1,23 @@
+# PostgreSQL local / VPS para reservas-central (fase 0).
+# Uso: docker compose up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: programa-caja-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: programa_caja
+      POSTGRES_USER: caja
+      POSTGRES_PASSWORD: caja
+    ports:
+      - '5432:5432'
+    volumes:
+      - programa_caja_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U caja -d programa_caja']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  programa_caja_pg_data:

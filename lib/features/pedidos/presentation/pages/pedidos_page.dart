@@ -824,7 +824,11 @@ class _PedidosPageState extends State<PedidosPage> {
             cerrado: true,
           ),
         );
-        await db.liberarMesa(numero, isBuffetClose: _cuentaTieneBuffet());
+        await db.liberarMesa(
+          numero,
+          isBuffetClose: _cuentaTieneBuffet(),
+          registrarEnAnalytics: true,
+        );
         pendienteRestante = 0;
         if (mounted) setState(() => _cuentaActual = []);
       } else {

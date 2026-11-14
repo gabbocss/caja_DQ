@@ -38,7 +38,11 @@ class DatabaseService {
   Future<Mesa?> obtenerMesaPorNumero(int numero) async => _unsupported();
   Future<void> actualizarEstadoMesa(int numero, EstadoMesa nuevoEstado) async =>
       _unsupported();
-  Future<void> liberarMesa(int numeroMesa, {bool isBuffetClose = false}) async =>
+  Future<void> liberarMesa(
+    int numeroMesa, {
+    bool isBuffetClose = false,
+    bool registrarEnAnalytics = false,
+  }) async =>
       _unsupported();
   Future<int> guardarMesa(Mesa mesa) async => _unsupported();
 

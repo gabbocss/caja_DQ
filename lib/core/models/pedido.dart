@@ -177,6 +177,14 @@ class Pedido {
   /// Fecha en que cocina marcó "Listo". Para estadísticas de tiempo.
   DateTime? fechaListo;
 
+  /// Id de reserva de origen (fase 2). @Name zz* para no reordenar IDs Isar.
+  @Name('zzReservaId')
+  int? reservaId;
+
+  /// Id de cliente CRM en VPS (si la reserva tenía teléfono).
+  @Name('zzClienteId')
+  int? clienteId;
+
   /// Constructor por defecto
   Pedido();
 
@@ -190,6 +198,8 @@ class Pedido {
     this.notas,
     this.esBuffet = false,
     this.origen = OrigenPedido.camarero,
+    this.reservaId,
+    this.clienteId,
   })  : total = 0,
         totalPendiente = 0,
         dineroCobradoAcumulado = 0,
@@ -337,6 +347,8 @@ class Pedido {
       'fechaCompletado': fechaCompletado?.toIso8601String(),
       'fechaInicioPreparacion': fechaInicioPreparacion?.toIso8601String(),
       'fechaListo': fechaListo?.toIso8601String(),
+      if (reservaId != null) 'reservaId': reservaId,
+      if (clienteId != null) 'clienteId': clienteId,
     };
   }
 
@@ -375,7 +387,9 @@ class Pedido {
           : null
       ..fechaListo = json['fechaListo'] != null
           ? DateTime.parse(json['fechaListo'] as String)
-          : null;
+          : null
+      ..reservaId = json['reservaId'] as int?
+      ..clienteId = json['clienteId'] as int?;
 
     final totalPedido = pedido.total;
     pedido.dineroCobradoAcumulado =

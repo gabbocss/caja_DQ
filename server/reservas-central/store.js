@@ -1,38 +1,19 @@
 const fs = require('fs');
 const path = require('path');
+const reservasStore = require('./reservas_store');
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+/** @deprecated Fase 0: reservas viven en PostgreSQL. Ruta legacy para import. */
 const DATA_FILE = path.join(DATA_DIR, 'reservas.json');
 const PRODUCTOS_FILE = path.join(DATA_DIR, 'productos.json');
 const LISTA_COMPRA_FILE = path.join(DATA_DIR, 'lista_compra.json');
 const SUPERMERCADOS_FILE = path.join(DATA_DIR, 'supermercados.json');
 const PRECIOS_LISTA_COMPRA_FILE = path.join(DATA_DIR, 'precios_lista_compra.json');
 
-/** Purga reservas cuya fechaHoraLlegada es más antigua que este margen (ms). */
-const RESERVAS_PURGE_MS = Number(
-  process.env.RESERVAS_PURGE_MS || String(30 * 24 * 60 * 60 * 1000),
-);
-
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
-}
-
-function readAll() {
-  ensureDataDir();
-  if (!fs.existsSync(DATA_FILE)) {
-    return [];
-  }
-  const raw = fs.readFileSync(DATA_FILE, 'utf8');
-  if (!raw.trim()) return [];
-  const data = JSON.parse(raw);
-  return Array.isArray(data) ? data : [];
-}
-
-function writeAll(reservas) {
-  ensureDataDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(reservas, null, 2), 'utf8');
 }
 
 function readProductos() {
@@ -49,154 +30,6 @@ function readProductos() {
 function writeProductos(lista) {
   ensureDataDir();
   fs.writeFileSync(PRODUCTOS_FILE, JSON.stringify(lista, null, 2), 'utf8');
-}
-
-function nextId(reservas) {
-  let max = 0;
-  for (const r of reservas) {
-    const id = Number(r.id);
-    if (!Number.isNaN(id) && id > max) max = id;
-  }
-  return max + 1;
-}
-
-/** Mantiene reservas con llegada dentro de la ventana de retención. */
-function purgeAntiguasPorFechaLlegada(reservas) {
-  const cutoff = Date.now() - RESERVAS_PURGE_MS;
-  const kept = reservas.filter((r) => {
-    const t = new Date(r.fechaHoraLlegada).getTime();
-    if (Number.isNaN(t)) return true;
-    return t > cutoff;
-  });
-  if (kept.length < reservas.length) {
-    writeAll(kept);
-    return reservas.length - kept.length;
-  }
-  return 0;
-}
-
-function sortPorLlegada(lista) {
-  return lista.sort(
-    (a, b) =>
-      new Date(a.fechaHoraLlegada).getTime() -
-      new Date(b.fechaHoraLlegada).getTime(),
-  );
-}
-
-/**
- * Reservas para la caja: pendientes y canceladas (la caja hace upsert por id).
- * Ya no se filtra por sincronizadaEnCajaAt.
- */
-function getPendientes() {
-  const reservas = readAll();
-  purgeAntiguasPorFechaLlegada(reservas);
-  let actuales = readAll();
-  actuales = stripLegacySyncFlags(actuales);
-  return sortPorLlegada(
-    actuales.filter(
-      (r) => r.estado === 'pendiente' || r.estado === 'cancelada',
-    ),
-  );
-}
-
-/**
- * Pendientes editables (app móvil). Misma fuente de verdad; sin candado de sync.
- * GET /api/reservas?incluye=sincronizadas se mantiene por compatibilidad.
- */
-function getPendientesEditables() {
-  const reservas = readAll();
-  purgeAntiguasPorFechaLlegada(reservas);
-  let actuales = readAll();
-  actuales = stripLegacySyncFlags(actuales);
-  return sortPorLlegada(actuales.filter((r) => r.estado === 'pendiente'));
-}
-
-/** Elimina marcas legacy sincronizadaEnCajaAt (ya no se usan). */
-function stripLegacySyncFlags(reservas) {
-  let changed = false;
-  for (const r of reservas) {
-    if (r.sincronizadaEnCajaAt != null) {
-      delete r.sincronizadaEnCajaAt;
-      changed = true;
-    }
-  }
-  if (changed) writeAll(reservas);
-  return reservas;
-}
-
-/**
- * @deprecated El sync es por id + fechaActualizacion en la caja.
- * Se mantiene el endpoint como no-op para clientes antiguos.
- */
-function marcarSincronizadas(ids) {
-  const lista = Array.isArray(ids) ? ids : [];
-  const idSet = new Set(
-    lista.map((x) => Number(x)).filter((n) => !Number.isNaN(n) && n > 0),
-  );
-  // Limpia marcas legacy si existen (ya no afectan al GET).
-  const reservas = readAll();
-  let limpiadas = 0;
-  for (const r of reservas) {
-    if (idSet.has(Number(r.id)) && r.sincronizadaEnCajaAt != null) {
-      delete r.sincronizadaEnCajaAt;
-      limpiadas++;
-    }
-  }
-  if (limpiadas > 0) writeAll(reservas);
-  const purgadas = purgeAntiguasPorFechaLlegada(readAll());
-  return {
-    marcadas: 0,
-    ids: [...idSet],
-    purgadas,
-    deprecated: true,
-  };
-}
-
-function upsertReserva(body) {
-  const reservas = readAll();
-  const now = new Date().toISOString();
-  let reserva = { ...body };
-
-  if (reserva.id != null) {
-    const id = Number(reserva.id);
-    const idx = reservas.findIndex((r) => Number(r.id) === id);
-    if (idx >= 0) {
-      reserva = {
-        ...reservas[idx],
-        ...reserva,
-        id,
-        fechaCreacion: reservas[idx].fechaCreacion || now,
-        fechaActualizacion: now,
-      };
-      // Campo legacy; la caja ya no depende de él.
-      delete reserva.sincronizadaEnCajaAt;
-      reservas[idx] = reserva;
-      writeAll(reservas);
-      return reserva;
-    }
-  }
-
-  reserva.id = nextId(reservas);
-  reserva.fechaCreacion = reserva.fechaCreacion || now;
-  reserva.fechaActualizacion = now;
-  reserva.estado = reserva.estado || 'pendiente';
-  reserva.itemsReservados = reserva.itemsReservados || [];
-  delete reserva.sincronizadaEnCajaAt;
-  reservas.push(reserva);
-  writeAll(reservas);
-  return reserva;
-}
-
-function updateEstado(id, estado, mesaAsignada) {
-  const reservas = readAll();
-  const idx = reservas.findIndex((r) => Number(r.id) === Number(id));
-  if (idx < 0) return null;
-  reservas[idx].estado = estado;
-  if (mesaAsignada != null) reservas[idx].mesaAsignada = mesaAsignada;
-  reservas[idx].fechaActualizacion = new Date().toISOString();
-  delete reservas[idx].sincronizadaEnCajaAt;
-  writeAll(reservas);
-  return reservas[idx];
 }
 
 /** Reemplaza el catálogo completo (POST array desde la caja). */
@@ -700,12 +533,15 @@ module.exports = {
   LISTA_COMPRA_FILE,
   SUPERMERCADOS_FILE,
   PRECIOS_LISTA_COMPRA_FILE,
-  readAll,
-  getPendientes,
-  getPendientesEditables,
-  marcarSincronizadas,
-  upsertReserva,
-  updateEstado,
+  // Reservas → PostgreSQL (async)
+  readAll: reservasStore.readAll,
+  getPendientes: reservasStore.getPendientes,
+  getPendientesEditables: reservasStore.getPendientesEditables,
+  marcarSincronizadas: reservasStore.marcarSincronizadas,
+  upsertReserva: reservasStore.upsertReserva,
+  updateEstado: reservasStore.updateEstado,
+  purgeAntiguasPorFechaLlegada: reservasStore.purgeAntiguasPorFechaLlegada,
+  // Resto (aún JSON; fase 4)
   readProductos,
   replaceProductos,
   getListaCompra,

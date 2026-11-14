@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -9,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
 import '../models/models.dart';
 import '../services/registro_pago_service.dart';
+import '../services/venta_analytics_sync_service.dart';
 
 /// Servicio singleton para gestionar la base de datos Isar
 /// 
@@ -86,6 +88,8 @@ class DatabaseService {
       await _inicializarDatosDefecto();
       // Migrar orden de productos al esquema categoría*1000+índice (una sola vez)
       await _migrarOrdenProductosPorCategoria();
+      // Reenviar ventas pendientes al VPS (fase 3)
+      unawaited(VentaAnalyticsSyncService.instance.flushCola());
       
     } catch (e, stackTrace) {
       debugPrint('Error al inicializar la base de datos: $e');
@@ -471,8 +475,20 @@ class DatabaseService {
   /// Libera una mesa: busca todos los pedidos de esa mesa, los marca como pagados y pone la mesa libre.
   /// No devuelve stock a productos (consumo de buffet ya realizado).
   /// El próximo cliente empezará de cero (mesa libre, sin pedidos abiertos).
-  Future<void> liberarMesa(int numeroMesa, {bool isBuffetClose = false}) async {
+  ///
+  /// [registrarEnAnalytics]: solo `true` tras cobro real (efectivo/tarjeta/…).
+  /// El botón «Liberar» debe dejarlo en `false` para no inflar estadísticas.
+  Future<void> liberarMesa(
+    int numeroMesa, {
+    bool isBuffetClose = false,
+    bool registrarEnAnalytics = false,
+  }) async {
     final pedidos = await obtenerCuentaMesa(numeroMesa);
+    // Copia ligera para analítica VPS (fase 3) antes de marcar pagados.
+    final snapshot = pedidos
+        .map((p) => Pedido.fromJson(p.toJson()))
+        .toList(growable: false);
+
     await isar.writeTxn(() async {
       for (final pedido in pedidos) {
         pedido.estado = EstadoPedido.pagado;
@@ -484,6 +500,17 @@ class DatabaseService {
     await actualizarEstadoMesa(numeroMesa, EstadoMesa.libre);
     await RegistroPagoService.instance.archivarPagosMesa(numeroMesa);
     // No se devuelve stock: es cierre de cuenta (buffet o no), consumo ya realizado
+
+    if (!registrarEnAnalytics) return;
+
+    // No bloquea el cobro: si falla la red, queda en cola local.
+    unawaited(
+      VentaAnalyticsSyncService.instance.registrarCierreMesa(
+        pedidos: snapshot,
+        mesaNumero: numeroMesa,
+        esBuffetClose: isBuffetClose,
+      ),
+    );
   }
 
   /// Guarda o actualiza una mesa
@@ -579,9 +606,25 @@ class DatabaseService {
   /// Guarda o actualiza un pedido y recalcula pendiente desde Isar.
   Future<int> guardarPedido(Pedido pedido) async {
     pedido.actualizarPendienteDesdeCobrosAcumulados();
+    await _heredarEnlaceReservaSiProcede(pedido);
     final id = await isar.writeTxn(() => isar.pedidos.put(pedido));
     await sincronizarPendienteMesaDesdeCobros(pedido.mesaNumero);
     return id;
+  }
+
+  /// Si la mesa ya tiene un pedido abierto ligado a reserva/cliente, lo copia.
+  /// Así las comandas posteriores del mismo servicio conservan el enlace.
+  Future<void> _heredarEnlaceReservaSiProcede(Pedido pedido) async {
+    if (pedido.reservaId != null && pedido.clienteId != null) return;
+    if (pedido.mesaNumero <= 0) return;
+    final cuenta = await obtenerCuentaMesa(pedido.mesaNumero);
+    for (final abierto in cuenta) {
+      if (identical(abierto, pedido)) continue;
+      if (pedido.id != null && abierto.id == pedido.id) continue;
+      pedido.reservaId ??= abierto.reservaId;
+      pedido.clienteId ??= abierto.clienteId;
+      if (pedido.reservaId != null && pedido.clienteId != null) break;
+    }
   }
 
   /// totalPendiente = total − dineroCobradoAcumulado (dato vivo en Isar).

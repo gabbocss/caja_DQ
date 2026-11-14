@@ -14,6 +14,10 @@ module.exports = {
         PORT: '8888',
         HOST: '0.0.0.0',
         DATA_DIR: './data',
+        // Preferible: definir en .env o pm2 ecosystem con secretos reales.
+        DATABASE_URL:
+          process.env.DATABASE_URL ||
+          'postgresql://caja:caja@127.0.0.1:5432/programa_caja',
       },
     },
   ],

@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 
+import 'dart:async';
+
 import '../../../../core/core.dart';
 import '../../../../core/services/registro_pago_service.dart';
 import '../../../../core/services/reserva_persistence_service.dart';
+import '../../../../core/services/venta_analytics_sync_service.dart';
 import '../../../../core/prefs/reservas_central_prefs.dart';
 
 /// Cobro de asporto: registro de caja + ticket de cuenta + estado cobrada.
@@ -76,6 +79,33 @@ class ReservaCobroAsportoService {
       );
     } catch (e, st) {
       debugPrint('Cobro asporto registrado; error al imprimir cuenta: $e\n$st');
+    }
+
+    // Pedido histórico pagado con enlace a reserva/cliente (fase 2 / analítica).
+    try {
+      final pedido = Pedido.crear(
+        mesaNumero: 0,
+        usuarioCamarero: 'Asporto',
+        items: itemsPedido,
+        numeroComensales: 0,
+        notas: reserva.alergiasNotas.isEmpty ? null : reserva.alergiasNotas,
+        reservaId: reserva.id,
+        clienteId: reserva.clienteId,
+      );
+      pedido.calcularTotal();
+      pedido.dineroCobradoAcumulado = total;
+      pedido.totalPendiente = 0;
+      pedido.estado = EstadoPedido.pagado;
+      pedido.fechaCompletado = DateTime.now();
+      await DatabaseService.instance.guardarPedido(pedido);
+      // Histórico VPS (fase 3); no bloquea el cobro.
+      unawaited(
+        VentaAnalyticsSyncService.instance.registrarAsporto(pedido: pedido),
+      );
+    } catch (e, st) {
+      debugPrint(
+        'Cobro asporto OK; no se pudo guardar pedido histórico: $e\n$st',
+      );
     }
 
     reserva.estado = EstadoReserva.cobrada;

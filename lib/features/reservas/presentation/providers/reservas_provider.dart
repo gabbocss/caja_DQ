@@ -316,6 +316,7 @@ class ReservasProvider extends ChangeNotifier {
     required DateTime fechaHoraLlegada,
     required String alergiasNotas,
     required List<ItemReserva> itemsReservados,
+    String telefono = '',
   }) async {
     if (_esAndroidNube) {
       await _actualizarReservaAndroidNube(
@@ -325,6 +326,7 @@ class ReservasProvider extends ChangeNotifier {
         fechaHoraLlegada: fechaHoraLlegada,
         alergiasNotas: alergiasNotas,
         itemsReservados: itemsReservados,
+        telefono: telefono,
       );
       return;
     }
@@ -337,6 +339,8 @@ class ReservasProvider extends ChangeNotifier {
       ..numeroPersonas = numeroPersonas
       ..fechaHoraLlegada = fechaHoraLlegada
       ..alergiasNotas = alergiasNotas.trim()
+      ..telefono = telefono.trim()
+      ..sincronizarTelefono = true
       ..itemsReservados = List<ItemReserva>.from(itemsReservados)
       ..fechaActualizacion = DateTime.now();
     await _persistencia.guardarReserva(existente);
@@ -353,6 +357,7 @@ class ReservasProvider extends ChangeNotifier {
     required DateTime fechaHoraLlegada,
     required String alergiasNotas,
     required List<ItemReserva> itemsReservados,
+    String telefono = '',
   }) async {
     if (id <= 0) {
       throw StateError(
@@ -378,6 +383,8 @@ class ReservasProvider extends ChangeNotifier {
       ..numeroPersonas = numeroPersonas
       ..fechaHoraLlegada = fechaHoraLlegada
       ..alergiasNotas = alergiasNotas.trim()
+      ..telefono = telefono.trim()
+      ..sincronizarTelefono = true
       ..itemsReservados = List<ItemReserva>.from(itemsReservados)
       ..fechaActualizacion = DateTime.now();
 
@@ -566,6 +573,7 @@ class ReservasProvider extends ChangeNotifier {
     required DateTime fechaHoraLlegada,
     required String alergiasNotas,
     required List<ItemReserva> itemsReservados,
+    String telefono = '',
   }) async {
     if (_esAndroidNube) {
       return _crearReservaAndroidNube(
@@ -574,6 +582,7 @@ class ReservasProvider extends ChangeNotifier {
         fechaHoraLlegada: fechaHoraLlegada,
         alergiasNotas: alergiasNotas,
         itemsReservados: itemsReservados,
+        telefono: telefono,
       );
     }
 
@@ -582,8 +591,9 @@ class ReservasProvider extends ChangeNotifier {
       numeroPersonas: numeroPersonas,
       fechaHoraLlegada: fechaHoraLlegada,
       alergiasNotas: alergiasNotas.trim(),
+      telefono: telefono.trim(),
       itemsReservados: itemsReservados,
-    );
+    )..sincronizarTelefono = true;
     await _persistencia.guardarReserva(reserva);
     await _publicarRemota(reserva);
     await _recargarLocal();
@@ -597,14 +607,16 @@ class ReservasProvider extends ChangeNotifier {
     required DateTime fechaHoraLlegada,
     required String alergiasNotas,
     required List<ItemReserva> itemsReservados,
+    String telefono = '',
   }) async {
     final reserva = Reserva.crear(
       nombreCliente: nombreCliente.trim(),
       numeroPersonas: numeroPersonas,
       fechaHoraLlegada: fechaHoraLlegada,
       alergiasNotas: alergiasNotas.trim(),
+      telefono: telefono.trim(),
       itemsReservados: itemsReservados,
-    );
+    )..sincronizarTelefono = true;
 
     try {
       final client = await _clienteVps();

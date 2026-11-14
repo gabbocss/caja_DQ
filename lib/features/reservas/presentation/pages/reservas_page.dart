@@ -24,6 +24,7 @@ class ReservasPage extends StatefulWidget {
 class _ReservasPageState extends State<ReservasPage>
     with SingleTickerProviderStateMixin {
   final _nombreCtrl = TextEditingController();
+  final _telefonoCtrl = TextEditingController();
   final _notasCtrl = TextEditingController();
   final _buscarProductoCtrl = TextEditingController();
 
@@ -100,6 +101,7 @@ class _ReservasPageState extends State<ReservasPage>
     _asportoBlinkCtrl.dispose();
     _provider?.desmontar();
     _nombreCtrl.dispose();
+    _telefonoCtrl.dispose();
     _notasCtrl.dispose();
     _buscarProductoCtrl.dispose();
     super.dispose();
@@ -125,6 +127,7 @@ class _ReservasPageState extends State<ReservasPage>
 
   void _limpiarFormulario() {
     _nombreCtrl.clear();
+    _telefonoCtrl.clear();
     _notasCtrl.clear();
     _personas = 2;
     _fechaHora = DateTime.now().add(const Duration(hours: 2));
@@ -137,6 +140,7 @@ class _ReservasPageState extends State<ReservasPage>
     _reservaEditandoId = reserva.id;
     _reservaSeleccionada = reserva;
     _nombreCtrl.text = reserva.nombreCliente;
+    _telefonoCtrl.text = reserva.telefono;
     _notasCtrl.text = reserva.alergiasNotas;
     _personas = reserva.numeroPersonas;
     _fechaHora = reserva.fechaHoraLlegada;
@@ -209,6 +213,7 @@ class _ReservasPageState extends State<ReservasPage>
           fechaHoraLlegada: _fechaHora,
           alergiasNotas: _notasCtrl.text,
           itemsReservados: items,
+          telefono: _telefonoCtrl.text,
         );
         if (mounted) {
           _limpiarFormulario();
@@ -222,6 +227,7 @@ class _ReservasPageState extends State<ReservasPage>
           fechaHoraLlegada: _fechaHora,
           alergiasNotas: _notasCtrl.text,
           itemsReservados: items,
+          telefono: _telefonoCtrl.text,
         );
         if (mounted) {
           _limpiarFormulario();
@@ -1319,6 +1325,13 @@ class _ReservasPageState extends State<ReservasPage>
                 _textoCubiertos(reserva),
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
+              if (reserva.telefono.trim().isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  reserva.telefono.trim(),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
               _previewPlatosReserva(reserva),
               if (reserva.alergiasNotas.isNotEmpty) ...[
                 const SizedBox(height: 2),
@@ -1649,6 +1662,13 @@ class _ReservasPageState extends State<ReservasPage>
                         '${reserva.itemsReservados.length} plato(s) pre-reservado(s)',
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
+              if (reserva.telefono.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  reserva.telefono.trim(),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
               _previewPlatosReserva(reserva),
               if (reserva.alergiasNotas.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -1784,6 +1804,15 @@ class _ReservasPageState extends State<ReservasPage>
             controller: _nombreCtrl,
             style: const TextStyle(color: Colors.white),
             decoration: _decoration('Nombre del cliente'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _telefonoCtrl,
+            keyboardType: TextInputType.phone,
+            style: const TextStyle(color: Colors.white),
+            decoration: _decoration(
+              'Teléfono (opcional)',
+            ),
           ),
           const SizedBox(height: 12),
           Row(
