@@ -9,6 +9,9 @@ const http = require('http');
 const { URL } = require('url');
 const store = require('./store');
 const ventasStore = require('./ventas_store');
+const contextoStore = require('./contexto_store');
+const marketingStore = require('./marketing_store');
+const prediccionStore = require('./prediccion_store');
 const db = require('./db');
 const { run: runMigrations } = require('./migrate');
 
@@ -85,6 +88,10 @@ function apiIndexPayload() {
       supermercadosReordenar: '/api/supermercados/reordenar',
       analyticsVenta: '/api/analytics/venta',
       analyticsVentas: '/api/analytics/ventas',
+      contextoDia: '/api/analytics/contexto-dia',
+      prediccion: '/api/analytics/prediccion',
+      campanias: '/api/marketing/campanias',
+      eventos: '/api/marketing/eventos',
       health: '/health',
       healthApi: '/api/health',
     },
@@ -140,6 +147,97 @@ async function handle(req, res) {
         limit: url.searchParams.get('limit'),
       });
       send(res, 200, lista);
+      return;
+    }
+
+    if (method === 'GET' && path === '/api/analytics/contexto-dia') {
+      const fecha = url.searchParams.get('fecha');
+      if (fecha) {
+        send(res, 200, await contextoStore.getContextoDia(fecha));
+      } else {
+        send(
+          res,
+          200,
+          await contextoStore.listarContextos({
+            desde: url.searchParams.get('desde'),
+            hasta: url.searchParams.get('hasta'),
+            limit: url.searchParams.get('limit'),
+          }),
+        );
+      }
+      return;
+    }
+
+    if (method === 'POST' && path === '/api/analytics/contexto-dia/sync') {
+      const raw = await readBody(req);
+      const data = JSON.parse(raw || '{}');
+      const fecha = data.fecha || url.searchParams.get('fecha');
+      send(res, 200, await contextoStore.asegurarContextoDia(fecha));
+      return;
+    }
+
+    if (method === 'GET' && path === '/api/analytics/prediccion') {
+      const fecha = url.searchParams.get('fecha');
+      const servicio = url.searchParams.get('servicio') || 'comida';
+      send(res, 200, await prediccionStore.predecir({ fecha, servicio }));
+      return;
+    }
+
+    if (method === 'GET' && path === '/api/marketing/campanias') {
+      send(
+        res,
+        200,
+        await marketingStore.listarCampanias({
+          soloActivas: url.searchParams.get('activas') === '1',
+        }),
+      );
+      return;
+    }
+
+    if (method === 'POST' && path === '/api/marketing/campanias') {
+      const raw = await readBody(req);
+      const data = JSON.parse(raw || '{}');
+      send(res, 200, await marketingStore.upsertCampania(data));
+      return;
+    }
+
+    const campaniaMatch = path.match(/^\/api\/marketing\/campanias\/(\d+)$/);
+    if (method === 'DELETE' && campaniaMatch) {
+      const ok = await marketingStore.deleteCampania(campaniaMatch[1]);
+      if (!ok) {
+        send(res, 404, { error: 'Campaña no encontrada' });
+        return;
+      }
+      send(res, 200, { ok: true, id: Number(campaniaMatch[1]) });
+      return;
+    }
+
+    if (method === 'GET' && path === '/api/marketing/eventos') {
+      send(
+        res,
+        200,
+        await marketingStore.listarEventos({
+          soloActivos: url.searchParams.get('activos') === '1',
+        }),
+      );
+      return;
+    }
+
+    if (method === 'POST' && path === '/api/marketing/eventos') {
+      const raw = await readBody(req);
+      const data = JSON.parse(raw || '{}');
+      send(res, 200, await marketingStore.upsertEvento(data));
+      return;
+    }
+
+    const eventoMatch = path.match(/^\/api\/marketing\/eventos\/(\d+)$/);
+    if (method === 'DELETE' && eventoMatch) {
+      const ok = await marketingStore.deleteEvento(eventoMatch[1]);
+      if (!ok) {
+        send(res, 404, { error: 'Evento no encontrado' });
+        return;
+      }
+      send(res, 200, { ok: true, id: Number(eventoMatch[1]) });
       return;
     }
 

@@ -624,10 +624,18 @@ class ReservasProvider extends ChangeNotifier {
         if (!await client.verificarApiProgramaCaja()) {
           throw Exception('No se pudo contactar con la API de reservas en el VPS');
         }
-        await client.guardarReserva(reserva);
+        final guardada = await client.guardarReserva(reserva);
+        // Asegura teléfono visible en memoria aunque el listado tarde un momento.
+        reserva
+          ..id = guardada.id
+          ..telefono = guardada.telefono.isNotEmpty
+              ? guardada.telefono
+              : reserva.telefono
+          ..clienteId = guardada.clienteId;
       } finally {
         client.dispose();
       }
+      await _actualizarPendientesServidor();
       await _actualizarColaLocal();
       _actualizarAvisoCartaAndroid();
       notifyListeners();
@@ -646,8 +654,17 @@ class ReservasProvider extends ChangeNotifier {
     if (url == null) return;
     try {
       final client = ApiClient(url);
-      await client.guardarReserva(reserva);
+      final remota = await client.guardarReserva(reserva);
       client.dispose();
+      // El VPS puede devolver clienteId / teléfono: reflejarlo en Isar.
+      if (reserva.id == null) return;
+      final local = await _persistencia.obtenerPorId(reserva.id!);
+      if (local == null) return;
+      local
+        ..telefono =
+            remota.telefono.isNotEmpty ? remota.telefono : local.telefono
+        ..clienteId = remota.clienteId ?? local.clienteId;
+      await _persistencia.guardarReserva(local);
     } catch (e) {
       debugPrint('Reserva guardada localmente; remoto no disponible: $e');
     }

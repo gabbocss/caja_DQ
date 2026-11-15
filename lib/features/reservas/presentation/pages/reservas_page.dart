@@ -187,6 +187,7 @@ class _ReservasPageState extends State<ReservasPage>
     );
     if (hora == null || !mounted) return;
     setState(() {
+      // Hora de pared local, sin segundos (evita basura de DateTime.now()).
       _fechaHora = DateTime(
         fecha.year,
         fecha.month,
@@ -197,6 +198,12 @@ class _ReservasPageState extends State<ReservasPage>
     });
   }
 
+  /// Normaliza a minuto exacto en hora local antes de guardar.
+  DateTime get _fechaHoraLimpia {
+    final f = _fechaHora.isUtc ? _fechaHora.toLocal() : _fechaHora;
+    return DateTime(f.year, f.month, f.day, f.hour, f.minute);
+  }
+
   Future<void> _guardarReserva(ReservasProvider provider) async {
     if (_nombreCtrl.text.trim().isEmpty) {
       _snack('Indique el nombre del cliente', Colors.orange);
@@ -205,12 +212,13 @@ class _ReservasPageState extends State<ReservasPage>
     setState(() => _guardando = true);
     try {
       final items = _itemsDesdeFormulario(provider.productos);
+      final llegada = _fechaHoraLimpia;
       if (_reservaEditandoId != null) {
         await provider.actualizarReserva(
           id: _reservaEditandoId!,
           nombreCliente: _nombreCtrl.text,
           numeroPersonas: _personas,
-          fechaHoraLlegada: _fechaHora,
+          fechaHoraLlegada: llegada,
           alergiasNotas: _notasCtrl.text,
           itemsReservados: items,
           telefono: _telefonoCtrl.text,
@@ -224,7 +232,7 @@ class _ReservasPageState extends State<ReservasPage>
         final resultado = await provider.crearReserva(
           nombreCliente: _nombreCtrl.text,
           numeroPersonas: _personas,
-          fechaHoraLlegada: _fechaHora,
+          fechaHoraLlegada: llegada,
           alergiasNotas: _notasCtrl.text,
           itemsReservados: items,
           telefono: _telefonoCtrl.text,
@@ -1326,10 +1334,22 @@ class _ReservasPageState extends State<ReservasPage>
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
               if (reserva.telefono.trim().isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  reserva.telefono.trim(),
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.phone, size: 14, color: Color(0xFF00D9A5)),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        reserva.telefono.trim(),
+                        style: const TextStyle(
+                          color: Color(0xFF00D9A5),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
               _previewPlatosReserva(reserva),
@@ -1664,9 +1684,21 @@ class _ReservasPageState extends State<ReservasPage>
               ),
               if (reserva.telefono.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(
-                  reserva.telefono.trim(),
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.phone, size: 14, color: Color(0xFF00D9A5)),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        reserva.telefono.trim(),
+                        style: const TextStyle(
+                          color: Color(0xFF00D9A5),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
               _previewPlatosReserva(reserva),

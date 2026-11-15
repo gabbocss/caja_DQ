@@ -85,6 +85,17 @@ const ReservaSchema = CollectionSchema(
       name: r'totalItemsReservados',
       type: IsarType.double,
     ),
+    // Teléfono / cliente CRM: zz* al final para no reordenar IDs existentes.
+    r'zzClienteId': PropertySchema(
+      id: 13,
+      name: r'zzClienteId',
+      type: IsarType.long,
+    ),
+    r'zzTelefono': PropertySchema(
+      id: 14,
+      name: r'zzTelefono',
+      type: IsarType.string,
+    ),
   },
 
   estimateSize: _reservaEstimateSize,
@@ -146,6 +157,7 @@ int _reservaEstimateSize(
     }
   }
   bytesCount += 3 + object.nombreCliente.length * 3;
+  bytesCount += 3 + object.telefono.length * 3;
   return bytesCount;
 }
 
@@ -173,6 +185,8 @@ void _reservaSerialize(
   writer.writeLong(offsets[10], object.numeroPersonas);
   writer.writeBool(offsets[11], object.sincronizadaEnCaja);
   writer.writeDouble(offsets[12], object.totalItemsReservados);
+  writer.writeLong(offsets[13], object.clienteId);
+  writer.writeString(offsets[14], object.telefono);
 }
 
 Reserva _reservaDeserialize(
@@ -201,6 +215,8 @@ Reserva _reservaDeserialize(
   object.mesaAsignada = reader.readLongOrNull(offsets[8]);
   object.nombreCliente = reader.readString(offsets[9]);
   object.numeroPersonas = reader.readLong(offsets[10]);
+  object.clienteId = reader.readLongOrNull(offsets[13]);
+  object.telefono = reader.readStringOrNull(offsets[14]) ?? '';
   return object;
 }
 
@@ -246,6 +262,10 @@ P _reservaDeserializeProp<P>(
       return (reader.readBool(offset)) as P;
     case 12:
       return (reader.readDouble(offset)) as P;
+    case 13:
+      return (reader.readLongOrNull(offset)) as P;
+    case 14:
+      return (reader.readStringOrNull(offset) ?? '') as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }

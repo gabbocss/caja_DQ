@@ -13,6 +13,9 @@ const RESERVAS_PURGE_MS = Number(
   process.env.RESERVAS_PURGE_MS || String(30 * 24 * 60 * 60 * 1000),
 );
 
+/** Zona del restaurante (Módena). Hora sin offset se interpreta aquí. */
+const TZ_RESTAURANTE = process.env.CLIMA_TZ || 'Europe/Rome';
+
 const ESTADOS_VALIDOS = new Set([
   'pendiente',
   'sentada',
@@ -20,10 +23,68 @@ const ESTADOS_VALIDOS = new Set([
   'cobrada',
 ]);
 
+function hasTimezone(s) {
+  return /[zZ]$|[+-]\d{2}:?\d{2}$/.test(String(s).trim());
+}
+
+/**
+ * Convierte una hora de pared en [timeZone] a instante UTC.
+ * Evita que el VPS (Etc/UTC) trate "20:30" como 20:30 UTC.
+ */
+function zonedLocalToUtc(y, mo, d, h, mi, se, timeZone) {
+  const utcGuess = Date.UTC(y, mo - 1, d, h, mi, se);
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+  const parts = dtf.formatToParts(new Date(utcGuess));
+  const get = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  const asUtcFromParts = Date.UTC(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    get('hour'),
+    get('minute'),
+    get('second'),
+  );
+  const offsetMs = asUtcFromParts - utcGuess;
+  return new Date(utcGuess - offsetMs);
+}
+
 function toIso(value) {
   if (value == null) return null;
-  if (value instanceof Date) return value.toISOString();
-  const d = new Date(value);
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return value.toISOString();
+  }
+  const s = String(value).trim();
+  if (!s) return null;
+
+  // App antigua: "2026-11-14T20:30:00.000" sin Z → hora local Módena.
+  if (!hasTimezone(s)) {
+    const m =
+      /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(s);
+    if (m) {
+      const dt = zonedLocalToUtc(
+        Number(m[1]),
+        Number(m[2]),
+        Number(m[3]),
+        Number(m[4]),
+        Number(m[5]),
+        Number(m[6] || 0),
+        TZ_RESTAURANTE,
+      );
+      return dt.toISOString();
+    }
+  }
+
+  const d = new Date(s);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
 }

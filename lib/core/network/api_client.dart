@@ -628,6 +628,136 @@ class ApiClient {
     }
   }
 
+  /// GET /api/marketing/campanias
+  Future<List<Map<String, dynamic>>> listarCampanias({
+    bool soloActivas = false,
+  }) async {
+    var uri = _apiUri(ApiEndpoints.marketingCampanias);
+    if (soloActivas) {
+      uri = uri.replace(queryParameters: {'activas': '1'});
+    }
+    final response = await _client.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al listar campañas: ${response.statusCode}');
+    }
+    final data = json.decode(response.body) as List<dynamic>;
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  /// POST /api/marketing/campanias
+  Future<Map<String, dynamic>> guardarCampania(
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _client.post(
+      _apiUri(ApiEndpoints.marketingCampanias),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: json.encode(body),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Error al guardar campaña: ${response.statusCode}');
+    }
+    return Map<String, dynamic>.from(json.decode(response.body) as Map);
+  }
+
+  Future<void> eliminarCampania(int id) async {
+    final response = await _client.delete(
+      ApiEndpoints.marketingCampaniaItem(baseUrl, id),
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al eliminar campaña: ${response.statusCode}');
+    }
+  }
+
+  /// GET /api/marketing/eventos
+  Future<List<Map<String, dynamic>>> listarEventos({
+    bool soloActivos = false,
+  }) async {
+    var uri = _apiUri(ApiEndpoints.marketingEventos);
+    if (soloActivos) {
+      uri = uri.replace(queryParameters: {'activos': '1'});
+    }
+    final response = await _client.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al listar eventos: ${response.statusCode}');
+    }
+    final data = json.decode(response.body) as List<dynamic>;
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<Map<String, dynamic>> guardarEvento(Map<String, dynamic> body) async {
+    final response = await _client.post(
+      _apiUri(ApiEndpoints.marketingEventos),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: json.encode(body),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Error al guardar evento: ${response.statusCode}');
+    }
+    return Map<String, dynamic>.from(json.decode(response.body) as Map);
+  }
+
+  Future<void> eliminarEvento(int id) async {
+    final response = await _client.delete(
+      ApiEndpoints.marketingEventoItem(baseUrl, id),
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al eliminar evento: ${response.statusCode}');
+    }
+  }
+
+  /// GET /api/analytics/contexto-dia?fecha=
+  Future<Map<String, dynamic>> obtenerContextoDia(String fecha) async {
+    final uri = _apiUri(ApiEndpoints.analyticsContextoDia).replace(
+      queryParameters: {'fecha': fecha},
+    );
+    final response = await _client.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error contexto día: ${response.statusCode}');
+    }
+    return Map<String, dynamic>.from(json.decode(response.body) as Map);
+  }
+
+  /// GET /api/analytics/prediccion?fecha=&servicio=
+  Future<Map<String, dynamic>> obtenerPrediccion({
+    required String fecha,
+    required String servicio,
+  }) async {
+    final uri = _apiUri(ApiEndpoints.analyticsPrediccion).replace(
+      queryParameters: {
+        'fecha': fecha,
+        'servicio': servicio,
+      },
+    );
+    final response = await _client.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Error predicción: ${response.statusCode}. '
+        '${response.body.length > 200 ? '${response.body.substring(0, 200)}…' : response.body}',
+      );
+    }
+    return Map<String, dynamic>.from(json.decode(response.body) as Map);
+  }
+
   /// POST /api/analytics/venta — histórico de cierre de mesa/asporto (fase 3).
   Future<Map<String, dynamic>> enviarVentaAnalytics(
     Map<String, dynamic> payload,

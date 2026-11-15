@@ -60,13 +60,12 @@ class Reserva {
   /// Alergias, trona, celíaco, etc.
   late String alergiasNotas;
 
-  /// Teléfono opcional (ficha cliente en VPS). @ignore evita migrar Isar
-  /// antes del pranzo; la fuente de verdad del teléfono es el VPS.
-  @ignore
+  /// Teléfono opcional (ficha cliente). zz* al final para no reordenar IDs Isar.
+  @Name('zzTelefono')
   String telefono = '';
 
-  /// Id de cliente en PostgreSQL (solo si hay teléfono). No se guarda en Isar.
-  @ignore
+  /// Id de cliente en PostgreSQL (solo si hay teléfono).
+  @Name('zzClienteId')
   int? clienteId;
 
   /// Si true, toJson incluye `telefono` aunque esté vacío (para borrarlo en VPS).
@@ -118,11 +117,22 @@ class Reserva {
   double get totalItemsReservados =>
       itemsReservados.fold<double>(0, (s, i) => s + i.subtotal);
 
+  /// Instante UTC correcto a partir de la hora de pared del dispositivo.
+  static String _fechaHaciaApi(DateTime dt) {
+    final local = dt.isUtc ? dt.toLocal() : dt;
+    return local.toUtc().toIso8601String();
+  }
+
+  /// Siempre hora local del dispositivo para UI / franjas.
+  static DateTime _fechaDesdeApi(String raw) {
+    return DateTime.parse(raw).toLocal();
+  }
+
   Map<String, dynamic> toJson() => {
         if (id != null) 'id': id,
         'nombreCliente': nombreCliente,
         'numeroPersonas': numeroPersonas,
-        'fechaHoraLlegada': fechaHoraLlegada.toIso8601String(),
+        'fechaHoraLlegada': _fechaHaciaApi(fechaHoraLlegada),
         'alergiasNotas': alergiasNotas,
         // Solo si hay número o el formulario pidió sincronizar (evitar borrar en VPS).
         if (sincronizarTelefono || telefono.trim().isNotEmpty)
@@ -132,8 +142,8 @@ class Reserva {
         'itemsReservados':
             itemsReservados.map((i) => i.toJson()).toList(),
         'mesaAsignada': mesaAsignada,
-        'fechaCreacion': fechaCreacion.toIso8601String(),
-        'fechaActualizacion': fechaActualizacion.toIso8601String(),
+        'fechaCreacion': _fechaHaciaApi(fechaCreacion),
+        'fechaActualizacion': _fechaHaciaApi(fechaActualizacion),
       };
 
   factory Reserva.fromJson(Map<String, dynamic> json) {
@@ -141,7 +151,7 @@ class Reserva {
       ..nombreCliente = json['nombreCliente'] as String
       ..numeroPersonas = json['numeroPersonas'] as int
       ..fechaHoraLlegada =
-          DateTime.parse(json['fechaHoraLlegada'] as String)
+          _fechaDesdeApi(json['fechaHoraLlegada'] as String)
       ..alergiasNotas = json['alergiasNotas'] as String? ?? ''
       ..telefono = json['telefono'] as String? ?? ''
       ..clienteId = json['clienteId'] as int?
@@ -155,15 +165,16 @@ class Reserva {
           []
       ..mesaAsignada = json['mesaAsignada'] as int?
       ..fechaCreacion = json['fechaCreacion'] != null
-          ? DateTime.parse(json['fechaCreacion'] as String)
+          ? _fechaDesdeApi(json['fechaCreacion'] as String)
           : DateTime.now()
       ..fechaActualizacion = json['fechaActualizacion'] != null
-          ? DateTime.parse(json['fechaActualizacion'] as String)
+          ? _fechaDesdeApi(json['fechaActualizacion'] as String)
           : DateTime.now();
 
     final syncAt = json['sincronizadaEnCajaAt'];
     if (syncAt != null) {
-      reserva.sincronizadaEnCajaAt = DateTime.parse(syncAt as String);
+      reserva.sincronizadaEnCajaAt =
+          _fechaDesdeApi(syncAt as String);
     }
 
     final rawId = json['id'];

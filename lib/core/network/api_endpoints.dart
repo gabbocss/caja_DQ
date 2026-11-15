@@ -13,8 +13,20 @@ abstract final class ApiEndpoints {
   static const String supermercadosReordenar = '/api/supermercados/reordenar';
   static const String analyticsVenta = '/api/analytics/venta';
   static const String analyticsVentas = '/api/analytics/ventas';
+  static const String analyticsContextoDia = '/api/analytics/contexto-dia';
+  static const String analyticsContextoDiaSync =
+      '/api/analytics/contexto-dia/sync';
+  static const String analyticsPrediccion = '/api/analytics/prediccion';
+  static const String marketingCampanias = '/api/marketing/campanias';
+  static const String marketingEventos = '/api/marketing/eventos';
   static const String health = '/health';
   static const String healthApi = '/api/health';
+
+  static Uri marketingCampaniaItem(String baseUrl, int id) =>
+      uri(baseUrl, '/api/marketing/campanias/$id');
+
+  static Uri marketingEventoItem(String baseUrl, int id) =>
+      uri(baseUrl, '/api/marketing/eventos/$id');
 
   /// Normaliza la URL base (sin barra final ni sufijo `/api` duplicado).
   static String normalizeBaseUrl(String url) {

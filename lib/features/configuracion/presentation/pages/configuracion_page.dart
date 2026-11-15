@@ -139,6 +139,13 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                         onTap: _abrirConfigurarServidorCentral,
                         color: const Color(0xFF4FC3F7),
                       ),
+                      _buildAccionTile(
+                        'Campañas y eventos',
+                        'Marketing · contexto del día (festivos Módena)',
+                        Icons.campaign,
+                        onTap: () => context.push(AppRoutes.marketing),
+                        color: const Color(0xFFFFB74D),
+                      ),
                     ],
                   ),
                   

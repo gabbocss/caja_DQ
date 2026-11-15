@@ -19,8 +19,10 @@ import '../../features/configuracion/presentation/pages/destinos_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_productos_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_mesas_page.dart';
 import '../../features/configuracion/presentation/pages/gestion_categorias_page.dart';
+import '../../features/configuracion/presentation/pages/marketing_page.dart';
 import '../../features/buffet_sabado/presentation/pages/configuracion_buffet_page.dart';
 import '../../features/estadisticas/presentation/pages/estadisticas_page.dart';
+import '../../features/estadisticas/presentation/pages/prediccion_page.dart';
 import '../../features/caja/presentation/pages/caja_page.dart';
 import '../../features/reservas/presentation/pages/reservas_page.dart';
 import '../../features/reservas/presentation/providers/reservas_provider.dart';
@@ -58,8 +60,10 @@ class AppRoutes {
   static const String gestionCategorias = '/gestion-categorias';
   static const String configuracionImpresora = '/configuracion-impresora';
   static const String servidorCentralReservas = '/servidor-central-reservas';
+  static const String marketing = '/marketing';
   static const String wifiQr = '/wifi-qr';
   static const String estadisticas = '/estadisticas';
+  static const String prediccion = '/prediccion';
   static const String caja = '/caja';
 }
 
@@ -256,6 +260,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.servidorCentralReservas,
       builder: (context, state) => const ConfigurarServidorCentralPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.marketing,
+      builder: (context, state) => const MarketingPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.prediccion,
+      builder: (context, state) => const PrediccionPage(),
     ),
   ],
 );

@@ -2,6 +2,11 @@
  * Histórico de ventas (fase 3) para analítica / predicción.
  */
 const db = require('./db');
+const { asegurarContextoDia, fechaSolo } = require('./contexto_store');
+const {
+  campaniasActivasEn,
+  eventosActivosEn,
+} = require('./marketing_store');
 
 const SERVICIOS = new Set(['comida', 'cena', 'otro']);
 const ORIGENES = new Set([
@@ -184,11 +189,46 @@ async function registrarVenta(body) {
       );
     }
 
+    // Fase 5: asociar campañas/eventos activos del día.
+    const fechaDia = fechaSolo(fechaCierre);
+    let campaniaIds = Array.isArray(body.campaniaIds)
+      ? body.campaniaIds.map(Number).filter((n) => n > 0)
+      : await campaniasActivasEn(fechaDia, client);
+    let eventoIds = Array.isArray(body.eventoIds)
+      ? body.eventoIds.map(Number).filter((n) => n > 0)
+      : await eventosActivosEn(fechaDia, client);
+
+    for (const cid of campaniaIds) {
+      await client.query(
+        `INSERT INTO venta_campania (venta_id, campania_id)
+         VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+        [ventaId, cid],
+      );
+    }
+    for (const eid of eventoIds) {
+      await client.query(
+        `INSERT INTO venta_evento (venta_id, evento_id)
+         VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+        [ventaId, eid],
+      );
+    }
+
     const itemsMap = await loadItems(client, [ventaId]);
-    return {
+    const result = {
       ...mapVenta(ventaRow, itemsMap.get(ventaId) || []),
+      campaniaIds,
+      eventoIds,
       duplicated: false,
     };
+
+    // Contexto del día fuera de la tx (clima HTTP).
+    setImmediate(() => {
+      asegurarContextoDia(fechaDia).catch((e) =>
+        console.error('contexto_dia:', e.message || e),
+      );
+    });
+
+    return result;
   });
 }
 

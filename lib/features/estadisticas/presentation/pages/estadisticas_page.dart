@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -192,6 +193,14 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
           ],
         ),
         actions: [
+          TextButton.icon(
+            onPressed: () => context.push(AppRoutes.prediccion),
+            icon: const Icon(Icons.insights, color: Color(0xFFFFB74D)),
+            label: const Text(
+              'Previsión',
+              style: TextStyle(color: Color(0xFFFFB74D)),
+            ),
+          ),
           IconButton(
             onPressed: _cargando ? null : () => _exportarPdf(),
             icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF00D9A5)),
@@ -210,6 +219,8 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                 : ListView(
                     padding: const EdgeInsets.all(20),
                     children: [
+                      _buildTarjetaPrevision(),
+                      const SizedBox(height: 24),
                       _buildSeccionPlatos(),
                       const SizedBox(height: 24),
                       _buildSeccionTiempos(),
@@ -217,6 +228,46 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTarjetaPrevision() {
+    return Card(
+      color: const Color(0xFF0F3460),
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.prediccion),
+        borderRadius: BorderRadius.circular(12),
+        child: const Padding(
+          padding: EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.insights, color: Color(0xFFFFB74D), size: 32),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Previsión del día',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Demanda esperada por plato: histórico + reservas + clientes habituales',
+                      style: TextStyle(color: Colors.white54, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.white54),
+            ],
+          ),
+        ),
       ),
     );
   }
