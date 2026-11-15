@@ -9,6 +9,7 @@ import '../../../../core/core.dart';
 import '../../../../core/utils/platform_utils.dart';
 import '../../domain/franja_reserva.dart';
 import '../providers/reservas_provider.dart';
+import 'ficha_cliente_page.dart';
 
 /// Flujo de la pantalla Reservas en Android (menú → nueva / editar).
 enum _VistaAndroidReservas { menu, nueva, editar }
@@ -524,6 +525,50 @@ class _ReservasPageState extends State<ReservasPage>
         '${dt.month.toString().padLeft(2, '0')} '
         '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _abrirFichaCliente(Reserva reserva) {
+    return FichaClientePage.abrir(
+      context,
+      clienteId: reserva.clienteId,
+      telefono: reserva.telefono,
+      nombreFallback: reserva.nombreCliente,
+    );
+  }
+
+  Widget _filaTelefonoConFicha(Reserva reserva) {
+    if (reserva.telefono.trim().isEmpty &&
+        (reserva.clienteId == null || reserva.clienteId! <= 0)) {
+      return const SizedBox.shrink();
+    }
+    final tel = reserva.telefono.trim();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: InkWell(
+        onTap: () => _abrirFichaCliente(reserva),
+        borderRadius: BorderRadius.circular(6),
+        child: Row(
+          children: [
+            const Icon(Icons.badge_outlined, size: 14, color: Color(0xFF00D9A5)),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                tel.isEmpty ? 'Ver ficha cliente' : tel,
+                style: const TextStyle(
+                  color: Color(0xFF00D9A5),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Color(0xFF00D9A5),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 16, color: Color(0xFF00D9A5)),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -1333,25 +1378,7 @@ class _ReservasPageState extends State<ReservasPage>
                 _textoCubiertos(reserva),
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
-              if (reserva.telefono.trim().isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.phone, size: 14, color: Color(0xFF00D9A5)),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        reserva.telefono.trim(),
-                        style: const TextStyle(
-                          color: Color(0xFF00D9A5),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              _filaTelefonoConFicha(reserva),
               _previewPlatosReserva(reserva),
               if (reserva.alergiasNotas.isNotEmpty) ...[
                 const SizedBox(height: 2),
@@ -1682,25 +1709,7 @@ class _ReservasPageState extends State<ReservasPage>
                         '${reserva.itemsReservados.length} plato(s) pre-reservado(s)',
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
-              if (reserva.telefono.trim().isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.phone, size: 14, color: Color(0xFF00D9A5)),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        reserva.telefono.trim(),
-                        style: const TextStyle(
-                          color: Color(0xFF00D9A5),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              _filaTelefonoConFicha(reserva),
               _previewPlatosReserva(reserva),
               if (reserva.alergiasNotas.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -1842,10 +1851,36 @@ class _ReservasPageState extends State<ReservasPage>
             controller: _telefonoCtrl,
             keyboardType: TextInputType.phone,
             style: const TextStyle(color: Colors.white),
+            onChanged: (_) => setState(() {}),
             decoration: _decoration(
               'Teléfono (opcional)',
             ),
           ),
+          if (_telefonoCtrl.text.trim().isNotEmpty ||
+              (_reservaSeleccionada?.clienteId != null &&
+                  _reservaSeleccionada!.clienteId! > 0)) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => FichaClientePage.abrir(
+                  context,
+                  clienteId: _reservaSeleccionada?.clienteId,
+                  telefono: _telefonoCtrl.text.trim().isNotEmpty
+                      ? _telefonoCtrl.text
+                      : _reservaSeleccionada?.telefono,
+                  nombreFallback: _nombreCtrl.text.trim().isNotEmpty
+                      ? _nombreCtrl.text
+                      : _reservaSeleccionada?.nombreCliente,
+                ),
+                icon: const Icon(Icons.badge_outlined, color: Color(0xFF00D9A5)),
+                label: const Text(
+                  'Ver ficha cliente',
+                  style: TextStyle(color: Color(0xFF00D9A5)),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [

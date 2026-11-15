@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../../../../core/core.dart';
 import '../../data/estadisticas_service.dart';
+import '../utils/estadisticas_pdf_export.dart';
 
 /// Pantalla de estadísticas: platos más pedidos y tiempos de preparación (Empezar → Listo).
 /// Acceso desde menú servidor, debajo de WiFi. Exportación a PDF con gráficos.
@@ -81,102 +79,62 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
   }
 
   Future<void> _exportarPdf() async {
-    final pdf = pw.Document();
-    final fmt = DateFormat('dd/MM/yyyy');
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(24),
-        header: (ctx) => pw.Padding(
-          padding: const pw.EdgeInsets.only(bottom: 8),
-          child: pw.Text(
-            'Estadísticas - ${AppConstants.appName}',
-            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
-          ),
-        ),
-        footer: (ctx) => pw.Padding(
-          padding: const pw.EdgeInsets.only(top: 8),
-          child: pw.Text(
-            'Página ${ctx.pageNumber} de ${ctx.pagesCount}',
-            style: const pw.TextStyle(fontSize: 10),
-          ),
-        ),
-        build: (ctx) => [
-          pw.Text(
-            'Período: ${fmt.format(_desde)} - ${fmt.format(_hasta)}'
-            '${_categoria != null && _categoria!.isNotEmpty ? " · Categoría: $_categoria" : ""}',
-            style: const pw.TextStyle(fontSize: 11),
-          ),
-          pw.SizedBox(height: 20),
-          pw.Text('Platos más pedidos', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 8),
-          pw.Table(
-    border: pw.TableBorder.all(width: 0.5),
-    columnWidths: {
-      0: const pw.FlexColumnWidth(3),
-      1: const pw.FlexColumnWidth(1),
-      2: const pw.FlexColumnWidth(1),
-    },
-    children: [
-      pw.TableRow(
-        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-        children: [
-          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Plato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Categoría', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Cantidad', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-        ],
-      ),
-      ..._platos.take(30).map((p) => pw.TableRow(
-        children: [
-          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(p.nombreProducto)),
-          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(p.categoria ?? '-')),
-          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${p.cantidadTotal}')),
-        ],
-      )),
-    ],
-          ),
-          pw.SizedBox(height: 24),
-          pw.Text('Tiempo medio por plato (desde que empiezas hasta Hecho)', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 8),
-          pw.Text(
-            'Platos con tiempo registrado: ${_tiemposPlato.fold<int>(0, (s, t) => s + t.cantidadRegistros)}. '
-            'Tiempo medio general: ${_tiempoMedioGeneralMinutos.toStringAsFixed(1)} min.',
-            style: const pw.TextStyle(fontSize: 11),
-          ),
-          if (_tiemposPlato.isNotEmpty) ...[
-            pw.SizedBox(height: 8),
-            pw.Table(
-              border: pw.TableBorder.all(width: 0.5),
-              columnWidths: {
-                0: const pw.FlexColumnWidth(3),
-                1: const pw.FlexColumnWidth(1),
-                2: const pw.FlexColumnWidth(1),
-              },
+    // Muestra progreso mientras se genera el PDF (evita el diálogo de impresión del SO).
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Plato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Registros', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Media (min)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                  ],
-                ),
-                ..._tiemposPlato.take(30).map((t) => pw.TableRow(
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t.nombreProducto)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${t.cantidadRegistros}')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t.tiempoMedioMinutos.toStringAsFixed(1))),
-                  ],
-                )),
+                CircularProgressIndicator(color: Color(0xFFE94560)),
+                SizedBox(height: 16),
+                Text('Generando PDF…'),
               ],
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
 
-    await Printing.layoutPdf(onLayout: (_) async => pdf.save());
+    try {
+      final ruta = await EstadisticasPdfExport.exportar(
+        desde: _desde,
+        hasta: _hasta,
+        categoria: _categoria,
+        platos: _platos,
+        tiemposPlato: _tiemposPlato,
+      );
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      final messenger = ScaffoldMessenger.of(context);
+      if (ruta == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Exportación cancelada')),
+        );
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('PDF guardado:\n$ruta'),
+          duration: const Duration(seconds: 5),
+          backgroundColor: const Color(0xFF00A878),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al exportar PDF: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   @override

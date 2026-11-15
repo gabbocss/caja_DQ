@@ -131,10 +131,17 @@ async function registrarVenta(body) {
     }
     let reservaOk = null;
     if (reservaId != null && Number.isFinite(reservaId) && reservaId > 0) {
-      const r = await client.query(`SELECT id FROM reserva WHERE id = $1`, [
-        reservaId,
-      ]);
-      if (r.rowCount > 0) reservaOk = reservaId;
+      const r = await client.query(
+        `SELECT id, cliente_id FROM reserva WHERE id = $1`,
+        [reservaId],
+      );
+      if (r.rowCount > 0) {
+        reservaOk = reservaId;
+        // Si el pedido no trajo clienteId, heredar el de la reserva.
+        if (clienteOk == null && r.rows[0].cliente_id != null) {
+          clienteOk = Number(r.rows[0].cliente_id);
+        }
+      }
     }
 
     const inserted = await client.query(

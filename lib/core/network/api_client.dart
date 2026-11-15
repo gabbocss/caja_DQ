@@ -734,6 +734,57 @@ class ApiClient {
     return Map<String, dynamic>.from(json.decode(response.body) as Map);
   }
 
+  /// GET /api/clientes/:id o /api/clientes?telefono=
+  Future<Map<String, dynamic>> obtenerFichaCliente({
+    int? id,
+    String? telefono,
+  }) async {
+    final Uri uri;
+    if (id != null) {
+      uri = ApiEndpoints.clienteItem(baseUrl, id);
+    } else if (telefono != null && telefono.trim().isNotEmpty) {
+      uri = _apiUri(ApiEndpoints.clientes).replace(
+        queryParameters: {'telefono': telefono.trim()},
+      );
+    } else {
+      throw ArgumentError('Indica id o teléfono del cliente');
+    }
+    final response = await _client.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode == 404) {
+      throw Exception('Cliente no encontrado');
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Error ficha cliente: ${response.statusCode}');
+    }
+    return Map<String, dynamic>.from(json.decode(response.body) as Map);
+  }
+
+  /// PATCH /api/clientes/:id — notas / nombre CRM.
+  Future<Map<String, dynamic>> actualizarCliente({
+    required int id,
+    String? alergiasNotas,
+    String? nombre,
+  }) async {
+    final body = <String, dynamic>{};
+    if (alergiasNotas != null) body['alergiasNotas'] = alergiasNotas;
+    if (nombre != null) body['nombre'] = nombre;
+    final response = await _client.patch(
+      ApiEndpoints.clienteItem(baseUrl, id),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: json.encode(body),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al actualizar cliente: ${response.statusCode}');
+    }
+    return Map<String, dynamic>.from(json.decode(response.body) as Map);
+  }
+
   /// GET /api/analytics/prediccion?fecha=&servicio=
   Future<Map<String, dynamic>> obtenerPrediccion({
     required String fecha,

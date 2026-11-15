@@ -12,6 +12,7 @@ const ventasStore = require('./ventas_store');
 const contextoStore = require('./contexto_store');
 const marketingStore = require('./marketing_store');
 const prediccionStore = require('./prediccion_store');
+const clienteStore = require('./cliente_store');
 const db = require('./db');
 const { run: runMigrations } = require('./migrate');
 
@@ -20,7 +21,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Accept',
 };
 
@@ -92,6 +93,8 @@ function apiIndexPayload() {
       prediccion: '/api/analytics/prediccion',
       campanias: '/api/marketing/campanias',
       eventos: '/api/marketing/eventos',
+      clientes: '/api/clientes',
+      clienteFicha: '/api/clientes/:id',
       health: '/health',
       healthApi: '/api/health',
     },
@@ -180,6 +183,50 @@ async function handle(req, res) {
       const fecha = url.searchParams.get('fecha');
       const servicio = url.searchParams.get('servicio') || 'comida';
       send(res, 200, await prediccionStore.predecir({ fecha, servicio }));
+      return;
+    }
+
+    // Ficha cliente: GET /api/clientes?telefono=… o /api/clientes/:id
+    if (method === 'GET' && path === '/api/clientes') {
+      const telefono = url.searchParams.get('telefono');
+      if (!telefono) {
+        send(res, 400, { error: 'Indica telefono o usa /api/clientes/:id' });
+        return;
+      }
+      const ficha = await clienteStore.obtenerFicha({ telefono });
+      if (!ficha) {
+        send(res, 404, { error: 'Cliente no encontrado' });
+        return;
+      }
+      send(res, 200, ficha);
+      return;
+    }
+
+    const clienteMatch = path.match(/^\/api\/clientes\/(\d+)$/);
+    if (clienteMatch && method === 'GET') {
+      const ficha = await clienteStore.obtenerFicha({ id: clienteMatch[1] });
+      if (!ficha) {
+        send(res, 404, { error: 'Cliente no encontrado' });
+        return;
+      }
+      send(res, 200, ficha);
+      return;
+    }
+    if (clienteMatch && method === 'PATCH') {
+      const raw = await readBody(req);
+      const data = JSON.parse(raw || '{}');
+      const actualizado = await clienteStore.actualizarNotasCliente(
+        clienteMatch[1],
+        {
+          alergiasNotas: data.alergiasNotas,
+          nombre: data.nombre,
+        },
+      );
+      if (!actualizado) {
+        send(res, 404, { error: 'Cliente no encontrado' });
+        return;
+      }
+      send(res, 200, actualizado);
       return;
     }
 
