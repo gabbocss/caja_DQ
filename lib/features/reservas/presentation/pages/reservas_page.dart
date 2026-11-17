@@ -382,6 +382,37 @@ class _ReservasPageState extends State<ReservasPage>
     }
   }
 
+  Future<void> _cambiarMesa(ReservasProvider provider, Reserva reserva) async {
+    final mesaOrigen = reserva.mesaAsignada;
+    final mesa = await showDialog<int>(
+      context: context,
+      builder: (ctx) => _DialogoSelectorMesa(
+        mesas: provider.mesas,
+        titulo: mesaOrigen == null
+            ? 'Cambiar mesa'
+            : 'Cambiar mesa (ahora M$mesaOrigen)',
+      ),
+    );
+    if (mesa == null || !mounted) return;
+
+    try {
+      await provider.cambiarMesa(reserva: reserva, mesaNumero: mesa);
+      if (_reservaSeleccionada?.id == reserva.id) {
+        _reservaSeleccionada = null;
+      }
+      if (mounted) {
+        setState(() {});
+        final de = mesaOrigen != null ? 'M$mesaOrigen → ' : '';
+        _snack(
+          'Mesa cambiada: ${de}M$mesa · ${reserva.nombreCliente}',
+          const Color(0xFF00D9A5),
+        );
+      }
+    } catch (e) {
+      _snack('Error al cambiar mesa: $e', Colors.red);
+    }
+  }
+
   Future<void> _imprimirAsporto(Reserva reserva) async {
     if (reserva.itemsReservados.isEmpty) {
       _snack('No hay productos para imprimir', Colors.orange);
@@ -1410,6 +1441,27 @@ class _ReservasPageState extends State<ReservasPage>
                     ),
                   ),
                 ),
+              ] else if (reserva.estado == EstadoReserva.sentada) ...[
+                const Spacer(),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: () => _cambiarMesa(provider, reserva),
+                    icon: const Icon(Icons.swap_horiz, size: 16),
+                    label: const Text('Cambiar mesa'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF4FC3F7),
+                      foregroundColor: Colors.black87,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
               ] else if (reserva.estaPendiente) ...[
                 const Spacer(),
                 const SizedBox(height: 6),
@@ -2230,16 +2282,20 @@ class _ReservasPageState extends State<ReservasPage>
 
 class _DialogoSelectorMesa extends StatelessWidget {
   final List<Mesa> mesas;
+  final String titulo;
 
-  const _DialogoSelectorMesa({required this.mesas});
+  const _DialogoSelectorMesa({
+    required this.mesas,
+    this.titulo = 'Asignar mesa',
+  });
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: const Color(0xFF16213E),
-      title: const Text(
-        'Asignar mesa',
-        style: TextStyle(color: Colors.white),
+      title: Text(
+        titulo,
+        style: const TextStyle(color: Colors.white),
       ),
       content: SizedBox(
         width: 420,

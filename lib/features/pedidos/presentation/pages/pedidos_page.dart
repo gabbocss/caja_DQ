@@ -1781,6 +1781,7 @@ class _PedidosPageState extends State<PedidosPage> {
         total: resultado.total,
         segundo: resultado.segundo,
         tercero: resultado.tercero,
+        despues: resultado.despues,
         variantes: resultado.variantes,
       );
     });
@@ -2374,7 +2375,7 @@ class ItemCarrito {
   final Producto producto;
   /// Siempre 1: cada línea es un plato individual
   int cantidad;
-  /// Orden del plato: 1 = 1º, 2 = 2º, etc.
+  /// Orden del plato: 1 = 1º, 2 = 2º, 3 = 3º, 4 = después de los postres.
   int orden;
   String? notas;
 

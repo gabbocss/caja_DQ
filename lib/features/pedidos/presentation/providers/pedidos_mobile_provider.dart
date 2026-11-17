@@ -140,8 +140,9 @@ class PedidosMobileProvider extends ChangeNotifier {
     }
   }
 
-  /// Cuenta unidades de un plato en el carrito por turno (1º / 2º / 3º).
-  ({int primero, int segundo, int tercero, int total}) distribucionOrdenPlato(
+  /// Cuenta unidades de un plato en el carrito por turno (1º / 2º / 3º / postres).
+  ({int primero, int segundo, int tercero, int despues, int total})
+      distribucionOrdenPlato(
     int numeroMesa,
     int productoId,
   ) =>
@@ -151,13 +152,14 @@ class PedidosMobileProvider extends ChangeNotifier {
   List<VariantePlato> variantesOrdenPlato(int numeroMesa, int productoId) =>
       CarritoOrdenUtils.variantes(carritoMesa(numeroMesa), productoId);
 
-  /// Deja exactamente [total] unidades, con [segundo] en 2º y [tercero] en 3º.
+  /// Deja exactamente [total] unidades, con turnos 2º, 3º y después de postres.
   void aplicarDistribucionOrdenPlato({
     required int numeroMesa,
     required int productoId,
     required int total,
     required int segundo,
     required int tercero,
+    int despues = 0,
     List<VariantePlato> variantes = const [],
   }) {
     final lista = _carritoByMesa[numeroMesa];
@@ -168,6 +170,7 @@ class PedidosMobileProvider extends ChangeNotifier {
       total: total,
       segundo: segundo,
       tercero: tercero,
+      despues: despues,
       variantes: variantes,
     );
     notifyListeners();

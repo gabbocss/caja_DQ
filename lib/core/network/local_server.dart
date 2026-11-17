@@ -1492,7 +1492,7 @@ class LocalServer {
         '<path d="M28 40 L40 37 L52 40 L40 44 Z" fill="#0047AB" fill-opacity="0.08"/>'
         '</svg>';
     final dataUrl = 'data:image/svg+xml,${Uri.encodeComponent(svg)}';
-    return 'body { font-family: \'Poppins\', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #FAFAF8; background-image: url("$dataUrl"); background-repeat: repeat; background-size: 80px 80px; color: #212121; min-height: 100vh; padding-bottom: 120px; }';
+    return 'body { font-family: \'Poppins\', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #FAFAF8; background-image: url("$dataUrl"); background-repeat: repeat; background-size: 80px 80px; color: #212121; min-height: 100vh; padding-bottom: 110px; }';
   }
 
   /// Genera la página HTML para clientes QR
@@ -1540,7 +1540,7 @@ class LocalServer {
         final base64 = base64Encode(bytes);
         final dataUrl = 'data:image/png;base64,$base64';
         backgroundCss = '''
-    body { position: relative; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #FAFAF8; color: #212121; min-height: 100vh; padding-bottom: 120px; }
+    body { position: relative; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #FAFAF8; color: #212121; min-height: 100vh; padding-bottom: 110px; }
     body::before {
       content: '';
       position: absolute;
@@ -1722,29 +1722,40 @@ class LocalServer {
       box-shadow: 0 2px 10px rgba(139, 30, 45, 0.35);
     }
     .btn-agregar:active { transform: scale(0.95); }
-    /* Botón flotante del carrito (móvil) */
-    .btn-carrito-flotante {
+    /* FABs: Mis pedidos (izq.) + Carrito (der.) — zona del pulgar */
+    .fabs-bar {
       position: fixed;
-      bottom: 24px;
-      right: 20px;
+      bottom: max(20px, env(safe-area-inset-bottom, 0px));
+      right: 16px;
+      left: auto;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+      z-index: 100;
+      pointer-events: none;
+    }
+    .fabs-bar > button { pointer-events: auto; }
+    .btn-fab {
+      position: relative;
       width: 56px;
       height: 56px;
+      min-width: 56px;
+      min-height: 56px;
       border-radius: 50%;
-      /* Terracota (botón carrito) */
-      background: #C65D3A;
       border: none;
       color: white;
-      box-shadow: 0 4px 20px rgba(198, 93, 58, 0.4);
       cursor: pointer;
-      z-index: 100;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
-      transition: transform 0.2s, box-shadow 0.2s;
+      font-size: 24px;
+      line-height: 1;
+      transition: transform 0.2s cubic-bezier(0.215, 0.61, 0.355, 1), box-shadow 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
     }
-    .btn-carrito-flotante:active { transform: scale(0.95); }
-    .btn-carrito-flotante .carrito-badge {
+    .btn-fab:active { transform: scale(0.95); }
+    .btn-fab .fab-badge {
       position: absolute;
       top: -4px;
       right: -4px;
@@ -1761,15 +1772,41 @@ class LocalServer {
       padding: 0 5px;
       border: 2px solid #FFFFFF;
     }
-    .btn-carrito-flotante .carrito-badge.oculto { display: none; }
+    .btn-fab .fab-badge.oculto { display: none; }
+    .btn-fab .fab-badge.badge-cocina {
+      background: #E65100;
+    }
+    .btn-pedidos-flotante {
+      background: #5D4037;
+      box-shadow: 0 4px 20px rgba(93, 64, 55, 0.4);
+    }
+    .btn-pedidos-flotante .fab-icon-svg {
+      width: 26px;
+      height: 26px;
+      display: block;
+    }
+    .btn-carrito-flotante {
+      /* Terracota (botón carrito) */
+      background: #C65D3A;
+      box-shadow: 0 4px 20px rgba(198, 93, 58, 0.4);
+      font-size: 26px;
+    }
     .btn-carrito-flotante.bump {
-      animation: carrito-bump 0.4s ease;
+      animation: carrito-bump 0.4s cubic-bezier(0.215, 0.61, 0.355, 1);
     }
     @keyframes carrito-bump {
       0%   { transform: scale(1); }
       35%  { transform: scale(1.25); }
       70%  { transform: scale(1.1); }
       100% { transform: scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .btn-fab, .btn-carrito-flotante.bump,
+      .pedidos-sheet, .pedidos-sheet-overlay,
+      .carrito-drawer, .carrito-drawer-overlay {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+      }
     }
     /* Panel desplegable del carrito */
     .carrito-drawer-overlay {
@@ -2162,33 +2199,124 @@ class LocalServer {
     .btn-dialog:active {
       opacity: 0.9;
     }
-    /* Mis Pedidos realizados */
-    .mis-pedidos-section {
-      padding: 16px;
-      background: #FFFFFF;
-      margin: 0 16px 16px;
-      border-radius: 16px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    /* Bottom sheet: Mis pedidos (estado cocina) */
+    .pedidos-sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 150;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.28s cubic-bezier(0.215, 0.61, 0.355, 1), visibility 0.28s;
     }
-    .mis-pedidos-section h2 {
-      color: #212121;
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 12px;
+    .pedidos-sheet-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .pedidos-sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 160;
+      max-height: min(78vh, 640px);
+      background: #FFFFFF;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.14);
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      transform: translateY(105%);
+      transition: transform 0.32s cubic-bezier(0.215, 0.61, 0.355, 1);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .pedidos-sheet.abierto { transform: translateY(0); }
+    .pedidos-sheet-handle {
+      width: 40px;
+      height: 4px;
+      border-radius: 2px;
+      background: #E0E0E0;
+      margin: 10px auto 4px;
+      flex-shrink: 0;
+    }
+    .pedidos-sheet-header {
+      padding: 8px 20px 14px;
+      border-bottom: 1px solid #EEEEEE;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .pedidos-sheet-header h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #212121;
+      line-height: 1.25;
+    }
+    .pedidos-sheet-sub {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #757575;
+      font-weight: 500;
+    }
+    .pedidos-resumen {
+      display: flex;
+      flex-wrap: wrap;
       gap: 8px;
+      padding: 12px 16px 4px;
+      flex-shrink: 0;
+    }
+    .pedidos-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid #EEEEEE;
+      background: #FAFAFA;
+      color: #616161;
+    }
+    .pedidos-chip.chip-cocina {
+      background: #FFF3E0;
+      border-color: #FFCC80;
+      color: #E65100;
+    }
+    .pedidos-chip.chip-servido {
+      background: #E8F5E9;
+      border-color: #C8E6C9;
+      color: #2E7D32;
+    }
+    .pedidos-chip .chip-num {
+      font-size: 14px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
     }
     .mis-pedidos-lista {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      flex: 1;
+      overflow: auto;
+      padding: 8px 16px 20px;
+      -webkit-overflow-scrolling: touch;
     }
     .mis-pedidos-vacio {
       color: #757575;
       font-size: 14px;
-      padding: 12px 0;
+      padding: 28px 16px;
       text-align: center;
+      line-height: 1.45;
+    }
+    .mis-pedidos-grupo-titulo {
+      font-size: 12px;
+      font-weight: 700;
+      color: #9E9E9E;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 8px 0 4px 2px;
     }
     .item-pedido-realizado {
       background: #FAFAFA;
@@ -2201,17 +2329,25 @@ class LocalServer {
       gap: 8px;
       border: 1px solid #EEEEEE;
       border-left: 4px solid #2E7D32;
+      min-height: 48px;
+    }
+    .item-pedido-realizado.en-cocina {
+      border-left-color: #E65100;
+      background: #FFFBF5;
     }
     .item-pedido-realizado .nombre-cantidad {
       color: #212121;
       font-weight: 500;
       font-size: 14px;
+      flex: 1;
+      min-width: 0;
     }
     .item-pedido-realizado .estado-badge {
       font-size: 12px;
       font-weight: bold;
       padding: 4px 10px;
       border-radius: 20px;
+      flex-shrink: 0;
     }
     .item-pedido-realizado .estado-preparacion {
       background: #FFF3E0;
@@ -2249,20 +2385,38 @@ class LocalServer {
     $productosHtml
   </div>
   
-  <div class="mis-pedidos-section">
-    <h2>📋 Mis Pedidos realizados</h2>
+  <div class="fabs-bar" role="toolbar" aria-label="Acciones rápidas">
+    <button type="button" class="btn-fab btn-pedidos-flotante" id="btn-pedidos-flotante" onclick="togglePedidosSheet()" aria-label="Mis pedidos" aria-haspopup="dialog" aria-expanded="false" aria-controls="pedidos-sheet">
+      <svg class="fab-icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M7 3.5h10a1.5 1.5 0 0 1 1.5 1.5v14.2c0 .5-.3.9-.7 1.1l-1.3.6c-.4.2-.9.2-1.3 0l-1.2-.55a1.5 1.5 0 0 0-1.25 0l-1.2.55c-.4.2-.9.2-1.3 0l-1.2-.55a1.5 1.5 0 0 0-1.25 0l-1.3.6c-.4.2-.7.6-.7 1.1V5A1.5 1.5 0 0 1 7 3.5Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+        <path d="M9 8h6M9 11.5h6M9 15h3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+      </svg>
+      <span class="fab-badge badge-cocina oculto" id="pedidos-badge">0</span>
+    </button>
+    <button type="button" class="btn-fab btn-carrito-flotante" id="btn-carrito-flotante" onclick="toggleCarritoDrawer()" aria-label="Ver carrito" aria-haspopup="dialog" aria-expanded="false" aria-controls="carrito-drawer">
+      <span class="carrito-icon" aria-hidden="true">🛒</span>
+      <span class="fab-badge oculto" id="carrito-badge">0</span>
+    </button>
+  </div>
+  
+  <div class="pedidos-sheet-overlay" id="pedidos-sheet-overlay" onclick="cerrarPedidosSheet()"></div>
+  <div class="pedidos-sheet" id="pedidos-sheet" role="dialog" aria-modal="true" aria-labelledby="pedidos-sheet-titulo" aria-hidden="true">
+    <div class="pedidos-sheet-handle" aria-hidden="true"></div>
+    <div class="pedidos-sheet-header">
+      <div>
+        <h2 id="pedidos-sheet-titulo">Mis pedidos</h2>
+        <p class="pedidos-sheet-sub" id="pedidos-sheet-sub">Estado de lo que pediste</p>
+      </div>
+      <button type="button" class="btn-cerrar-drawer" onclick="cerrarPedidosSheet()" aria-label="Cerrar mis pedidos">✕</button>
+    </div>
+    <div class="pedidos-resumen" id="pedidos-resumen" aria-live="polite"></div>
     <div id="mis-pedidos-lista" class="mis-pedidos-lista"></div>
   </div>
   
-  <button class="btn-carrito-flotante" id="btn-carrito-flotante" onclick="toggleCarritoDrawer()" aria-label="Ver carrito">
-    <span class="carrito-icon">🛒</span>
-    <span class="carrito-badge oculto" id="carrito-badge">0</span>
-  </button>
-  
   <div class="carrito-drawer-overlay" id="carrito-drawer-overlay" onclick="cerrarCarritoDrawer()"></div>
-  <div class="carrito-drawer" id="carrito-drawer">
+  <div class="carrito-drawer" id="carrito-drawer" role="dialog" aria-modal="true" aria-labelledby="carrito-drawer-titulo">
     <div class="carrito-drawer-header">
-      <h2>Tu carrito</h2>
+      <h2 id="carrito-drawer-titulo">Tu carrito</h2>
       <button class="btn-cerrar-drawer" onclick="cerrarCarritoDrawer()" aria-label="Cerrar">✕</button>
     </div>
     <div class="carrito-drawer-lista" id="carrito-drawer-lista"></div>
@@ -2300,8 +2454,10 @@ class LocalServer {
     const esBuffet = $esHorarioBuffet;
     let carrito = [];
     let _pollCarrito = null;
+    let _pollPedidos = null;
     let _tickEnvio = null;
     let segundosHastaPoderEnviar = 0;
+    let _pedidosItemsCache = [];
 
     function actualizarCuentaAtrasEnvio() {
       const el = document.getElementById('carrito-envio-cuenta-atras');
@@ -2342,9 +2498,85 @@ class LocalServer {
     }
     
     function estadoItemATexto(estadoItem) {
-      if (estadoItem === 'pendiente' || estadoItem === 'preparando') return { texto: 'En preparación', clase: 'estado-preparacion' };
-      if (estadoItem === 'listo' || estadoItem === 'servido') return { texto: 'Servido', clase: 'estado-servido' };
-      return { texto: estadoItem || 'En preparación', clase: 'estado-preparacion' };
+      if (estadoItem === 'pendiente' || estadoItem === 'preparando') return { texto: 'En preparación', clase: 'estado-preparacion', enCocina: true };
+      if (estadoItem === 'listo' || estadoItem === 'servido') return { texto: 'Servido', clase: 'estado-servido', enCocina: false };
+      return { texto: estadoItem || 'En preparación', clase: 'estado-preparacion', enCocina: true };
+    }
+
+    function actualizarBadgePedidos(items) {
+      const enCocina = (items || []).filter(function(it) {
+        return estadoItemATexto(it.estadoItem).enCocina;
+      }).length;
+      const badge = document.getElementById('pedidos-badge');
+      const btn = document.getElementById('btn-pedidos-flotante');
+      if (badge) {
+        badge.textContent = enCocina > 99 ? '99+' : String(enCocina);
+        badge.classList.toggle('oculto', enCocina === 0);
+      }
+      if (btn) {
+        const label = enCocina > 0
+          ? ('Mis pedidos, ' + enCocina + (enCocina === 1 ? ' en cocina' : ' en cocina'))
+          : 'Mis pedidos';
+        btn.setAttribute('aria-label', label);
+      }
+    }
+
+    function renderResumenPedidos(items) {
+      const resumen = document.getElementById('pedidos-resumen');
+      const sub = document.getElementById('pedidos-sheet-sub');
+      if (!resumen) return;
+      const total = (items || []).length;
+      if (total === 0) {
+        resumen.innerHTML = '';
+        if (sub) sub.textContent = 'Aún no has enviado nada';
+        return;
+      }
+      let cocina = 0;
+      let servidos = 0;
+      items.forEach(function(it) {
+        if (estadoItemATexto(it.estadoItem).enCocina) cocina++;
+        else servidos++;
+      });
+      resumen.innerHTML =
+        '<span class="pedidos-chip chip-cocina"><span class="chip-num">' + cocina + '</span> en cocina</span>' +
+        '<span class="pedidos-chip chip-servido"><span class="chip-num">' + servidos + '</span> servido' + (servidos === 1 ? '' : 's') + '</span>';
+      if (sub) {
+        sub.textContent = cocina > 0
+          ? (cocina === 1 ? '1 plato sigue en cocina' : cocina + ' platos siguen en cocina')
+          : 'Todo servido';
+      }
+    }
+
+    function renderListaPedidos(items) {
+      const contenedor = document.getElementById('mis-pedidos-lista');
+      if (!contenedor) return;
+      if (!items || items.length === 0) {
+        contenedor.innerHTML = '<div class="mis-pedidos-vacio">Aún no tienes pedidos en la cuenta.<br>Añade productos y envía el pedido.</div>';
+        return;
+      }
+      const enCocina = [];
+      const servidos = [];
+      items.forEach(function(it) {
+        if (estadoItemATexto(it.estadoItem).enCocina) enCocina.push(it);
+        else servidos.push(it);
+      });
+      function fila(it) {
+        const e = estadoItemATexto(it.estadoItem);
+        const nombre = String(it.nombre || 'Producto').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const linea = it.cantidad > 1 ? nombre + ' x' + it.cantidad : nombre;
+        const claseExtra = e.enCocina ? ' en-cocina' : '';
+        return '<div class="item-pedido-realizado' + claseExtra + '"><span class="nombre-cantidad">' + linea + '</span><span class="estado-badge ' + e.clase + '">' + e.texto + '</span></div>';
+      }
+      var html = '';
+      if (enCocina.length) {
+        html += '<div class="mis-pedidos-grupo-titulo">En cocina</div>';
+        html += enCocina.map(fila).join('');
+      }
+      if (servidos.length) {
+        html += '<div class="mis-pedidos-grupo-titulo">Servidos</div>';
+        html += servidos.map(fila).join('');
+      }
+      contenedor.innerHTML = html;
     }
     
     async function refrescarMisPedidos() {
@@ -2354,6 +2586,8 @@ class LocalServer {
         const response = await fetch('/api/mesas/' + mesa + '/cuenta');
         if (!response.ok) {
           contenedor.innerHTML = '<div class="mis-pedidos-vacio">No se pudieron cargar los pedidos.</div>';
+          renderResumenPedidos([]);
+          actualizarBadgePedidos([]);
           return;
         }
         const pedidos = await response.json();
@@ -2369,20 +2603,57 @@ class LocalServer {
             });
           }
         });
-        if (items.length === 0) {
-          contenedor.innerHTML = '<div class="mis-pedidos-vacio">Aún no tienes pedidos en la cuenta. Añade productos y envía el pedido.</div>';
-          return;
-        }
-        const html = items.map(function(it) {
-          const e = estadoItemATexto(it.estadoItem);
-          const linea = it.cantidad > 1 ? it.nombre + ' x' + it.cantidad : it.nombre;
-          return '<div class="item-pedido-realizado"><span class="nombre-cantidad">' + linea + '</span><span class="estado-badge ' + e.clase + '">' + e.texto + '</span></div>';
-        }).join('');
-        contenedor.innerHTML = html;
+        _pedidosItemsCache = items;
+        actualizarBadgePedidos(items);
+        renderResumenPedidos(items);
+        renderListaPedidos(items);
       } catch (err) {
         console.error('Error cargando mis pedidos:', err);
         contenedor.innerHTML = '<div class="mis-pedidos-vacio">Error al cargar. Reintenta en un momento.</div>';
       }
+    }
+
+    function _escapePedidosSheet(e) {
+      if (e.key === 'Escape') cerrarPedidosSheet();
+    }
+
+    function togglePedidosSheet() {
+      const sheet = document.getElementById('pedidos-sheet');
+      if (!sheet) return;
+      if (sheet.classList.contains('abierto')) {
+        cerrarPedidosSheet();
+      } else {
+        abrirPedidosSheet();
+      }
+    }
+
+    function abrirPedidosSheet() {
+      cerrarCarritoDrawer();
+      const sheet = document.getElementById('pedidos-sheet');
+      const overlay = document.getElementById('pedidos-sheet-overlay');
+      const btn = document.getElementById('btn-pedidos-flotante');
+      if (!sheet || !overlay) return;
+      refrescarMisPedidos();
+      sheet.classList.add('abierto');
+      overlay.classList.add('visible');
+      sheet.setAttribute('aria-hidden', 'false');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+      document.addEventListener('keydown', _escapePedidosSheet);
+    }
+
+    function cerrarPedidosSheet() {
+      const sheet = document.getElementById('pedidos-sheet');
+      const overlay = document.getElementById('pedidos-sheet-overlay');
+      const btn = document.getElementById('btn-pedidos-flotante');
+      if (sheet) {
+        sheet.classList.remove('abierto');
+        sheet.setAttribute('aria-hidden', 'true');
+      }
+      if (overlay) overlay.classList.remove('visible');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', _escapePedidosSheet);
     }
     
     async function _postCarrito(url, payload) {
@@ -2506,19 +2777,24 @@ class LocalServer {
     function toggleCarritoDrawer() {
       const drawer = document.getElementById('carrito-drawer');
       const overlay = document.getElementById('carrito-drawer-overlay');
+      const btn = document.getElementById('btn-carrito-flotante');
       if (drawer.classList.contains('abierto')) {
         cerrarCarritoDrawer();
       } else {
+        cerrarPedidosSheet();
         cargarCarritoServidor();
         renderCarritoEnDrawer();
         drawer.classList.add('abierto');
         overlay.classList.add('visible');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
       }
     }
     
     function cerrarCarritoDrawer() {
       document.getElementById('carrito-drawer').classList.remove('abierto');
       document.getElementById('carrito-drawer-overlay').classList.remove('visible');
+      const btn = document.getElementById('btn-carrito-flotante');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
     }
     
     var ALERGENOS_MAP = {
@@ -2661,7 +2937,7 @@ class LocalServer {
           cerrarCarritoDrawer();
           // El servidor limpia el carrito al enviar; refrescar para sincronizar
           await cargarCarritoServidor();
-          refrescarMisPedidos();
+          await refrescarMisPedidos();
           document.getElementById('overlay').classList.add('visible');
           document.getElementById('mensaje').classList.add('visible');
         } else {
@@ -2687,11 +2963,13 @@ class LocalServer {
       }
     }
 
-    // Inicial: cargar carrito comunitario y refrescar periódicamente para ver cambios de otros móviles
+    // Inicial: carrito comunitario + estado de pedidos (badge cocina)
     (function iniciarCarritoComunitario() {
       cargarCarritoServidor();
       if (_pollCarrito) clearInterval(_pollCarrito);
       _pollCarrito = setInterval(cargarCarritoServidor, 4000);
+      if (_pollPedidos) clearInterval(_pollPedidos);
+      _pollPedidos = setInterval(refrescarMisPedidos, 5000);
       if (_tickEnvio) clearInterval(_tickEnvio);
       _tickEnvio = setInterval(function() {
         if (segundosHastaPoderEnviar > 0) {
@@ -2709,7 +2987,10 @@ class LocalServer {
     function cerrarMensajeYRecargar() {
       document.getElementById('overlay').classList.remove('visible');
       document.getElementById('mensaje').classList.remove('visible');
-      location.reload();
+      // Sin recargar: refrescar estado y abrir sheet de mis pedidos
+      refrescarMisPedidos().then(function() {
+        abrirPedidosSheet();
+      });
     }
     
     function marcarProductosAgotados(ids) {

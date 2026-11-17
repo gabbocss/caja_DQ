@@ -21,7 +21,7 @@ class CarritoPanel extends StatelessWidget {
   final Future<void> Function(int mesa)? onMesaTap;
   final ValueChanged<int>? onMostrarQrMesa;
   final ValueChanged<int> onItemRemoved;
-  /// Aplica distribución 1º/2º/3º y variantes tras el diálogo de orden del plato
+  /// Aplica distribución 1º/2º/3º/después postres y variantes tras el diálogo
   final void Function(Producto producto, ResultadoOrdenPlato resultado)?
       onAplicarOrdenPlato;
   final VoidCallback onEnviar;
@@ -417,6 +417,7 @@ class CarritoPanel extends StatelessWidget {
       total: dist.total,
       segundoInicial: dist.segundo,
       terceroInicial: dist.tercero,
+      despuesInicial: dist.despues,
       variantesIniciales: CarritoOrdenUtils.variantes(items, id),
     );
     if (result == null || !context.mounted) return;

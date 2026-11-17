@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "accessibility": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "skillPath": "skills/accessibility/SKILL.md",
+      "computedHash": "612f913bcb03f0787b103c848cd7664b676a9aaf31f25d3270cc69cf5caaab95"
+    },
+    "chiaroscuro": {
+      "source": "howells/skills",
+      "sourceType": "github",
+      "skillPath": "chiaroscuro/SKILL.md",
+      "computedHash": "9aef81fb101e4bf7b8465797658dcf3651e32f045674b4de0d83214d611f05dc"
+    },
+    "frontend-design": {
+      "source": "vercel-labs/agent-eval",
+      "sourceType": "github",
+      "skillPath": "packages/playground/.agents/skills/frontend-design/SKILL.md",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "mobile-responsive-ux": {
+      "source": "jacob-balslev/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-engineering/mobile-responsive-ux/SKILL.md",
+      "computedHash": "c06e68b742c24cf44b2f44009d5d0a679131c3e1f688311ae53b567b9e40124c"
+    },
+    "reflow": {
+      "source": "howells/skills",
+      "sourceType": "github",
+      "skillPath": "reflow/SKILL.md",
+      "computedHash": "8aa2a747c4daa06dd5df7e1e8bae5ebd2e5b85bbdf77a99e15e683cc7f104e42"
+    },
+    "web-animation-design": {
+      "source": "vercel-labs/open-agents",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/web-animation-design/SKILL.md",
+      "computedHash": "96ae2bb48c111f9318b5c46226417c15b5d2d8f8a8cccf78a3e0549b477e25e0"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
+    },
+    "zoetrope": {
+      "source": "howells/skills",
+      "sourceType": "github",
+      "skillPath": "zoetrope/SKILL.md",
+      "computedHash": "197baeebbca454593c69da8ea33be926ec46863f81c1f7b7f7968af1d716baf4"
+    }
+  }
+}

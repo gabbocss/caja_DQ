@@ -44,6 +44,11 @@ class DatabaseService {
     bool registrarEnAnalytics = false,
   }) async =>
       _unsupported();
+  Future<void> moverCuentaEntreMesas({
+    required int mesaOrigen,
+    required int mesaDestino,
+  }) async =>
+      _unsupported();
   Future<int> guardarMesa(Mesa mesa) async => _unsupported();
 
   Future<List<Pedido>> obtenerPedidosActivos() async => _unsupported();

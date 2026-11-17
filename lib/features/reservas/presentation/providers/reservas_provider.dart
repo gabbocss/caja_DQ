@@ -688,6 +688,22 @@ class ReservasProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Cambia de mesa una reserva ya sentada (mueve la cuenta abierta).
+  Future<void> cambiarMesa({
+    required Reserva reserva,
+    required int mesaNumero,
+  }) async {
+    if (_esAndroidNube) {
+      throw StateError(
+        'Cambiar mesa de una reserva solo está disponible en la caja de escritorio.',
+      );
+    }
+    await _asignacion.cambiarMesa(reserva: reserva, mesaNueva: mesaNumero);
+    _mesas = await DatabaseService.instance.obtenerMesas();
+    await _recargarLocal();
+    notifyListeners();
+  }
+
   /// Cobra un asporto pendiente (registro caja + ticket + estado cobrada).
   Future<void> cobrarAsporto({
     required Reserva reserva,

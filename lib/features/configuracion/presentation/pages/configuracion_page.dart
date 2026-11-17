@@ -20,11 +20,26 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
   bool _servidorActivo = false;
   String _estadoServidorCentral = 'No configurado';
 
+  /// Secciones desplegadas (en web, Menú abierto para ver Productos al entrar)
+  final Set<String> _seccionesAbiertas = {
+    if (kIsWeb) 'base_datos',
+  };
+
   @override
   void initState() {
     super.initState();
     _cargarConfiguracion();
     _cargarEstadoServidorCentral();
+  }
+
+  void _toggleSeccion(String id) {
+    setState(() {
+      if (_seccionesAbiertas.contains(id)) {
+        _seccionesAbiertas.remove(id);
+      } else {
+        _seccionesAbiertas.add(id);
+      }
+    });
   }
 
   void _cargarConfiguracion() {
@@ -69,6 +84,7 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                 children: [
                   // Sección de información del sistema
                   _buildSeccion(
+                    id: 'sistema',
                     titulo: 'Sistema',
                     icono: Icons.info_outline,
                     color: const Color(0xFF4FC3F7),
@@ -95,6 +111,7 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                   
                   // Sección de red
                   _buildSeccion(
+                    id: 'conectividad',
                     titulo: 'Conectividad',
                     icono: Icons.wifi,
                     color: const Color(0xFF00D9A5),
@@ -129,7 +146,7 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                         'QR WiFi',
                         'Mostrar QR para conectarse a la red del local',
                         Icons.qr_code_2,
-                        onTap: () => context.go(AppRoutes.wifiQr),
+                        onTap: () => context.push(AppRoutes.wifiQr),
                         color: const Color(0xFF00D9A5),
                       ),
                       _buildAccionTile(
@@ -151,30 +168,21 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                   
                   const SizedBox(height: 24),
                   
-                  // Sección de destinos de impresión
+                  // Impresión + destinos en una sola sección
                   _buildSeccion(
-                    titulo: 'Destinos de Impresión',
-                    icono: Icons.send,
-                    color: const Color(0xFF9C27B0),
+                    id: 'impresion',
+                    titulo: 'Impresión',
+                    icono: Icons.print,
+                    color: const Color(0xFFFFB74D),
                     children: [
                       _buildAccionTile(
                         'Gestionar Destinos',
                         'Cocina, Barra, Impresoras...',
                         Icons.alt_route,
                         onTap: () => context.push(AppRoutes.destinos),
+                        color: const Color(0xFF9C27B0),
                       ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Sección de impresión (solo en desktop)
-                  if (!kIsWeb)
-                    _buildSeccion(
-                      titulo: 'Impresión',
-                      icono: Icons.print,
-                      color: const Color(0xFFFFB74D),
-                      children: [
+                      if (!kIsWeb) ...[
                         _buildAccionTile(
                           'Impresora',
                           'No configurada',
@@ -188,13 +196,31 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                           onTap: _pruebaImpresion,
                         ),
                       ],
-                    ),
+                    ],
+                  ),
                   
-                  if (!kIsWeb) const SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   
-                  // Sección de datos (solo en servidor/desktop)
-                  if (!kIsWeb && _servidorActivo)
+                  // Menú / base de datos: en web (cocina) solo Productos vía API;
+                  // en servidor desktop, gestión completa local.
+                  if (kIsWeb)
                     _buildSeccion(
+                      id: 'base_datos',
+                      titulo: 'Menú',
+                      icono: Icons.restaurant_menu,
+                      color: const Color(0xFFE94560),
+                      children: [
+                        _buildAccionTile(
+                          'Productos',
+                          'Gestionar menú y disponibilidad',
+                          Icons.restaurant_menu,
+                          onTap: () => context.push(AppRoutes.gestionProductos),
+                        ),
+                      ],
+                    )
+                  else if (_servidorActivo)
+                    _buildSeccion(
+                      id: 'base_datos',
                       titulo: 'Base de Datos',
                       icono: Icons.storage,
                       color: const Color(0xFFE94560),
@@ -226,11 +252,12 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                         ),
                       ],
                     ),
-                  
-                  if (!kIsWeb && _servidorActivo) const SizedBox(height: 24),
+
+                  if (kIsWeb || _servidorActivo) const SizedBox(height: 24),
                   
                   // Sección del buffet
                   _buildSeccion(
+                    id: 'buffet',
                     titulo: 'Buffet del Sábado',
                     icono: Icons.star,
                     color: const Color(0xFFFFD700),
@@ -309,11 +336,14 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
   }
 
   Widget _buildSeccion({
+    required String id,
     required String titulo,
     required IconData icono,
     required Color color,
     required List<Widget> children,
   }) {
+    final abierta = _seccionesAbiertas.contains(id);
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF16213E),
@@ -323,38 +353,68 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
           width: 1,
         ),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header de sección
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(15),
-                topRight: Radius.circular(15),
+          // Cabecera clicable: despliega / pliega opciones
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _toggleSeccion(id),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: abierta
+                      ? const BorderRadius.only(
+                          topLeft: Radius.circular(15),
+                          topRight: Radius.circular(15),
+                        )
+                      : BorderRadius.circular(15),
+                ),
+                child: Row(
+                  children: [
+                    Icon(icono, color: color, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        titulo.toUpperCase(),
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: abierta ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.expand_more,
+                        color: color,
+                        size: 28,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                Icon(icono, color: color, size: 24),
-                const SizedBox(width: 12),
-                Text(
-                  titulo.toUpperCase(),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-            ),
           ),
-          
-          // Contenido
-          ...children,
+
+          // Contenido animado
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+            crossFadeState:
+                abierta ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+            sizeCurve: Curves.easeInOut,
+          ),
         ],
       ),
     );

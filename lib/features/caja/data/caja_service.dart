@@ -124,8 +124,8 @@ class CajaService {
       abiertaEn: DateTime.now(),
       fondoInicial: fondo,
     );
+    // Solo cuentan cobros desde la apertura; los anteriores (huérfanos) no se asignan.
     await _guardarSesionActiva(sesion);
-    await RegistroPagoService.instance.asignarPagosHuerfanosASesion(sesion.id);
     return sesion;
   }
 

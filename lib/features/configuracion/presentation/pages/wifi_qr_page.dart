@@ -23,7 +23,18 @@ class WifiQrPage extends StatelessWidget {
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(AppRoutes.mesas),
+          // En móvil /mesas es válido; en escritorio no (PedidosMobileProvider no existe).
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+              return;
+            }
+            if (PlatformUtils.isMobile) {
+              context.go(AppRoutes.mesas);
+            } else {
+              context.go(AppRoutes.configuracion);
+            }
+          },
         ),
       ),
       body: Center(

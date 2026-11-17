@@ -45,14 +45,25 @@ class TiempoMedioPlato {
 
 /// Servicio para consultas de estadísticas (platos más pedidos, tiempos de preparación).
 /// Usa solo DatabaseService (UI servidor/desktop).
+/// Excluye pedidos cerrados con «Liberar» (sin cobro real).
 class EstadisticasService {
+  /// Pedidos del rango que cuentan en estadísticas (no liberados sin cobro).
+  static Future<List<Pedido>> _pedidosParaEstadisticas(
+    DateTime desde,
+    DateTime hastaEndOfDay,
+  ) async {
+    final pedidos =
+        await DatabaseService.instance.obtenerPedidosEntreFechas(desde, hastaEndOfDay);
+    return pedidos.where((p) => !p.liberadoSinCobro).toList();
+  }
+
   static Future<List<PlatoMasPedido>> obtenerPlatosMasPedidos({
     required DateTime desde,
     required DateTime hasta,
     String? categoria,
   }) async {
     final hastaEndOfDay = DateTime(hasta.year, hasta.month, hasta.day, 23, 59, 59, 999);
-    final pedidos = await DatabaseService.instance.obtenerPedidosEntreFechas(desde, hastaEndOfDay);
+    final pedidos = await _pedidosParaEstadisticas(desde, hastaEndOfDay);
     final productos = await DatabaseService.instance.obtenerProductos();
     final mapProductoIdCategoria = {for (final p in productos) p.id: p.categoria};
 
@@ -90,7 +101,7 @@ class EstadisticasService {
     required DateTime hasta,
   }) async {
     final hastaEndOfDay = DateTime(hasta.year, hasta.month, hasta.day, 23, 59, 59, 999);
-    final pedidos = await DatabaseService.instance.obtenerPedidosEntreFechas(desde, hastaEndOfDay);
+    final pedidos = await _pedidosParaEstadisticas(desde, hastaEndOfDay);
     final list = <TiempoPreparacion>[];
     for (final p in pedidos) {
       if (p.fechaInicioPreparacion == null || p.fechaListo == null) continue;
@@ -112,7 +123,7 @@ class EstadisticasService {
     required DateTime hasta,
   }) async {
     final hastaEndOfDay = DateTime(hasta.year, hasta.month, hasta.day, 23, 59, 59, 999);
-    final pedidos = await DatabaseService.instance.obtenerPedidosEntreFechas(desde, hastaEndOfDay);
+    final pedidos = await _pedidosParaEstadisticas(desde, hastaEndOfDay);
     // Por cada plato (productoId + nombreProducto): lista de duraciones en minutos
     final map = <String, List<double>>{};
     const sep = '\x01'; // Separador que no aparece en nombres
@@ -161,7 +172,7 @@ class EstadisticasService {
     final h = hasta ?? ahora;
     final d = desde ?? h.subtract(const Duration(days: 365));
     final hastaEndOfDay = DateTime(h.year, h.month, h.day, 23, 59, 59, 999);
-    final pedidos = await DatabaseService.instance.obtenerPedidosEntreFechas(d, hastaEndOfDay);
+    final pedidos = await _pedidosParaEstadisticas(d, hastaEndOfDay);
     final map = <int, int>{};
     for (final pedido in pedidos) {
       for (final item in pedido.items) {

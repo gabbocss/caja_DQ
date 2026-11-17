@@ -52,7 +52,7 @@ class ItemPedido {
   /// Momento en que cocina marcó este plato como hecho (estado → listo).
   DateTime? fechaListoItem;
 
-  /// Orden del plato: 1 = 1º, 2 = 2º, etc.
+  /// Orden del plato: 1 = 1º, 2 = 2º, 3 = 3º, 4 = después de los postres.
   int orden = 1;
 
   /// Constructor por defecto requerido por Isar
@@ -185,6 +185,12 @@ class Pedido {
   @Name('zzClienteId')
   int? clienteId;
 
+  /// `true` si la mesa se cerró con «Liberar» (sin cobro real).
+  /// Esos pedidos no deben aparecer en la pantalla de estadísticas.
+  /// Nombre zzZ* para quedar tras zzReservaId y no reordenar IDs Isar.
+  @Name('zzZLiberadoSinCobro')
+  bool liberadoSinCobro = false;
+
   /// Constructor por defecto
   Pedido();
 
@@ -240,8 +246,8 @@ class Pedido {
   void aplicarPago(double importe) {
     normalizarTotalPendiente();
     final cobro = importe.clamp(0, totalPendiente).toDouble();
-    totalPendiente = (totalPendiente - cobro).clamp(0, total).toDouble();
-    fechaActualizacion = DateTime.now();
+    dineroCobradoAcumulado += cobro;
+    actualizarPendienteDesdeCobrosAcumulados();
   }
 
   /// Indica si queda saldo por cobrar en este pedido.
@@ -265,10 +271,28 @@ class Pedido {
   }
 
   /// Alinea [total] con los ítems y corrige [totalPendiente] (0, NaN, Infinity o > total).
+  ///
+  /// Si hay cobros parciales en [dineroCobradoAcumulado], el pendiente se deriva de
+  /// `total − cobrado` (no se “revive” un pedido ya cubierto a pendiente = total).
   void normalizarTotalPendiente() {
     final totalItems = items.fold<double>(0, (sum, item) => sum + item.subtotal);
     if (totalItems > 0.009) {
       total = totalItems;
+    }
+
+    if (dineroCobradoAcumulado.isNaN ||
+        dineroCobradoAcumulado.isInfinite ||
+        dineroCobradoAcumulado < 0) {
+      dineroCobradoAcumulado = 0;
+    } else if (dineroCobradoAcumulado > total + 0.009) {
+      dineroCobradoAcumulado = total;
+    }
+
+    // Con cobros registrados, la fuente de verdad es el acumulado en Isar.
+    if (dineroCobradoAcumulado > 0.009) {
+      totalPendiente =
+          (total - dineroCobradoAcumulado).clamp(0, total).toDouble();
+      return;
     }
 
     final invalido = totalPendiente.isNaN ||
@@ -349,6 +373,7 @@ class Pedido {
       'fechaListo': fechaListo?.toIso8601String(),
       if (reservaId != null) 'reservaId': reservaId,
       if (clienteId != null) 'clienteId': clienteId,
+      if (liberadoSinCobro) 'liberadoSinCobro': liberadoSinCobro,
     };
   }
 
@@ -389,7 +414,8 @@ class Pedido {
           ? DateTime.parse(json['fechaListo'] as String)
           : null
       ..reservaId = json['reservaId'] as int?
-      ..clienteId = json['clienteId'] as int?;
+      ..clienteId = json['clienteId'] as int?
+      ..liberadoSinCobro = json['liberadoSinCobro'] as bool? ?? false;
 
     final totalPedido = pedido.total;
     pedido.dineroCobradoAcumulado =

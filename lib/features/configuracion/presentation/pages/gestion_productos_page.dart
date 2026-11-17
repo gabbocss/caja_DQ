@@ -24,6 +24,8 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   bool _cargando = true;
   bool _sincronizandoCatalogo = false;
   String? _filtroCategoria;
+  /// Filtro de estado: 'disponibles' | 'agotados' | 'sinFoto' | 'noBuffet' | null (todos)
+  String? _filtroEstado;
 
   @override
   void initState() {
@@ -56,14 +58,63 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
     }
   }
 
+  bool get _usarApi => sl.isRegistered<ApiClient>();
+
+  Future<List<Producto>> _obtenerProductos() async {
+    if (_usarApi) return sl<ApiClient>().obtenerProductos();
+    return DatabaseService.instance.obtenerProductos();
+  }
+
+  Future<List<DestinoImpresion>> _obtenerDestinosActivos() async {
+    if (_usarApi) return sl<ApiClient>().obtenerDestinosActivos();
+    return DatabaseService.instance.obtenerDestinosActivos();
+  }
+
+  Future<List<Categoria>> _obtenerCategorias() async {
+    if (_usarApi) return sl<ApiClient>().obtenerCategorias();
+    return DatabaseService.instance.obtenerCategorias();
+  }
+
+  Future<void> _guardarProducto(Producto producto) async {
+    if (_usarApi) {
+      await sl<ApiClient>().guardarProducto(producto);
+    } else {
+      await DatabaseService.instance.guardarProducto(producto);
+    }
+  }
+
+  Future<void> _actualizarDisponibilidad(int id, bool disponible) async {
+    if (_usarApi) {
+      await sl<ApiClient>().actualizarDisponibilidad(id, disponible);
+    } else {
+      await DatabaseService.instance.actualizarDisponibilidad(id, disponible);
+    }
+  }
+
+  Future<void> _eliminarProducto(int id) async {
+    if (_usarApi) {
+      await sl<ApiClient>().eliminarProducto(id);
+    } else {
+      await DatabaseService.instance.eliminarProducto(id);
+    }
+  }
+
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
     try {
-      _productos = await DatabaseService.instance.obtenerProductos();
-      _destinos = await DatabaseService.instance.obtenerDestinosActivos();
-      _categoriasDb = await DatabaseService.instance.obtenerCategorias();
+      _productos = await _obtenerProductos();
+      _destinos = await _obtenerDestinosActivos();
+      _categoriasDb = await _obtenerCategorias();
     } catch (e) {
       debugPrint('Error al cargar datos: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar productos: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -75,9 +126,37 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
     return cats;
   }
 
-  List<Producto> get _productosFiltrados {
+  /// Productos filtrados solo por categoría (base para contadores).
+  List<Producto> get _productosPorCategoria {
     if (_filtroCategoria == null) return _productos;
     return _productos.where((p) => p.categoria == _filtroCategoria).toList();
+  }
+
+  static bool _productoSinFoto(Producto p) {
+    final i = p.imagen;
+    return i == null || i.trim().isEmpty;
+  }
+
+  /// Productos visibles: categoría + estado (disponibles / agotados / sin foto / no buffet).
+  List<Producto> get _productosFiltrados {
+    var lista = _productosPorCategoria;
+    switch (_filtroEstado) {
+      case 'disponibles':
+        lista = lista.where((p) => p.isAvailable).toList();
+      case 'agotados':
+        lista = lista.where((p) => !p.isAvailable).toList();
+      case 'sinFoto':
+        lista = lista.where(_productoSinFoto).toList();
+      case 'noBuffet':
+        lista = lista.where((p) => !p.esBuffet).toList();
+    }
+    return lista;
+  }
+
+  void _toggleFiltroEstado(String estado) {
+    setState(() {
+      _filtroEstado = _filtroEstado == estado ? null : estado;
+    });
   }
 
   @override
@@ -173,9 +252,13 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   }
 
   Widget _buildContador() {
-    final disponibles = _productosFiltrados.where((p) => p.isAvailable).length;
-    final agotados = _productosFiltrados.length - disponibles;
-    
+    // Contadores según categoría (sin filtro de estado) para que no cambien al filtrar
+    final base = _productosPorCategoria;
+    final disponibles = base.where((p) => p.isAvailable).length;
+    final agotados = base.length - disponibles;
+    final sinFoto = base.where(_productoSinFoto).length;
+    final noBuffet = base.where((p) => !p.esBuffet).length;
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: const Color(0xFF0F3460),
@@ -186,28 +269,32 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
             style: const TextStyle(color: Colors.white70),
           ),
           const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00D9A5).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$disponibles disponibles',
-              style: const TextStyle(color: Color(0xFF00D9A5), fontSize: 12),
-            ),
+          _FiltroEstadoChip(
+            label: '$disponibles disponibles',
+            color: const Color(0xFF00D9A5),
+            isSelected: _filtroEstado == 'disponibles',
+            onTap: () => _toggleFiltroEstado('disponibles'),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE94560).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$agotados agotados',
-              style: const TextStyle(color: Color(0xFFE94560), fontSize: 12),
-            ),
+          _FiltroEstadoChip(
+            label: '$agotados agotados',
+            color: const Color(0xFFE94560),
+            isSelected: _filtroEstado == 'agotados',
+            onTap: () => _toggleFiltroEstado('agotados'),
+          ),
+          const SizedBox(width: 8),
+          _FiltroEstadoChip(
+            label: '$sinFoto sin foto',
+            color: const Color(0xFFEF9A9A),
+            isSelected: _filtroEstado == 'sinFoto',
+            onTap: () => _toggleFiltroEstado('sinFoto'),
+          ),
+          const SizedBox(width: 8),
+          _FiltroEstadoChip(
+            label: '$noBuffet no buffet',
+            color: const Color(0xFFFFD700),
+            isSelected: _filtroEstado == 'noBuffet',
+            onTap: () => _toggleFiltroEstado('noBuffet'),
           ),
         ],
       ),
@@ -245,6 +332,30 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
 
   Widget _buildListaProductos() {
     final lista = _productosFiltrados;
+    // Con filtro de estado activo no se reordena (evitar desordenar el catálogo)
+    final puedeReordenar = _filtroEstado == null;
+
+    if (!puedeReordenar) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: lista.length,
+        itemBuilder: (context, index) {
+          final producto = lista[index];
+          return _ProductoTile(
+            key: ValueKey(producto.id),
+            producto: producto,
+            destinos: _destinos,
+            showDragHandle: false,
+            reorderIndex: index,
+            onToggleBuffet: () => _toggleBuffet(producto),
+            onToggleDisponibilidad: () => _toggleDisponibilidad(producto),
+            onEditar: () => _mostrarFormularioProducto(producto),
+            onEliminar: () => _confirmarEliminar(producto),
+          );
+        },
+      );
+    }
+
     return ReorderableListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: lista.length,
@@ -273,7 +384,6 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   }
 
   Future<void> _reordenarProductos(int oldIndex, int newIndex) async {
-    final db = DatabaseService.instance;
     if (_filtroCategoria != null) {
       // Reordenar solo dentro de la categoría seleccionada
       final filtered = List<Producto>.from(_productosFiltrados);
@@ -286,7 +396,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
           ?.orden ?? 0;
       for (int i = 0; i < filtered.length; i++) {
         filtered[i].orden = catOrden * 1000 + i;
-        await db.guardarProducto(filtered[i]);
+        await _guardarProducto(filtered[i]);
       }
     } else {
       // Reordenar lista completa (Todos): asignar orden = categoría*1000 + índice en categoría
@@ -303,7 +413,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
         p.orden = _ordenParaProducto(p.categoria, idx);
       }
       for (final p in _productos) {
-        await db.guardarProducto(p);
+        await _guardarProducto(p);
       }
     }
     await _cargarDatos();
@@ -311,10 +421,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
 
   Future<void> _toggleDisponibilidad(Producto producto) async {
     try {
-      await DatabaseService.instance.actualizarDisponibilidad(
-        producto.id!,
-        !producto.isAvailable,
-      );
+      await _actualizarDisponibilidad(producto.id!, !producto.isAvailable);
       await _cargarDatos();
       
       if (mounted) {
@@ -345,7 +452,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
       final actualizado = producto;
       actualizado.esBuffet = !actualizado.esBuffet;
       actualizado.fechaModificacion = DateTime.now();
-      await DatabaseService.instance.guardarProducto(actualizado);
+      await _guardarProducto(actualizado);
       await _cargarDatos();
     } catch (e) {
       if (mounted) {
@@ -365,7 +472,8 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
         categoriasDisponibles: _categoriasDb.isEmpty
             ? CategoriaProducto.todas
             : _categoriasDb.map((c) => c.nombre).toList(),
-        onGuardar: () {
+        onGuardarProducto: _guardarProducto,
+        onGuardado: () {
           Navigator.of(context).pop();
           _cargarDatos();
         },
@@ -403,7 +511,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              await DatabaseService.instance.eliminarProducto(producto.id!);
+              await _eliminarProducto(producto.id!);
               _cargarDatos();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -416,6 +524,54 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
 }
 
 /// Chip de categoría para filtrado
+/// Chip clicable para filtrar por disponibles / agotados / sin foto.
+class _FiltroEstadoChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _FiltroEstadoChip({
+    required this.label,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.45)
+                : color.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? color : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CategoriaChip extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -740,13 +896,15 @@ class _ProductoFormDialog extends StatefulWidget {
   final Producto? producto;
   final List<DestinoImpresion> destinos;
   final List<String> categoriasDisponibles;
-  final VoidCallback onGuardar;
+  final Future<void> Function(Producto producto) onGuardarProducto;
+  final VoidCallback onGuardado;
 
   const _ProductoFormDialog({
     this.producto,
     required this.destinos,
     required this.categoriasDisponibles,
-    required this.onGuardar,
+    required this.onGuardarProducto,
+    required this.onGuardado,
   });
 
   @override
@@ -885,8 +1043,8 @@ class _ProductoFormDialogState extends State<_ProductoFormDialog> {
       }
       producto.fechaModificacion = DateTime.now();
 
-      await DatabaseService.instance.guardarProducto(producto);
-      widget.onGuardar();
+      await widget.onGuardarProducto(producto);
+      widget.onGuardado();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

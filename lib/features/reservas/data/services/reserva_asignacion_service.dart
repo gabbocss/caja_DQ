@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/core.dart';
 import '../../../../core/prefs/reservas_central_prefs.dart';
+import '../../../../core/services/registro_pago_service.dart';
 import '../../../../core/services/reserva_persistence_service.dart';
 
 /// Asignación atómica: mesa + pedido + impresión + estado sentada.
@@ -84,6 +85,60 @@ class ReservaAsignacionService {
     await _persistencia.guardarReserva(reserva);
 
     await _notificarRemotaSentada(reserva.id!, mesaNumero);
+  }
+
+  /// Mueve una reserva ya sentada (y su cuenta abierta) a otra mesa libre.
+  /// No reimprime cocina ni crea cubiertos/platos nuevos.
+  Future<void> cambiarMesa({
+    required Reserva reserva,
+    required int mesaNueva,
+  }) async {
+    if (reserva.id == null) {
+      throw StateError('La reserva debe tener id antes de cambiar de mesa');
+    }
+    if (reserva.estado != EstadoReserva.sentada) {
+      throw StateError('Solo se puede cambiar mesa de una reserva sentada');
+    }
+    final mesaOrigen = reserva.mesaAsignada;
+    if (mesaOrigen == null) {
+      throw StateError('La reserva no tiene mesa asignada');
+    }
+    if (mesaOrigen == mesaNueva) {
+      throw StateError('La mesa de destino debe ser distinta a la actual');
+    }
+
+    final db = DatabaseService.instance;
+
+    // Evitar dos reservas sentadas en la misma mesa.
+    final delDia = await _persistencia.obtenerReservasDelDia(
+      reserva.fechaHoraLlegada,
+    );
+    final conflicto = delDia.any(
+      (r) =>
+          r.id != reserva.id &&
+          r.estado == EstadoReserva.sentada &&
+          r.mesaAsignada == mesaNueva,
+    );
+    if (conflicto) {
+      throw StateError(
+        'Ya hay otra reserva sentada en la mesa $mesaNueva',
+      );
+    }
+
+    await db.moverCuentaEntreMesas(
+      mesaOrigen: mesaOrigen,
+      mesaDestino: mesaNueva,
+    );
+
+    await RegistroPagoService.instance.reasignarPagosMesa(
+      mesaOrigen,
+      mesaNueva,
+    );
+
+    reserva.mesaAsignada = mesaNueva;
+    await _persistencia.guardarReserva(reserva);
+
+    await _notificarRemotaSentada(reserva.id!, mesaNueva);
   }
 
   Future<void> _notificarRemotaSentada(int reservaId, int mesaNumero) async {

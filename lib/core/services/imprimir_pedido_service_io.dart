@@ -162,7 +162,7 @@ class ImprimirPedidoService {
     return _aplicarMargen('$line\n', margenEsp);
   }
 
-  /// Agrupa ítems por orden (1º, 2º, 3º...) y devuelve los turnos ordenados.
+  /// Agrupa ítems por orden (1º, 2º, 3º, después postres...) y devuelve los turnos.
   Map<int, List<ItemPedido>> _agruparPorOrden(List<ItemPedido> items) {
     final map = <int, List<ItemPedido>>{};
     for (final item in items) {
@@ -171,6 +171,12 @@ class ImprimirPedidoService {
     }
     final ordenados = map.keys.toList()..sort();
     return {for (final k in ordenados) k: map[k]!};
+  }
+
+  /// Etiqueta de cabecera de turno en el ticket de cocina/cuenta.
+  String _etiquetaOrden(int orden) {
+    if (orden == 4) return 'Despues de los postres';
+    return '$orden Plato';
   }
 
   int _espaciosMargenIzq(ConfiguracionImpresion c) {
@@ -301,7 +307,7 @@ class ImprimirPedidoService {
       final orden = entry.key;
       final itemsTurno = entry.value;
       addStr(_aplicarMargen('\n\n', margenEsp));
-      addStr(_aplicarMargen('$orden Plato\n', margenEsp));
+      addStr(_aplicarMargen('${_etiquetaOrden(orden)}\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
       final agrupado = _agruparConVariantes(itemsTurno);
       for (final e in agrupado) {
@@ -441,7 +447,7 @@ class ImprimirPedidoService {
       final agrupado = _agruparCantidadesConPrecio(itemsTurno);
       if (agrupado.isEmpty) continue;
       addStr(_aplicarMargen('\n\n', margenEsp));
-      addStr(_aplicarMargen('$orden Plato\n', margenEsp));
+      addStr(_aplicarMargen('${_etiquetaOrden(orden)}\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
       final valores = agrupado.values.toList()
         ..sort((a, b) => a.nombre.compareTo(b.nombre));
@@ -551,7 +557,7 @@ class ImprimirPedidoService {
       final agrupado = _agruparCantidadesConPrecio(itemsTurno);
       if (agrupado.isEmpty) continue;
       addStr(_aplicarMargen('\n\n', margenEsp));
-      addStr(_aplicarMargen('$orden Plato\n', margenEsp));
+      addStr(_aplicarMargen('${_etiquetaOrden(orden)}\n', margenEsp));
       addStr(_aplicarMargen('$sepCorta\n', margenEsp));
       final valores = agrupado.values.toList()
         ..sort((a, b) => a.nombre.compareTo(b.nombre));

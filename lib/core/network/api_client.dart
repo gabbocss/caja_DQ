@@ -133,6 +133,29 @@ class ApiClient {
     }
   }
 
+  /// Actualiza solo la disponibilidad de un producto (agotado / disponible)
+  Future<void> actualizarDisponibilidad(int id, bool disponible) async {
+    try {
+      final response = await _client.put(
+        Uri.parse('$baseUrl/api/productos/$id/disponibilidad'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({'disponible': disponible}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Error al actualizar disponibilidad: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error en actualizarDisponibilidad: $e');
+      rethrow;
+    }
+  }
+
   // ==================== CATEGORÍAS ====================
 
   /// Obtiene todas las categorías

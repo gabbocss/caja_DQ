@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/core.dart';
+import '../../../pedidos/presentation/widgets/barra_busqueda_pedidos.dart';
 import '../../data/estadisticas_service.dart';
 import '../utils/estadisticas_pdf_export.dart';
 
@@ -24,6 +25,9 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
   List<TiempoMedioPlato> _tiemposPlato = [];
   bool _cargando = false;
   String? _error;
+  final TextEditingController _busquedaController = TextEditingController();
+  final FocusNode _busquedaFocus = FocusNode();
+  String _busqueda = '';
 
   @override
   void initState() {
@@ -31,6 +35,31 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
     _cargarCategorias();
     _cargarDatos();
   }
+
+  @override
+  void dispose() {
+    _busquedaController.dispose();
+    _busquedaFocus.dispose();
+    super.dispose();
+  }
+
+  void _limpiarBusqueda() {
+    _busquedaController.clear();
+    _busquedaFocus.unfocus();
+    setState(() => _busqueda = '');
+  }
+
+  bool _coincideBusqueda(String nombre) {
+    final q = _busqueda.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return nombre.toLowerCase().contains(q);
+  }
+
+  List<PlatoMasPedido> get _platosFiltrados =>
+      _platos.where((p) => _coincideBusqueda(p.nombreProducto)).toList();
+
+  List<TiempoMedioPlato> get _tiemposFiltrados =>
+      _tiemposPlato.where((t) => _coincideBusqueda(t.nombreProducto)).toList();
 
   Future<void> _cargarCategorias() async {
     try {
@@ -72,9 +101,13 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
   }
 
   double get _tiempoMedioGeneralMinutos {
-    if (_tiemposPlato.isEmpty) return 0;
-    final totalMin = _tiemposPlato.fold<double>(0, (s, t) => s + t.tiempoMedioMinutos * t.cantidadRegistros);
-    final totalReg = _tiemposPlato.fold<int>(0, (s, t) => s + t.cantidadRegistros);
+    final tiempos = _tiemposFiltrados;
+    if (tiempos.isEmpty) return 0;
+    final totalMin = tiempos.fold<double>(
+      0,
+      (s, t) => s + t.tiempoMedioMinutos * t.cantidadRegistros,
+    );
+    final totalReg = tiempos.fold<int>(0, (s, t) => s + t.cantidadRegistros);
     return totalReg > 0 ? totalMin / totalReg : 0;
   }
 
@@ -105,8 +138,9 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
         desde: _desde,
         hasta: _hasta,
         categoria: _categoria,
-        platos: _platos,
-        tiemposPlato: _tiemposPlato,
+        busquedaPlato: _busqueda.trim().isEmpty ? null : _busqueda.trim(),
+        platos: _platosFiltrados,
+        tiemposPlato: _tiemposFiltrados,
       );
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
@@ -235,55 +269,83 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       color: const Color(0xFF16213E),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextButton.icon(
-            onPressed: () async {
-              final d = await showDatePicker(
-                context: context,
-                initialDate: _desde,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now(),
-              );
-              if (d != null && mounted) setState(() { _desde = d; _cargarDatos(); });
-            },
-            icon: const Icon(Icons.calendar_today, color: Color(0xFF00D9A5), size: 20),
-            label: Text(fmt.format(_desde), style: const TextStyle(color: Colors.white70)),
-          ),
-          const Text(' — ', style: TextStyle(color: Colors.white54)),
-          TextButton.icon(
-            onPressed: () async {
-              final d = await showDatePicker(
-                context: context,
-                initialDate: _hasta,
-                firstDate: _desde,
-                lastDate: DateTime.now(),
-              );
-              if (d != null && mounted) setState(() { _hasta = d; _cargarDatos(); });
-            },
-            icon: const Icon(Icons.calendar_today, color: Color(0xFF00D9A5), size: 20),
-            label: Text(fmt.format(_hasta), style: const TextStyle(color: Colors.white70)),
-          ),
-          const SizedBox(width: 24),
-          DropdownButton<String>(
-            value: _categoria,
-            hint: const Text('Todas las categorías', style: TextStyle(color: Colors.white54)),
-            dropdownColor: const Color(0xFF16213E),
-            style: const TextStyle(color: Colors.white),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
-              ..._categorias.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _desde,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                  );
+                  if (d != null && mounted) {
+                    setState(() {
+                      _desde = d;
+                      _cargarDatos();
+                    });
+                  }
+                },
+                icon: const Icon(Icons.calendar_today, color: Color(0xFF00D9A5), size: 20),
+                label: Text(fmt.format(_desde), style: const TextStyle(color: Colors.white70)),
+              ),
+              const Text(' — ', style: TextStyle(color: Colors.white54)),
+              TextButton.icon(
+                onPressed: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _hasta,
+                    firstDate: _desde,
+                    lastDate: DateTime.now(),
+                  );
+                  if (d != null && mounted) {
+                    setState(() {
+                      _hasta = d;
+                      _cargarDatos();
+                    });
+                  }
+                },
+                icon: const Icon(Icons.calendar_today, color: Color(0xFF00D9A5), size: 20),
+                label: Text(fmt.format(_hasta), style: const TextStyle(color: Colors.white70)),
+              ),
+              const SizedBox(width: 24),
+              DropdownButton<String>(
+                value: _categoria,
+                hint: const Text('Todas las categorías', style: TextStyle(color: Colors.white54)),
+                dropdownColor: const Color(0xFF16213E),
+                style: const TextStyle(color: Colors.white),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
+                  ..._categorias.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                ],
+                onChanged: (v) {
+                  setState(() {
+                    _categoria = v;
+                    _cargarDatos();
+                  });
+                },
+              ),
+              const SizedBox(width: 16),
+              FilledButton.icon(
+                onPressed: _cargando ? null : () => _cargarDatos(),
+                icon: const Icon(Icons.refresh, size: 20),
+                label: const Text('Actualizar'),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE94560)),
+              ),
             ],
-            onChanged: (v) {
-              setState(() { _categoria = v; _cargarDatos(); });
-            },
           ),
-          const SizedBox(width: 16),
-          FilledButton.icon(
-            onPressed: _cargando ? null : () => _cargarDatos(),
-            icon: const Icon(Icons.refresh, size: 20),
-            label: const Text('Actualizar'),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE94560)),
+          const SizedBox(height: 12),
+          BarraBusquedaPedidos(
+            controller: _busquedaController,
+            focusNode: _busquedaFocus,
+            hintText: 'Buscar un plato concreto…',
+            textoActual: _busqueda,
+            cerrarConEscape: true,
+            onChanged: (v) => setState(() => _busqueda = v),
+            onLimpiar: _limpiarBusqueda,
           ),
         ],
       ),
@@ -303,6 +365,12 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
   }
 
   Widget _buildSeccionPlatos() {
+    final platos = _platosFiltrados;
+    final buscando = _busqueda.trim().isNotEmpty;
+    // Con búsqueda mostramos todos los coincidentes; sin ella, el top 15.
+    final visibles = buscando ? platos : platos.take(15).toList();
+    final maxCant = platos.isNotEmpty ? platos.first.cantidadTotal.toDouble() : 1.0;
+
     return Card(
       color: const Color(0xFF16213E),
       child: Padding(
@@ -310,41 +378,86 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.restaurant, color: Color(0xFF00D9A5)),
-                SizedBox(width: 8),
-                Text('Platos más pedidos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const Icon(Icons.restaurant, color: Color(0xFF00D9A5)),
+                const SizedBox(width: 8),
+                Text(
+                  buscando ? 'Platos encontrados' : 'Platos más pedidos',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (buscando) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    '(${platos.length})',
+                    style: const TextStyle(color: Colors.white54, fontSize: 14),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 16),
             if (_platos.isEmpty)
-              const Text('Sin datos en el período seleccionado.', style: TextStyle(color: Colors.white54))
+              const Text(
+                'Sin datos en el período seleccionado.',
+                style: TextStyle(color: Colors.white54),
+              )
+            else if (platos.isEmpty)
+              Text(
+                'Ningún plato coincide con “${_busqueda.trim()}”.',
+                style: const TextStyle(color: Colors.white54),
+              )
             else
               Column(
-                children: _platos.take(15).toList().asMap().entries.map((e) {
+                children: visibles.asMap().entries.map((e) {
                   final i = e.key;
                   final p = e.value;
-                  final maxCant = _platos.isNotEmpty ? _platos.first.cantidadTotal.toDouble() : 1.0;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
                       children: [
                         SizedBox(
                           width: 32,
-                          child: Text('${i + 1}', style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(p.nombreProducto, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                              Text(
+                                p.nombreProducto,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                               if (p.categoria != null && p.categoria!.isNotEmpty)
-                                Text(p.categoria!, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                                Text(
+                                  p.categoria!,
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
-                        Text('${p.cantidadTotal}', style: const TextStyle(color: Color(0xFF00D9A5), fontWeight: FontWeight.bold)),
+                        Text(
+                          '${p.cantidadTotal}',
+                          style: const TextStyle(
+                            color: Color(0xFF00D9A5),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         SizedBox(
                           width: 120,
@@ -367,6 +480,11 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
   }
 
   Widget _buildSeccionTiempos() {
+    final tiempos = _tiemposFiltrados;
+    final buscando = _busqueda.trim().isNotEmpty;
+    final totalReg =
+        tiempos.fold<int>(0, (s, t) => s + t.cantidadRegistros);
+
     return Card(
       color: const Color(0xFF16213E),
       child: Padding(
@@ -378,12 +496,21 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
               children: [
                 Icon(Icons.timer, color: Color(0xFFFFB74D)),
                 SizedBox(width: 8),
-                Text('Tiempo medio por plato (desde que empiezas hasta Hecho)', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: Text(
+                    'Tiempo medio por plato (desde que empiezas hasta Hecho)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              'Platos con tiempo registrado: ${_tiemposPlato.fold<int>(0, (s, t) => s + t.cantidadRegistros)}. '
+              'Platos con tiempo registrado: $totalReg. '
               'Tiempo medio general: ${_tiempoMedioGeneralMinutos.toStringAsFixed(1)} min.',
               style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
@@ -392,6 +519,13 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
               const Text(
                 'Sin datos. Los tiempos se registran en cocina al marcar cada plato como "preparando" (checkbox o empezar) y luego "listo" (Hecho).',
                 style: TextStyle(color: Colors.white54),
+              )
+            else if (tiempos.isEmpty)
+              Text(
+                buscando
+                    ? 'Ningún tiempo coincide con “${_busqueda.trim()}”.'
+                    : 'Sin datos filtrados.',
+                style: const TextStyle(color: Colors.white54),
               )
             else
               Table(
@@ -405,18 +539,65 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                   const TableRow(
                     decoration: BoxDecoration(color: Color(0xFF0F3460)),
                     children: [
-                      Padding(padding: EdgeInsets.all(10), child: Text('Plato', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                      Padding(padding: EdgeInsets.all(10), child: Text('Registros', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                      Padding(padding: EdgeInsets.all(10), child: Text('Media (min)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                      Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Text(
+                          'Plato',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Text(
+                          'Registros',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Text(
+                          'Media (min)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  ..._tiemposPlato.map((t) => TableRow(
-                    children: [
-                      Padding(padding: const EdgeInsets.all(10), child: Text(t.nombreProducto, style: const TextStyle(color: Colors.white70))),
-                      Padding(padding: const EdgeInsets.all(10), child: Text('${t.cantidadRegistros}', style: const TextStyle(color: Colors.white70))),
-                      Padding(padding: const EdgeInsets.all(10), child: Text(t.tiempoMedioMinutos.toStringAsFixed(1), style: const TextStyle(color: Color(0xFFFFB74D)))),
-                    ],
-                  )),
+                  ...tiempos.map(
+                    (t) => TableRow(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Text(
+                            t.nombreProducto,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Text(
+                            '${t.cantidadRegistros}',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Text(
+                            t.tiempoMedioMinutos.toStringAsFixed(1),
+                            style: const TextStyle(color: Color(0xFFFFB74D)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
           ],

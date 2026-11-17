@@ -23,6 +23,7 @@ class EstadisticasPdfExport {
     required DateTime desde,
     required DateTime hasta,
     String? categoria,
+    String? busquedaPlato,
     required List<PlatoMasPedido> platos,
     required List<TiempoMedioPlato> tiemposPlato,
   }) async {
@@ -30,6 +31,7 @@ class EstadisticasPdfExport {
       desde: desde,
       hasta: hasta,
       categoria: categoria,
+      busquedaPlato: busquedaPlato,
       platos: platos,
       tiemposPlato: tiemposPlato,
     );
@@ -55,14 +57,17 @@ class EstadisticasPdfExport {
     required DateTime desde,
     required DateTime hasta,
     String? categoria,
+    String? busquedaPlato,
     required List<PlatoMasPedido> platos,
     required List<TiempoMedioPlato> tiemposPlato,
   }) async {
     final pdf = pw.Document();
     final fmt = DateFormat('dd/MM/yyyy');
+    final busqueda = busquedaPlato?.trim();
     final periodo =
         '${fmt.format(desde)} — ${fmt.format(hasta)}'
-        '${categoria != null && categoria.isNotEmpty ? ' · Categoría: $categoria' : ''}';
+        '${categoria != null && categoria.isNotEmpty ? ' · Categoría: $categoria' : ''}'
+        '${busqueda != null && busqueda.isNotEmpty ? ' · Búsqueda: "$busqueda"' : ''}';
 
     final totalUnidades =
         platos.fold<int>(0, (s, p) => s + p.cantidadTotal);

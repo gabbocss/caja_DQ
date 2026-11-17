@@ -472,6 +472,99 @@ class DatabaseService {
     }
   }
 
+  /// Mueve la cuenta abierta (pedidos, carrito QR y límite buffet QR) de una mesa a otra.
+  /// Actualiza estados: origen → libre, destino → ocupada.
+  /// No cierra cobros ni marca pedidos como pagados.
+  Future<void> moverCuentaEntreMesas({
+    required int mesaOrigen,
+    required int mesaDestino,
+  }) async {
+    if (mesaOrigen == mesaDestino) {
+      throw StateError('La mesa de destino debe ser distinta a la de origen');
+    }
+
+    final destino = await obtenerMesaPorNumero(mesaDestino);
+    if (destino == null || !destino.activa) {
+      throw StateError('La mesa $mesaDestino no existe o no está activa');
+    }
+    if (destino.estado != EstadoMesa.libre) {
+      throw StateError('La mesa $mesaDestino no está libre');
+    }
+
+    final cuentaDestino = await obtenerCuentaMesa(mesaDestino);
+    if (cuentaDestino.isNotEmpty) {
+      throw StateError('La mesa $mesaDestino ya tiene cuenta abierta');
+    }
+
+    final cuentaOrigen = await obtenerCuentaMesa(mesaOrigen);
+    final ahora = DateTime.now();
+
+    await isar.writeTxn(() async {
+      for (final pedido in cuentaOrigen) {
+        pedido.mesaNumero = mesaDestino;
+        pedido.fechaActualizacion = ahora;
+        await isar.pedidos.put(pedido);
+      }
+
+      // Carrito QR: reasignar índice único mesaNumero.
+      final carritoOrigen = await isar.carritoQrMesas
+          .filter()
+          .mesaNumeroEqualTo(mesaOrigen)
+          .findFirst();
+      final carritoDestino = await isar.carritoQrMesas
+          .filter()
+          .mesaNumeroEqualTo(mesaDestino)
+          .findFirst();
+      if (carritoOrigen != null && carritoOrigen.items.isNotEmpty) {
+        if (carritoDestino != null) {
+          await isar.carritoQrMesas.delete(carritoDestino.id!);
+        }
+        carritoOrigen.mesaNumero = mesaDestino;
+        carritoOrigen.fechaActualizacion = ahora;
+        await isar.carritoQrMesas.put(carritoOrigen);
+      } else if (carritoOrigen != null) {
+        await isar.carritoQrMesas.delete(carritoOrigen.id!);
+      }
+
+      // Límite buffet QR: misma lógica de índice único.
+      final limOrigen = await isar.buffetLimiteQrMesas
+          .filter()
+          .mesaNumeroEqualTo(mesaOrigen)
+          .findFirst();
+      final limDestino = await isar.buffetLimiteQrMesas
+          .filter()
+          .mesaNumeroEqualTo(mesaDestino)
+          .findFirst();
+      if (limOrigen != null) {
+        if (limDestino != null) {
+          await isar.buffetLimiteQrMesas.delete(limDestino.id!);
+        }
+        limOrigen.mesaNumero = mesaDestino;
+        await isar.buffetLimiteQrMesas.put(limOrigen);
+      }
+
+      final mesaO = await isar.mesas
+          .filter()
+          .numeroEqualTo(mesaOrigen)
+          .findFirst();
+      if (mesaO != null) {
+        mesaO.estado = EstadoMesa.libre;
+        mesaO.ultimaActualizacion = ahora;
+        await isar.mesas.put(mesaO);
+      }
+
+      final mesaD = await isar.mesas
+          .filter()
+          .numeroEqualTo(mesaDestino)
+          .findFirst();
+      if (mesaD != null) {
+        mesaD.estado = EstadoMesa.ocupada;
+        mesaD.ultimaActualizacion = ahora;
+        await isar.mesas.put(mesaD);
+      }
+    });
+  }
+
   /// Libera una mesa: busca todos los pedidos de esa mesa, los marca como pagados y pone la mesa libre.
   /// No devuelve stock a productos (consumo de buffet ya realizado).
   /// El próximo cliente empezará de cero (mesa libre, sin pedidos abiertos).
@@ -494,6 +587,8 @@ class DatabaseService {
         pedido.estado = EstadoPedido.pagado;
         pedido.fechaCompletado = DateTime.now();
         pedido.fechaActualizacion = DateTime.now();
+        // Liberar sin cobro → fuera de estadísticas; cobro real → sí cuentan.
+        pedido.liberadoSinCobro = !registrarEnAnalytics;
         await isar.pedidos.put(pedido);
       }
     });

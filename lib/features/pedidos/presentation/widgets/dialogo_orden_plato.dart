@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Variante/nota aplicada a N unidades de un turno concreto (1º / 2º / 3º).
+/// Variante/nota aplicada a N unidades de un turno concreto (1º / 2º / 3º / después postres).
 class VariantePlato {
-  /// 1 = primero, 2 = segundo, 3 = tercero
+  /// 1 = primero, 2 = segundo, 3 = tercero, 4 = después de los postres
   final int orden;
   final String texto;
   final int cantidad;
@@ -20,19 +20,22 @@ class ResultadoOrdenPlato {
   final int total;
   final int segundo;
   final int tercero;
+  /// Unidades en turno 4 (después de los postres).
+  final int despues;
   final List<VariantePlato> variantes;
 
   const ResultadoOrdenPlato({
     required this.total,
     required this.segundo,
     required this.tercero,
+    required this.despues,
     required this.variantes,
   });
 
-  int get primero => total - segundo - tercero;
+  int get primero => total - segundo - tercero - despues;
 }
 
-/// Diálogo para repartir unidades entre 1º/2º/3º y añadir variantes por turno.
+/// Diálogo para repartir unidades entre 1º/2º/3º/después postres y añadir variantes.
 class DialogoOrdenPlato {
   DialogoOrdenPlato._();
 
@@ -42,6 +45,7 @@ class DialogoOrdenPlato {
     required int total,
     required int segundoInicial,
     required int terceroInicial,
+    int despuesInicial = 0,
     List<VariantePlato> variantesIniciales = const [],
   }) {
     return showDialog<ResultadoOrdenPlato>(
@@ -51,6 +55,7 @@ class DialogoOrdenPlato {
         total: total,
         segundoInicial: segundoInicial,
         terceroInicial: terceroInicial,
+        despuesInicial: despuesInicial,
         variantesIniciales: variantesIniciales,
       ),
     );
@@ -76,6 +81,7 @@ class _DialogoOrdenPlatoBody extends StatefulWidget {
   final int total;
   final int segundoInicial;
   final int terceroInicial;
+  final int despuesInicial;
   final List<VariantePlato> variantesIniciales;
 
   const _DialogoOrdenPlatoBody({
@@ -83,6 +89,7 @@ class _DialogoOrdenPlatoBody extends StatefulWidget {
     required this.total,
     required this.segundoInicial,
     required this.terceroInicial,
+    required this.despuesInicial,
     required this.variantesIniciales,
   });
 
@@ -94,9 +101,10 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
   late int _total;
   late int _segundo;
   late int _tercero;
+  late int _despues;
   final List<_VarianteEdicion> _variantes = [];
 
-  int get _primero => _total - _segundo - _tercero;
+  int get _primero => _total - _segundo - _tercero - _despues;
 
   int _cantidadTurno(int orden) {
     switch (orden) {
@@ -104,6 +112,8 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
         return _segundo;
       case 3:
         return _tercero;
+      case 4:
+        return _despues;
       default:
         return _primero;
     }
@@ -128,11 +138,12 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
     _total = widget.total;
     _segundo = widget.segundoInicial.clamp(0, _total);
     _tercero = widget.terceroInicial.clamp(0, _total - _segundo);
+    _despues = widget.despuesInicial.clamp(0, _total - _segundo - _tercero);
 
-    final usadosPorOrden = <int, int>{1: 0, 2: 0, 3: 0};
+    final usadosPorOrden = <int, int>{1: 0, 2: 0, 3: 0, 4: 0};
     for (final v in widget.variantesIniciales) {
       final texto = v.texto.trim();
-      final orden = v.orden.clamp(1, 3);
+      final orden = v.orden.clamp(1, 4);
       if (texto.isEmpty || v.cantidad <= 0) continue;
       final cupo = _cantidadTurno(orden) - (usadosPorOrden[orden] ?? 0);
       if (cupo <= 0) continue;
@@ -192,7 +203,7 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
 
   void _cambiarSegundo(int delta) {
     final nuevo = _segundo + delta;
-    if (nuevo < 0 || nuevo + _tercero > _total) return;
+    if (nuevo < 0 || nuevo + _tercero + _despues > _total) return;
     setState(() {
       _segundo = nuevo;
       _recortarVariantesTurno(2, _segundo);
@@ -202,10 +213,20 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
 
   void _cambiarTercero(int delta) {
     final nuevo = _tercero + delta;
-    if (nuevo < 0 || _segundo + nuevo > _total) return;
+    if (nuevo < 0 || _segundo + nuevo + _despues > _total) return;
     setState(() {
       _tercero = nuevo;
       _recortarVariantesTurno(3, _tercero);
+      _recortarVariantesTurno(1, _primero);
+    });
+  }
+
+  void _cambiarDespues(int delta) {
+    final nuevo = _despues + delta;
+    if (nuevo < 0 || _segundo + _tercero + nuevo > _total) return;
+    setState(() {
+      _despues = nuevo;
+      _recortarVariantesTurno(4, _despues);
       _recortarVariantesTurno(1, _primero);
     });
   }
@@ -234,7 +255,7 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
 
   void _aceptar() {
     final variantes = <VariantePlato>[];
-    final usadosPorOrden = <int, int>{1: 0, 2: 0, 3: 0};
+    final usadosPorOrden = <int, int>{1: 0, 2: 0, 3: 0, 4: 0};
     for (final v in _variantes) {
       final texto = v.controller.text.trim();
       if (texto.isEmpty) continue;
@@ -253,6 +274,7 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
         total: _total,
         segundo: _segundo,
         tercero: _tercero,
+        despues: _despues,
         variantes: variantes,
       ),
     );
@@ -368,6 +390,16 @@ class _DialogoOrdenPlatoBodyState extends State<_DialogoOrdenPlatoBody> {
                 onDecrement: () => _cambiarTercero(-1),
                 onIncrement: () => _cambiarTercero(1),
                 puedeDecrementar: _tercero > 0,
+                puedeIncrementar: _primero > 0,
+              ),
+              const SizedBox(height: 12),
+              _bloqueTurno(
+                orden: 4,
+                etiqueta: 'Después de los postres',
+                color: const Color(0xFF42A5F5),
+                onDecrement: () => _cambiarDespues(-1),
+                onIncrement: () => _cambiarDespues(1),
+                puedeDecrementar: _despues > 0,
                 puedeIncrementar: _primero > 0,
               ),
             ],

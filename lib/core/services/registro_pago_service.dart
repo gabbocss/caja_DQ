@@ -64,13 +64,14 @@ class RegistroPago {
       );
 
   RegistroPago copyWith({
+    int? mesaNumero,
     bool? cerrado,
     String? sesionCajaId,
     bool? archivadoCaja,
   }) =>
       RegistroPago(
         fecha: fecha,
-        mesaNumero: mesaNumero,
+        mesaNumero: mesaNumero ?? this.mesaNumero,
         metodo: metodo,
         importeCobrado: importeCobrado,
         esParcial: esParcial,
@@ -131,6 +132,27 @@ class RegistroPagoService {
     );
   }
 
+  /// Reasigna cobros abiertos de [mesaOrigen] a [mesaDestino] (cambio de mesa).
+  Future<void> reasignarPagosMesa(int mesaOrigen, int mesaDestino) async {
+    if (mesaOrigen == mesaDestino) return;
+    try {
+      final lista = await _leerTodos();
+      var huboCambios = false;
+      for (var i = 0; i < lista.length; i++) {
+        final r = lista[i];
+        if (r.mesaNumero == mesaOrigen && !r.cerrado) {
+          lista[i] = r.copyWith(mesaNumero: mesaDestino);
+          huboCambios = true;
+        }
+      }
+      if (huboCambios) await _guardarTodos(lista);
+    } catch (e) {
+      debugPrint(
+        'Error reasignando pagos de mesa $mesaOrigen → $mesaDestino: $e',
+      );
+    }
+  }
+
   /// Marca como cerrados los cobros activos de la mesa (al liberar o cerrar cuenta).
   Future<void> archivarPagosMesa(int mesaNumero) async {
     try {
@@ -186,24 +208,6 @@ class RegistroPagoService {
       debugPrint('Error leyendo totales por sesión de caja: $e');
     }
     return totales;
-  }
-
-  /// Asigna a la sesión los cobros sin sesión que aún no están archivados.
-  Future<void> asignarPagosHuerfanosASesion(String sesionId) async {
-    try {
-      final lista = await _leerTodos();
-      var huboCambios = false;
-      for (var i = 0; i < lista.length; i++) {
-        final r = lista[i];
-        if (!r.archivadoCaja && r.sesionCajaId == null) {
-          lista[i] = r.copyWith(sesionCajaId: sesionId);
-          huboCambios = true;
-        }
-      }
-      if (huboCambios) await _guardarTodos(lista);
-    } catch (e) {
-      debugPrint('Error asignando pagos huérfanos a sesión $sesionId: $e');
-    }
   }
 
   /// Marca como archivados los cobros de una sesión tras el cierre de caja.

@@ -264,7 +264,7 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
     });
   }
 
-  /// Long-press: reparte las unidades del plato entre 1º / 2º / 3º.
+  /// Long-press: reparte las unidades del plato entre 1º / 2º / 3º / postres.
   Future<void> _mostrarDialogoOrdenPlato(
     Producto producto,
     PedidosMobileProvider provider,
@@ -295,6 +295,7 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
       total: dist.total,
       segundoInicial: dist.segundo,
       terceroInicial: dist.tercero,
+      despuesInicial: dist.despues,
       variantesIniciales: provider.variantesOrdenPlato(widget.numeroMesa, id),
     );
     if (result == null || !mounted) return;
@@ -305,6 +306,7 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
       total: result.total,
       segundo: result.segundo,
       tercero: result.tercero,
+      despues: result.despues,
       variantes: result.variantes,
     );
   }
@@ -588,6 +590,7 @@ class _MesaCategoriasPageState extends State<MesaCategoriasPage> {
                       total: result.total,
                       segundo: result.segundo,
                       tercero: result.tercero,
+                      despues: result.despues,
                       variantes: result.variantes,
                     );
                   },

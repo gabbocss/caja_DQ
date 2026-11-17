@@ -17,7 +17,7 @@ class ProductoGrid extends StatelessWidget {
   final String? textoBusqueda;
   final List<Producto> productos;
   final ValueChanged<Producto> onProductoTap;
-  /// Mantener pulsado un plato (app móvil: asignar 1º / 2º / 3º).
+  /// Mantener pulsado un plato (app móvil: asignar 1º / 2º / 3º / postres).
   final ValueChanged<Producto>? onProductoLongPress;
   /// productoId → unidades pedidas en histórico; null = orden solo por campo orden (camarero).
   final Map<int, int>? popularidadPorProductoId;
