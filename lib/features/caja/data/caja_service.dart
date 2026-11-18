@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/services/registro_pago_service.dart';
+import '../domain/agregacion_cobros.dart';
 import '../domain/entities/caja_resumen_sesion.dart';
 import '../domain/entities/cierre_caja.dart';
 import '../domain/entities/conteo_efectivo.dart';
@@ -181,10 +182,14 @@ class CajaService {
   /// Calcula el total esperado en caja para la sesión activa.
   Future<double> calcularTotalEsperado(SesionCaja sesion) async {
     final cobros = await totalesCobrosSesion(sesion.id);
-    return sesion.totalFondoInicial +
-        cobros.efectivo +
-        cobros.otros -
-        sesion.totalRetiros;
+    return AgregacionCobros.totalEsperadoCaja(
+      fondoInicial: sesion.totalFondoInicial,
+      totalesPorMetodo: {
+        'efectivo': cobros.efectivo,
+        'otros': cobros.otros,
+      },
+      totalRetiros: sesion.totalRetiros,
+    );
   }
 
   /// Resumen para mostrar antes del cierre.
@@ -203,10 +208,14 @@ class CajaService {
       );
     }
     final cobros = await totalesCobrosSesion(sesion.id);
-    final esperado = sesion.totalFondoInicial +
-        cobros.efectivo +
-        cobros.otros -
-        sesion.totalRetiros;
+    final esperado = AgregacionCobros.totalEsperadoCaja(
+      fondoInicial: sesion.totalFondoInicial,
+      totalesPorMetodo: {
+        'efectivo': cobros.efectivo,
+        'otros': cobros.otros,
+      },
+      totalRetiros: sesion.totalRetiros,
+    );
     return CajaResumenSesion(
       tieneSesion: true,
       tieneFondo: sesion.tieneFondoInicial,
@@ -231,10 +240,14 @@ class CajaService {
     }
 
     final cobros = await totalesCobrosSesion(sesion.id);
-    final totalEsperado = sesion.totalFondoInicial +
-        cobros.efectivo +
-        cobros.otros -
-        sesion.totalRetiros;
+    final totalEsperado = AgregacionCobros.totalEsperadoCaja(
+      fondoInicial: sesion.totalFondoInicial,
+      totalesPorMetodo: {
+        'efectivo': cobros.efectivo,
+        'otros': cobros.otros,
+      },
+      totalRetiros: sesion.totalRetiros,
+    );
     final fisico = conteoFisico.total;
     final diferencia = fisico - totalEsperado;
 

@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/core.dart';
 import '../../../../core/services/registro_pago_service.dart';
 import '../../../estadisticas/data/estadisticas_service.dart';
+import '../../domain/division_cuenta.dart';
 import '../providers/pedidos_provider.dart';
 import '../utils/carrito_orden_utils.dart';
 import '../widgets/categoria_selector.dart';
@@ -76,6 +77,8 @@ class _PedidosPageState extends State<PedidosPage> {
   int _adultosBuffet = 0;
   int _ninosBuffet = 0;
   int _cubiertos = 0;
+  /// Personas que aún deben pagar al dividir (por mesa). Baja al cobrar una cuota.
+  final Map<int, int> _personasRestantesDivisionPorMesa = {};
   /// Búsqueda de platos dentro de la categoría activa (campo siempre visible).
   String _textoBusqueda = '';
   final TextEditingController _busquedaController = TextEditingController();
@@ -171,9 +174,11 @@ class _PedidosPageState extends State<PedidosPage> {
       for (final p in pedidos) {
         p.normalizarTotalPendiente();
       }
+      if (pedidos.isEmpty) _limpiarPersonasDivisionMesa(numeroMesa);
       if (mounted) setState(() => _cuentaActual = pedidos);
     } catch (e) {
       debugPrint('Error al cargar cuenta mesa $numeroMesa: $e');
+      _limpiarPersonasDivisionMesa(numeroMesa);
       if (mounted) setState(() => _cuentaActual = []);
     }
   }
@@ -526,6 +531,7 @@ class _PedidosPageState extends State<PedidosPage> {
         await DatabaseService.instance.liberarMesa(numero, isBuffetClose: isBuffetClose);
       }
       if (!mounted) return;
+      _limpiarPersonasDivisionMesa(numero);
       setState(() => _cuentaActual = []);
       await _cargarMesasConCuentaAbierta();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -605,6 +611,54 @@ class _PedidosPageState extends State<PedidosPage> {
           item.nombreProducto == 'Buffet - Adulto' ||
           item.nombreProducto == 'Buffet - Niño');
     });
+  }
+
+  /// Personas iniciales de la mesa: cubiertos, o menús adulto en buffet.
+  int _personasOriginalesMesa() {
+    var maxComensales = 0;
+    for (final p in _cuentaActual) {
+      final n = p.numeroComensales;
+      if (n != null && n > maxComensales) maxComensales = n;
+    }
+    return DivisionCuenta.personasOriginalesDesdeItems(
+      items: _itemsCuentaMesa().map(
+        (i) => (nombre: i.nombreProducto, cantidad: i.cantidad),
+      ),
+      adultosBuffetLocal: _adultosBuffet,
+      cubiertosLocal: _cubiertos,
+      numeroComensalesMax: maxComensales,
+    );
+  }
+
+  /// Personas para dividir ahora: las restantes tras cuotas, o las originales.
+  int _personasParaDividirCuenta() {
+    return DivisionCuenta.personasParaDividir(
+      originales: _personasOriginalesMesa(),
+      restantesGuardadas: _personasRestantesDivisionPorMesa[_mesaSeleccionada],
+    );
+  }
+
+  void _guardarPersonasDivisionMesa(int personas) {
+    _personasRestantesDivisionPorMesa[_mesaSeleccionada] = personas.clamp(1, 99);
+  }
+
+  void _limpiarPersonasDivisionMesa([int? mesa]) {
+    _personasRestantesDivisionPorMesa.remove(mesa ?? _mesaSeleccionada);
+  }
+
+  /// Si el importe coincide con una cuota por persona, baja el contador restante.
+  void _registrarCuotaPersonaSiAplica({
+    required double importeCobrado,
+    required double partePorPersona,
+    required int personasAntes,
+  }) {
+    _guardarPersonasDivisionMesa(
+      DivisionCuenta.personasTrasCobro(
+        importeCobrado: importeCobrado,
+        partePorPersona: partePorPersona,
+        personasAntes: personasAntes,
+      ),
+    );
   }
 
   List<Pedido> _copiaPedidosParaEdicion() {
@@ -887,20 +941,21 @@ class _PedidosPageState extends State<PedidosPage> {
   }
 
   /// Confirma un cobro (parcial o total según importe vs pendiente).
-  Future<void> _confirmarCobro({
+  /// Devuelve `true` cobro total, `false` parcial, `null` si falló o se canceló.
+  Future<bool?> _confirmarCobro({
     required MetodoPagoCuenta metodo,
     required double importeIntroducido,
     double? importeRecibidoEfectivo,
   }) async {
     if (importeIntroducido <= 0) {
-      if (!mounted) return;
+      if (!mounted) return null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Introduzca un importe válido mayor que cero'),
           backgroundColor: Colors.orange,
         ),
       );
-      return;
+      return null;
     }
 
     final pendienteAntes = _totalPendienteMesa;
@@ -919,9 +974,10 @@ class _PedidosPageState extends State<PedidosPage> {
       importeRecibido: importeRecibidoEfectivo,
     );
 
-    if (!mounted || resultado == null) return;
+    if (!mounted || resultado == null) return null;
 
     if (resultado) {
+      _limpiarPersonasDivisionMesa();
       try {
         await _imprimirTicketFinalCuenta(itemsAntes, totalBruto);
       } catch (e) {
@@ -934,7 +990,7 @@ class _PedidosPageState extends State<PedidosPage> {
           );
         }
       }
-      if (!mounted) return;
+      if (!mounted) return true;
       final vuelto = metodo == MetodoPagoCuenta.efectivo &&
               importeRecibidoEfectivo != null
           ? (importeRecibidoEfectivo - importeACobrar).toDouble()
@@ -955,7 +1011,7 @@ class _PedidosPageState extends State<PedidosPage> {
               : const Duration(seconds: 3),
         ),
       );
-      return;
+      return true;
     }
 
     // Pago parcial
@@ -980,7 +1036,7 @@ class _PedidosPageState extends State<PedidosPage> {
       }
     }
 
-    if (!mounted) return;
+    if (!mounted) return false;
     final avisoTerminal = metodo == MetodoPagoCuenta.tarjeta
         ? ' Cobre €${importeACobrar.toStringAsFixed(2)} en el terminal SumUp.'
         : '';
@@ -996,6 +1052,7 @@ class _PedidosPageState extends State<PedidosPage> {
             : const Duration(seconds: 3),
       ),
     );
+    return false;
   }
 
   /// Modal de pagos con menú de métodos y pantalla de importe.
@@ -1015,6 +1072,7 @@ class _PedidosPageState extends State<PedidosPage> {
     MetodoPagoCuenta? metodoSeleccionado;
     var paso = _PasoDialogoPagos.menu;
     var procesando = false;
+    var personasDivision = _personasParaDividirCuenta().clamp(1, 99);
 
     double? parseImporte() {
       final t = importeController.text
@@ -1030,7 +1088,8 @@ class _PedidosPageState extends State<PedidosPage> {
     await _sincronizarPendientesCuentaMesa();
     if (!mounted) return;
 
-    final pendienteInicial = _totalPendienteMesa;
+    var pendienteInicial = _totalPendienteMesa;
+    _guardarPersonasDivisionMesa(personasDivision);
 
     await showDialog<void>(
       context: context,
@@ -1052,6 +1111,26 @@ class _PedidosPageState extends State<PedidosPage> {
                     esCobroTotal
                 ? (importe - pendiente).toDouble()
                 : null;
+            final partePorPersona = pendienteValido && personasDivision >= 1
+                ? pendiente / personasDivision
+                : 0.0;
+
+            void aplicarDivisionEnImporte() {
+              if (personasDivision < 1) return;
+              final p = _importeCobroSeguro(
+                _totalPendienteMesa,
+                pendienteInicial,
+              );
+              if (!p.isFinite || p <= 0.009) return;
+              importeController.text =
+                  (p / personasDivision).toStringAsFixed(2);
+            }
+
+            void actualizarPersonasDivision(int nuevo) {
+              personasDivision = nuevo.clamp(1, 99);
+              _guardarPersonasDivisionMesa(personasDivision);
+              aplicarDivisionEnImporte();
+            }
 
             Future<void> confirmar() async {
               if (!pendienteValido) {
@@ -1075,9 +1154,12 @@ class _PedidosPageState extends State<PedidosPage> {
               }
               if (metodoSeleccionado == null) return;
 
+              final personasAntes = personasDivision;
+              final parteAntes = partePorPersona;
+
               setDialogState(() => procesando = true);
 
-              await _confirmarCobro(
+              final resultado = await _confirmarCobro(
                 metodo: metodoSeleccionado!,
                 importeIntroducido: valor,
                 importeRecibidoEfectivo:
@@ -1085,7 +1167,33 @@ class _PedidosPageState extends State<PedidosPage> {
                         ? valor
                         : null,
               );
-              if (ctx.mounted) Navigator.of(ctx).pop();
+              if (!ctx.mounted) return;
+
+              if (resultado == true) {
+                Navigator.of(ctx).pop();
+                return;
+              }
+
+              if (resultado == false) {
+                _registrarCuotaPersonaSiAplica(
+                  importeCobrado: valor.clamp(0, pendiente).toDouble(),
+                  partePorPersona: parteAntes,
+                  personasAntes: personasAntes,
+                );
+                pendienteInicial = _totalPendienteMesa;
+                if (pendienteInicial <= 0.009) {
+                  Navigator.of(ctx).pop();
+                  return;
+                }
+                setDialogState(() {
+                  procesando = false;
+                  personasDivision = _personasParaDividirCuenta();
+                  aplicarDivisionEnImporte();
+                });
+                return;
+              }
+
+              setDialogState(() => procesando = false);
             }
 
             Widget contenido;
@@ -1104,68 +1212,64 @@ class _PedidosPageState extends State<PedidosPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  FilledButton.icon(
-                    onPressed: procesando
-                        ? null
-                        : () => setDialogState(() {
-                              metodoSeleccionado = MetodoPagoCuenta.efectivo;
-                              paso = _PasoDialogoPagos.importe;
-                              if (pendiente.isFinite && pendiente > 0) {
-                                importeController.text =
-                                    pendiente.toStringAsFixed(2);
-                              } else {
-                                importeController.clear();
-                              }
-                            }),
-                    icon: const Icon(Icons.payments_outlined),
-                    label: const Text('Efectivo'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF00D9A5),
-                      foregroundColor: Colors.black87,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  FilledButton.icon(
-                    onPressed: procesando
-                        ? null
-                        : () => setDialogState(() {
-                              metodoSeleccionado = MetodoPagoCuenta.tarjeta;
-                              paso = _PasoDialogoPagos.importe;
-                              if (pendiente.isFinite && pendiente > 0) {
-                                importeController.text =
-                                    pendiente.toStringAsFixed(2);
-                              } else {
-                                importeController.clear();
-                              }
-                            }),
-                    icon: const Icon(Icons.credit_card),
-                    label: const Text('Tarjeta'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F3460),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  FilledButton.icon(
-                    onPressed: procesando
-                        ? null
-                        : () => setDialogState(() {
-                              metodoSeleccionado = MetodoPagoCuenta.otros;
-                              paso = _PasoDialogoPagos.importe;
-                              if (pendiente.isFinite && pendiente > 0) {
-                                importeController.text =
-                                    pendiente.toStringAsFixed(2);
-                              } else {
-                                importeController.clear();
-                              }
-                            }),
-                    icon: const Icon(Icons.more_horiz),
-                    label: const Text('Otros'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFE94560),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _BotonIconoMetodoPago(
+                        icono: Icons.payments_outlined,
+                        tooltip: 'Efectivo',
+                        colorFondo: const Color(0xFF00D9A5),
+                        colorIcono: Colors.black87,
+                        onPressed: procesando
+                            ? null
+                            : () => setDialogState(() {
+                                  metodoSeleccionado =
+                                      MetodoPagoCuenta.efectivo;
+                                  paso = _PasoDialogoPagos.importe;
+                                  if (pendiente.isFinite && pendiente > 0) {
+                                    importeController.text =
+                                        pendiente.toStringAsFixed(2);
+                                  } else {
+                                    importeController.clear();
+                                  }
+                                }),
+                      ),
+                      _BotonIconoMetodoPago(
+                        icono: Icons.credit_card,
+                        tooltip: 'Tarjeta',
+                        colorFondo: const Color(0xFF0F3460),
+                        onPressed: procesando
+                            ? null
+                            : () => setDialogState(() {
+                                  metodoSeleccionado =
+                                      MetodoPagoCuenta.tarjeta;
+                                  paso = _PasoDialogoPagos.importe;
+                                  if (pendiente.isFinite && pendiente > 0) {
+                                    importeController.text =
+                                        pendiente.toStringAsFixed(2);
+                                  } else {
+                                    importeController.clear();
+                                  }
+                                }),
+                      ),
+                      _BotonIconoMetodoPago(
+                        tooltip: 'Otros',
+                        colorFondo: const Color(0xFFE94560),
+                        iconoPersonalizado: const _IconoLadronBolsaEuro(),
+                        onPressed: procesando
+                            ? null
+                            : () => setDialogState(() {
+                                  metodoSeleccionado = MetodoPagoCuenta.otros;
+                                  paso = _PasoDialogoPagos.importe;
+                                  if (pendiente.isFinite && pendiente > 0) {
+                                    importeController.text =
+                                        pendiente.toStringAsFixed(2);
+                                  } else {
+                                    importeController.clear();
+                                  }
+                                }),
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -1217,6 +1321,104 @@ class _PedidosPageState extends State<PedidosPage> {
                       ),
                     ),
                     onChanged: (_) => setDialogState(() {}),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F3460).withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFBB86FC).withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Dividir cuenta',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFFBB86FC),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              onPressed: procesando
+                                  ? null
+                                  : () => setDialogState(() {
+                                        actualizarPersonasDivision(
+                                          personasDivision - 1,
+                                        );
+                                      }),
+                              icon: const Icon(Icons.remove_circle_outline),
+                              color: Colors.white70,
+                            ),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              child: Text(
+                                '$personasDivision',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: procesando
+                                  ? null
+                                  : () => setDialogState(() {
+                                        actualizarPersonasDivision(
+                                          personasDivision + 1,
+                                        );
+                                      }),
+                              icon: const Icon(Icons.add_circle_outline),
+                              color: Colors.white70,
+                            ),
+                          ],
+                        ),
+                        Text(
+                          personasDivision == 1
+                              ? '1 persona'
+                              : '$personasDivision personas',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '€${partePorPersona.toStringAsFixed(2)} por persona',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF00D9A5),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: procesando || !pendienteValido
+                              ? null
+                              : () => setDialogState(aplicarDivisionEnImporte),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFBB86FC),
+                            side: const BorderSide(color: Color(0xFFBB86FC)),
+                          ),
+                          child: Text(
+                            'Usar parte (€${partePorPersona.toStringAsFixed(2)})',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   if (metodoSeleccionado == MetodoPagoCuenta.tarjeta) ...[
                     const SizedBox(height: 10),
@@ -2368,6 +2570,141 @@ class _PedidosPageState extends State<PedidosPage> {
         return Icons.restaurant;
     }
   }
+}
+
+/// Botón circular solo con icono para elegir método de pago en el diálogo.
+class _BotonIconoMetodoPago extends StatelessWidget {
+  final IconData? icono;
+  final Widget? iconoPersonalizado;
+  final String tooltip;
+  final Color colorFondo;
+  final Color colorIcono;
+  final VoidCallback? onPressed;
+
+  const _BotonIconoMetodoPago({
+    this.icono,
+    this.iconoPersonalizado,
+    required this.tooltip,
+    required this.colorFondo,
+    this.colorIcono = Colors.white,
+    this.onPressed,
+  }) : assert(icono != null || iconoPersonalizado != null);
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: onPressed == null
+            ? colorFondo.withValues(alpha: 0.4)
+            : colorFondo,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox(
+            width: 64,
+            height: 64,
+            child: Center(
+              child: iconoPersonalizado ??
+                  Icon(icono, size: 32, color: colorIcono),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Icono divertido: ladrón con máscara y bolsa de dinero con €.
+class _IconoLadronBolsaEuro extends StatelessWidget {
+  const _IconoLadronBolsaEuro();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 36,
+      height: 36,
+      child: CustomPaint(painter: _LadronBolsaEuroPainter()),
+    );
+  }
+}
+
+class _LadronBolsaEuroPainter extends CustomPainter {
+  const _LadronBolsaEuroPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final blanco = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final negro = Paint()
+      ..color = Colors.black87
+      ..style = PaintingStyle.fill;
+
+    // Bolsa de dinero (cuerpo)
+    final bolsa = Path()
+      ..moveTo(w * 0.28, h * 0.42)
+      ..quadraticBezierTo(w * 0.18, h * 0.55, w * 0.22, h * 0.78)
+      ..quadraticBezierTo(w * 0.50, h * 0.98, w * 0.78, h * 0.78)
+      ..quadraticBezierTo(w * 0.82, h * 0.55, w * 0.72, h * 0.42)
+      ..close();
+    canvas.drawPath(bolsa, blanco);
+
+    // Cuello / nudo de la bolsa
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(w * 0.50, h * 0.38),
+          width: w * 0.22,
+          height: h * 0.10,
+        ),
+        Radius.circular(w * 0.04),
+      ),
+      blanco,
+    );
+
+    // Cabeza del ladrón (encima de la bolsa)
+    canvas.drawCircle(Offset(w * 0.50, h * 0.20), w * 0.16, blanco);
+
+    // Máscara de ladrón
+    final mascara = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.21),
+        width: w * 0.28,
+        height: h * 0.10,
+      ),
+      Radius.circular(w * 0.05),
+    );
+    canvas.drawRRect(mascara, negro);
+
+    // Ojitos
+    canvas.drawCircle(Offset(w * 0.44, h * 0.21), w * 0.025, blanco);
+    canvas.drawCircle(Offset(w * 0.56, h * 0.21), w * 0.025, blanco);
+
+    // Símbolo € en la bolsa
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '€',
+        style: TextStyle(
+          color: Colors.black87,
+          fontSize: w * 0.38,
+          fontWeight: FontWeight.bold,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(
+      canvas,
+      Offset(w * 0.50 - tp.width / 2, h * 0.58 - tp.height / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// Modelo para items en el carrito local (cada línea es un plato; no se apilan)
