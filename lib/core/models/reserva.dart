@@ -51,7 +51,7 @@ class Reserva {
 
   late String nombreCliente;
 
-  /// Define cubiertos al asignar mesa.
+  /// Comensales: cubiertos (fuera de buffet) o menús buffet al asignar mesa.
   late int numeroPersonas;
 
   @Index()

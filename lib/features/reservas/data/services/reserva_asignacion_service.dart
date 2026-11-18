@@ -12,7 +12,11 @@ class ReservaAsignacionService {
 
   final _persistencia = ReservaPersistenceService.instance;
 
-  /// Abre la mesa, crea pedido con cubiertos e ítems reservados, imprime y marca sentada.
+  /// Abre la mesa, crea pedido con menús de buffet o cubiertos e ítems reservados,
+  /// imprime y marca sentada.
+  ///
+  /// En horario de buffet: N menús «Buffet - Adulto» (no cubiertos).
+  /// Fuera de horario: N cubiertos, como hasta ahora.
   Future<void> asignarMesa({
     required Reserva reserva,
     required int mesaNumero,
@@ -26,15 +30,23 @@ class ReservaAsignacionService {
 
     final db = DatabaseService.instance;
     final config = await db.obtenerConfiguracionBuffetActiva();
-    final precioCubierto = config?.precioCubierto ?? 2.0;
+    final esBuffet = config?.esHorarioBuffet() ?? false;
 
     final itemsPedido = <ItemPedido>[
-      ItemPedido.crear(
-        productoId: 0,
-        nombreProducto: 'Cubiertos',
-        precioUnitario: precioCubierto,
-        cantidad: reserva.numeroPersonas,
-      ),
+      if (esBuffet)
+        ItemPedido.crear(
+          productoId: 0,
+          nombreProducto: 'Buffet - Adulto',
+          precioUnitario: _precioBuffetAdulto(config),
+          cantidad: reserva.numeroPersonas,
+        )
+      else
+        ItemPedido.crear(
+          productoId: 0,
+          nombreProducto: 'Cubiertos',
+          precioUnitario: config?.precioCubierto ?? 2.0,
+          cantidad: reserva.numeroPersonas,
+        ),
     ];
 
     for (final item in reserva.itemsReservados) {
@@ -64,6 +76,7 @@ class ReservaAsignacionService {
       mesaNumero: mesaNumero,
       usuarioCamarero: 'Reserva',
       items: itemsPedido,
+      esBuffet: esBuffet,
       numeroComensales: reserva.numeroPersonas,
       notas: reserva.alergiasNotas.isEmpty ? null : reserva.alergiasNotas,
       // Enlace CRM / analítica (fase 2).
@@ -139,6 +152,12 @@ class ReservaAsignacionService {
     await _persistencia.guardarReserva(reserva);
 
     await _notificarRemotaSentada(reserva.id!, mesaNueva);
+  }
+
+  double _precioBuffetAdulto(ConfiguracionBuffet? config) {
+    final precio = config?.precioAdulto ?? 18.0;
+    if (precio.isNaN || precio < 0) return 18.0;
+    return precio;
   }
 
   Future<void> _notificarRemotaSentada(int reservaId, int mesaNumero) async {
