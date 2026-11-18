@@ -401,19 +401,25 @@ class ApiClient {
     }
   }
 
-  /// Obtiene pedidos para la cocina (pendientes + preparando)
+  /// Obtiene pedidos para la cocina (pendientes + preparando).
+  /// Timeout corto: en KDS un GET colgado no debe bloquear el polling indefinidamente.
   Future<List<Pedido>> obtenerPedidosCocina() async {
     try {
-      final response = await _client.get(
-        Uri.parse('$baseUrl/api/pedidos/cocina'),
-        headers: {'Accept': 'application/json'},
-      );
+      final response = await _client
+          .get(
+            Uri.parse('$baseUrl/api/pedidos/cocina'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         return data.map((item) => Pedido.fromJson(item)).toList();
       } else {
-        return [];
+        // No devolver []: vaciaría la pantalla de cocina ante un fallo temporal.
+        throw Exception(
+          'Error al obtener pedidos cocina: HTTP ${response.statusCode}',
+        );
       }
     } catch (e) {
       debugPrint('Error en obtenerPedidosCocina: $e');

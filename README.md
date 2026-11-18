@@ -112,7 +112,8 @@ En local, los mismos pasos están en `tool/`:
 ```bash
 flutter build windows --release
 dart run tool/patch_g_for_web.dart
-flutter build web -t lib/main_web.dart
+flutter build web -t lib/main_web.dart --pwa-strategy=none
+# o: dart run tool/build_web.dart
 dart run tool/package_windows_with_web.dart
 ```
 

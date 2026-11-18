@@ -23,8 +23,23 @@ class CocinaPage extends StatelessWidget {
   }
 }
 
-class _CocinaPageContent extends StatelessWidget {
+class _CocinaPageContent extends StatefulWidget {
   const _CocinaPageContent();
+
+  @override
+  State<_CocinaPageContent> createState() => _CocinaPageContentState();
+}
+
+class _CocinaPageContentState extends State<_CocinaPageContent> {
+  @override
+  void initState() {
+    super.initState();
+    // Tras abrir o F5 del navegador: misma recarga que el botón Actualizar.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<CocinaProvider>().recargar();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -486,10 +501,7 @@ class _DestinoSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (provider.destinos.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
+    // Siempre mostrar la barra (al menos TODOS) para que no desaparezca si falla la carga.
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -504,30 +516,31 @@ class _DestinoSelector extends StatelessWidget {
             isSelected: provider.destinoSeleccionado == null,
             onTap: () => provider.verTodos(),
           ),
-          const SizedBox(width: 8),
-          const VerticalDivider(color: Colors.white24, indent: 12, endIndent: 12),
-          const SizedBox(width: 8),
-          
-          // Destinos dinámicos
-          Expanded(
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: provider.destinos.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final destino = provider.destinos[index];
-                final color = _parseColor(destino.color);
-                
-                return _DestinoChip(
-                  label: destino.nombre.toUpperCase(),
-                  icon: _getIconData(destino.icono),
-                  color: color,
-                  isSelected: provider.destinoSeleccionado?.id == destino.id,
-                  onTap: () => provider.seleccionarDestino(destino),
-                );
-              },
+          if (provider.destinos.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            const VerticalDivider(color: Colors.white24, indent: 12, endIndent: 12),
+            const SizedBox(width: 8),
+            // Destinos dinámicos (Cocina, Buffet, …)
+            Expanded(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: provider.destinos.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final destino = provider.destinos[index];
+                  final color = _parseColor(destino.color);
+
+                  return _DestinoChip(
+                    label: destino.nombre.toUpperCase(),
+                    icon: _getIconData(destino.icono),
+                    color: color,
+                    isSelected: provider.destinoSeleccionado?.id == destino.id,
+                    onTap: () => provider.seleccionarDestino(destino),
+                  );
+                },
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -666,18 +679,37 @@ class _PedidoCard extends StatelessWidget {
           // Header del pedido
           _buildHeader(esUrgente, esPendiente),
           
-          // Lista de items
+          // Lista de items: pendientes/en preparación primero; hechos al final
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: pedido.items.length,
-              itemBuilder: (context, index) {
-                final item = pedido.items[index];
-                return _ItemPedidoTile(
-                  item: item,
-                  index: index,
-                  pedidoId: pedido.id ?? 0,
-                  provider: provider,
+            child: Builder(
+              builder: (context) {
+                final pendientes = <ItemPedido>[];
+                final hechos = <ItemPedido>[];
+                for (final item in pedido.items) {
+                  final estaHecho = item.estadoItem == EstadoPedido.listo ||
+                      item.estadoItem == EstadoPedido.servido;
+                  if (estaHecho) {
+                    hechos.add(item);
+                  } else {
+                    pendientes.add(item);
+                  }
+                }
+                final itemsOrdenados = [...pendientes, ...hechos];
+                return ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: itemsOrdenados.length,
+                  itemBuilder: (context, index) {
+                    final item = itemsOrdenados[index];
+                    // Índice en la lista filtrada (sin reordenar) para mapear al servidor
+                    final indexOriginal = pedido.items.indexOf(item);
+                    return _ItemPedidoTile(
+                      key: ObjectKey(item),
+                      item: item,
+                      index: indexOriginal,
+                      pedidoId: pedido.id ?? 0,
+                      provider: provider,
+                    );
+                  },
                 );
               },
             ),
@@ -850,6 +882,7 @@ class _ItemPedidoTile extends StatelessWidget {
   final CocinaProvider provider;
 
   const _ItemPedidoTile({
+    super.key,
     required this.item,
     required this.index,
     required this.pedidoId,

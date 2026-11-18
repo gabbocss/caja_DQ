@@ -119,6 +119,23 @@ class LocalServer {
           };
         } else {
           final staticHandler = createStaticHandler(_webRoot, defaultDocument: 'index.html');
+          /// Evita que el navegador deje pillada una cocina vieja tras un build nuevo.
+          Response _sinCacheWeb(Response response, String path) {
+            final headers = Map<String, String>.from(response.headers);
+            final esEntrada = path.isEmpty ||
+                path == '/' ||
+                path.endsWith('index.html') ||
+                path.endsWith('flutter_bootstrap.js') ||
+                path.endsWith('flutter.js') ||
+                path.endsWith('main.dart.js') ||
+                path.endsWith('manifest.json') ||
+                !path.contains('.');
+            if (esEntrada) {
+              headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
+              headers['Pragma'] = 'no-cache';
+            }
+            return response.change(headers: headers);
+          }
           final staticOrIndexHandler = (Request request) async {
             var response = await staticHandler(request);
             if (response.statusCode == 404) {
@@ -126,14 +143,17 @@ class LocalServer {
               if (!path.contains('.') && !path.startsWith('/api')) {
                 final indexFile = File(p.join(_webRoot, 'index.html'));
                 if (await indexFile.exists()) {
-                  return Response.ok(
-                    await indexFile.readAsString(),
-                    headers: {'Content-Type': 'text/html; charset=utf-8'},
+                  return _sinCacheWeb(
+                    Response.ok(
+                      await indexFile.readAsString(),
+                      headers: {'Content-Type': 'text/html; charset=utf-8'},
+                    ),
+                    'index.html',
                   );
                 }
               }
             }
-            return response;
+            return _sinCacheWeb(response, request.url.path);
           };
           mainHandler = (Request request) async {
             final response = await router.call(request);
@@ -143,14 +163,13 @@ class LocalServer {
                 final redirect = request.url.path.isEmpty ? '/' : request.url.path;
                 return Response.ok(
                   _loginPageHtml(redirect),
-                  headers: {'Content-Type': 'text/html; charset=utf-8'},
+                  headers: {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Cache-Control': 'no-store, no-cache, must-revalidate',
+                  },
                 );
               }
-              final appResponse = await staticOrIndexHandler(request);
-              // Sin caché en el HTML de la SPA para que "Reintentar sin caché" obtenga versión nueva
-              final headers = Map<String, String>.from(appResponse.headers);
-              headers['Cache-Control'] = 'no-cache';
-              return appResponse.change(headers: headers);
+              return staticOrIndexHandler(request);
             }
             return response;
           };

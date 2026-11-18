@@ -11,12 +11,14 @@ import '../../domain/repositories/cocina_repository.dart';
 class CocinaRepositoryApi implements CocinaRepository {
   final ApiClient _api;
   static const Duration _pollingInterval = Duration(seconds: 4);
+  /// Tope propio por si el cliente HTTP no corta a tiempo (pestaña en background, etc.).
+  static const Duration _requestTimeout = Duration(seconds: 12);
 
   CocinaRepositoryApi(this._api);
 
   @override
   Future<List<Pedido>> obtenerPedidosCocina() async {
-    return _api.obtenerPedidosCocina();
+    return _api.obtenerPedidosCocina().timeout(_requestTimeout);
   }
 
   @override
@@ -40,12 +42,15 @@ class CocinaRepositoryApi implements CocinaRepository {
 
   @override
   Stream<List<Pedido>> watchPedidosCocina() async* {
+    // Polling con timeout: si un GET se cuelga, no bloquea el bucle para siempre.
     while (true) {
       try {
-        yield await _api.obtenerPedidosCocina();
+        yield await _api.obtenerPedidosCocina().timeout(_requestTimeout);
       } catch (e, st) {
         debugPrint('Error al obtener pedidos cocina: $e');
         debugPrint('$st');
+        // Propagar para que el provider pueda reiniciar la escucha si hace falta.
+        // El delay siguiente evita martillar el servidor en cascada de errores.
       }
       await Future.delayed(_pollingInterval);
     }

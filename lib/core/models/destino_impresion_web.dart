@@ -64,9 +64,11 @@ class DestinoImpresion {
       )
       ..nombreImpresora = json['nombreImpresora'] as String?
       ..direccionImpresora = json['direccionImpresora'] as String?
-      ..puertoImpresora = json['puertoImpresora'] as int?
+      ..puertoImpresora = json['puertoImpresora'] != null
+          ? (json['puertoImpresora'] as num).toInt()
+          : null
       ..activo = json['activo'] as bool? ?? true
-      ..orden = json['orden'] as int? ?? 0
+      ..orden = (json['orden'] as num?)?.toInt() ?? 0
       ..fechaCreacion = json['fechaCreacion'] != null
           ? DateTime.parse(json['fechaCreacion'] as String)
           : DateTime.now();

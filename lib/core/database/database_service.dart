@@ -1243,20 +1243,25 @@ class DatabaseService {
       pedido.fechaActualizacion = ahora;
       
       // Verificar si todos los items están listos para cambiar estado del pedido
-      final todosListos = pedido.items.every((item) => 
-          item.estadoItem == EstadoPedido.listo || 
+      final todosListos = pedido.items.every((item) =>
+          item.estadoItem == EstadoPedido.listo ||
           item.estadoItem == EstadoPedido.servido);
-      
-      if (todosListos && pedido.estado == EstadoPedido.preparando) {
+
+      if (todosListos &&
+          (pedido.estado == EstadoPedido.pendiente ||
+              pedido.estado == EstadoPedido.preparando)) {
+        // Cierra solo este pedido; otros de la misma mesa no se tocan
         pedido.estado = EstadoPedido.listo;
-      }
-      
-      // Si hay alguno preparando, el pedido está preparando
-      final algunoPreparando = pedido.items.any((item) => 
-          item.estadoItem == EstadoPedido.preparando);
-      
-      if (algunoPreparando && pedido.estado == EstadoPedido.pendiente) {
-        pedido.estado = EstadoPedido.preparando;
+        pedido.fechaListo ??= ahora;
+      } else {
+        // Si hay alguno preparando, el pedido está preparando
+        final algunoPreparando = pedido.items.any(
+          (item) => item.estadoItem == EstadoPedido.preparando,
+        );
+
+        if (algunoPreparando && pedido.estado == EstadoPedido.pendiente) {
+          pedido.estado = EstadoPedido.preparando;
+        }
       }
       
       await isar.writeTxn(() => isar.pedidos.put(pedido));

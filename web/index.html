@@ -53,27 +53,61 @@
       function isFlutterReady() {
         return document.querySelector('flt-glass-pane') || document.querySelector('canvas') || (typeof window.__flutter !== 'undefined');
       }
-      var script = document.createElement('script');
-      script.async = true;
-      var hasNocache = window.location.search.indexOf('nocache=') !== -1;
-      script.src = 'flutter_bootstrap.js' + (hasNocache ? '?t=' + Date.now() : '');
-      script.onerror = function() { showFallback('Error al cargar la aplicación. Compruebe la conexión.'); };
-      script.onload = function() {
-        var deadline = Date.now() + 25000;
-        function check() {
-          if (isFlutterReady()) return;
-          if (Date.now() > deadline) {
-            showFallback('La aplicación no ha cargado a tiempo. Compruebe la conexión.');
-            return;
-          }
-          setTimeout(check, 500);
+
+      // Quitar service workers/caché viejos automáticamente (el usuario solo recarga o reabre).
+      function clearOldWebCache() {
+        var hadSw = false;
+        var tasks = [];
+        if ('serviceWorker' in navigator) {
+          tasks.push(navigator.serviceWorker.getRegistrations().then(function(regs) {
+            hadSw = regs.length > 0;
+            return Promise.all(regs.map(function(r) { return r.unregister(); }));
+          }));
         }
-        setTimeout(check, 2000);
-      };
-      document.body.appendChild(script);
+        if (window.caches && caches.keys) {
+          tasks.push(caches.keys().then(function(keys) {
+            return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+          }));
+        }
+        return Promise.all(tasks).then(function() {
+          return hadSw;
+        }).catch(function() { return false; });
+      }
+
+      function bootFlutter() {
+        var script = document.createElement('script');
+        script.async = true;
+        var hasNocache = window.location.search.indexOf('nocache=') !== -1;
+        script.src = 'flutter_bootstrap.js' + (hasNocache ? '?t=' + Date.now() : '');
+        script.onerror = function() { showFallback('Error al cargar la aplicación. Compruebe la conexión.'); };
+        script.onload = function() {
+          var deadline = Date.now() + 25000;
+          function check() {
+            if (isFlutterReady()) return;
+            if (Date.now() > deadline) {
+              showFallback('La aplicación no ha cargado a tiempo. Compruebe la conexión.');
+              return;
+            }
+            setTimeout(check, 500);
+          }
+          setTimeout(check, 2000);
+        };
+        document.body.appendChild(script);
+      }
+
+      clearOldWebCache().then(function(hadSw) {
+        // Si había un service worker antiguo, recargar una sola vez para coger la versión nueva.
+        if (hadSw && !sessionStorage.getItem('caja_sw_cleared')) {
+          sessionStorage.setItem('caja_sw_cleared', '1');
+          location.reload();
+          return;
+        }
+        bootFlutter();
+      });
+
       retryBtn.onclick = function() { location.reload(); };
       nocacheBtn.onclick = function() {
-        location.href = location.pathname + '?nocache=' + Date.now();
+        location.href = location.pathname + '?nocache=' + Date.now() + (location.hash || '');
       };
     })();
   </script>

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/core.dart';
@@ -15,6 +16,10 @@ class CocinaProvider extends ChangeNotifier {
   static const _uuid = Uuid();
   final Beeper _beeper;
 
+  /// Si el polling no emite datos en este tiempo, se reinicia la escucha.
+  static const Duration _watchdogMaxSinActualizar = Duration(seconds: 20);
+  static const Duration _watchdogPeriodo = Duration(seconds: 8);
+
   List<Pedido> _pedidos = [];
   List<Pedido> _pedidosFiltrados = [];
   List<DestinoImpresion> _destinos = [];
@@ -24,6 +29,13 @@ class CocinaProvider extends ChangeNotifier {
   bool _cargando = false;
   String? _error;
   StreamSubscription? _pedidosSubscription;
+  Timer? _watchdogTimer;
+  AppLifecycleListener? _lifecycleListener;
+  /// Última vez que llegó una lista válida del servidor.
+  DateTime? _ultimaActualizacionOk;
+  /// Momento en que se (re)abrió la suscripción al stream.
+  DateTime? _escuchaIniciadaEn;
+  DateTime? _ultimoReinicioEscucha;
   /// true = Modo Buffet, false = Modo Carta
   bool _modoBuffet = false;
 
@@ -101,7 +113,55 @@ class CocinaProvider extends ChangeNotifier {
           CocinaRepositoryImpl(DatabaseService.instance),
         _db = db ?? DatabaseService.instance,
         _beeper = beeper ?? Beeper() {
+    _lifecycleListener = AppLifecycleListener(
+      onStateChange: _onAppLifecycleState,
+    );
+    _iniciarWatchdog();
     _inicializar();
+  }
+
+  /// Tras mucho tiempo abierta o pestaña en segundo plano, el navegador puede
+  /// dejar un GET de polling colgado: al volver a visible refrescamos y reiniciamos.
+  void _onAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('Cocina: app/pestaña visible → refrescar y reiniciar polling');
+      unawaited(_refrescarYReiniciarEscucha());
+    }
+  }
+
+  void _iniciarWatchdog() {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer.periodic(_watchdogPeriodo, (_) => _verificarWatchdog());
+  }
+
+  void _verificarWatchdog() {
+    final referencia = _ultimaActualizacionOk ?? _escuchaIniciadaEn;
+    if (referencia == null) return;
+    final silencio = DateTime.now().difference(referencia);
+    if (silencio > _watchdogMaxSinActualizar) {
+      debugPrint(
+        'Cocina: watchdog — ${silencio.inSeconds}s sin actualizar, reiniciando polling',
+      );
+      unawaited(_refrescarYReiniciarEscucha());
+    }
+  }
+
+  /// Cancela un stream posiblemente colgado, pide datos ya y vuelve a escuchar.
+  Future<void> _refrescarYReiniciarEscucha() async {
+    // Forzar reinicio: el debounce no debe impedir recuperar un GET colgado.
+    _ultimoReinicioEscucha = null;
+    _iniciarEscucha();
+    try {
+      final list = await _repository.obtenerPedidosCocina();
+      _aplicarPedidosDelServidor(list);
+      _ultimaActualizacionOk = DateTime.now();
+      _error = null;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Cocina: fallo al refrescar tras reconexión: $e');
+      _error = e.toString();
+      notifyListeners();
+    }
   }
 
   Future<void> toggleSonido() async {
@@ -134,12 +194,17 @@ class CocinaProvider extends ChangeNotifier {
     }
   }
 
-  /// Inicializa el provider
+  /// Inicializa el provider.
+  /// Usa la misma lógica que el botón Actualizar (destinos + pedidos + polling).
   Future<void> _inicializar() async {
     await _cargarPreferenciaSonido();
-    await _cargarDestinos();
     await _ajustarModoBuffetPorHorario();
-    _iniciarEscucha();
+    await recargar();
+    // Tras F5 a veces la primera petición llega pronto; si faltan destinos, reintentar.
+    if (_destinos.isEmpty) {
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      await recargar();
+    }
   }
 
   /// Ajusta modo buffet según si estamos en horario de buffet (en web no hay config local; se ignora).
@@ -157,21 +222,32 @@ class CocinaProvider extends ChangeNotifier {
     }
   }
 
-  /// Carga los destinos: BD local si existe; si no (p. ej. web), desde la API del servidor.
+  /// Carga los destinos: en web siempre por API; en escritorio BD local y API de respaldo.
   Future<void> _cargarDestinos() async {
     List<DestinoImpresion> destinosActivos = [];
 
-    try {
-      destinosActivos = await _db.obtenerDestinosActivos();
-    } catch (e) {
-      debugPrint('Destinos por BD local no disponibles: $e');
-    }
-
-    if (destinosActivos.isEmpty && sl.isRegistered<ApiClient>()) {
+    // En web no hay BD: ir directo a la API (evita que un fallo del stub deje la barra vacía).
+    if (kIsWeb) {
       try {
-        destinosActivos = await sl<ApiClient>().obtenerDestinosActivos();
+        final api = sl.isRegistered<ApiClient>()
+            ? sl<ApiClient>()
+            : ApiClient(Uri.base.origin);
+        destinosActivos = await api.obtenerDestinosActivos();
       } catch (e) {
         debugPrint('Error al cargar destinos por API: $e');
+      }
+    } else {
+      try {
+        destinosActivos = await _db.obtenerDestinosActivos();
+      } catch (e) {
+        debugPrint('Destinos por BD local no disponibles: $e');
+      }
+      if (destinosActivos.isEmpty && sl.isRegistered<ApiClient>()) {
+        try {
+          destinosActivos = await sl<ApiClient>().obtenerDestinosActivos();
+        } catch (e) {
+          debugPrint('Error al cargar destinos por API: $e');
+        }
       }
     }
 
@@ -180,18 +256,15 @@ class CocinaProvider extends ChangeNotifier {
         ..clear()
         ..addEntries(destinosActivos.where((d) => d.id != null).map((d) => MapEntry(d.id!, d)));
 
-      // En cocina solo deben aparecer destinos con salida a pantalla.
+      // En cocina solo deben aparecer destinos con salida a pantalla (Cocina, Buffet, …).
       _destinos = destinosActivos
           .where((d) => d.tipo == TipoDestino.pantalla || d.tipo == TipoDestino.ambos)
-          .toList();
+          .toList()
+        ..sort((a, b) => a.orden.compareTo(b.orden));
 
-      // Por defecto "TODOS" (sin chip). Solo se limpia si el destino elegido dejó de existir.
-      if (_destinos.isNotEmpty) {
-        if (_destinoSeleccionado != null &&
-            !_destinos.any((d) => d.id == _destinoSeleccionado!.id)) {
-          _destinoSeleccionado = null;
-        }
-      } else {
+      // Por defecto "TODOS". Solo se limpia si el destino elegido dejó de existir.
+      if (_destinoSeleccionado != null &&
+          !_destinos.any((d) => d.id == _destinoSeleccionado!.id)) {
         _destinoSeleccionado = null;
       }
       _filtrarPedidosPorDestino();
@@ -219,7 +292,9 @@ class CocinaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Filtra los pedidos según el destino seleccionado
+  /// Filtra los pedidos según el destino seleccionado.
+  /// Omite pedidos ya listos y tarjetas cuyos platos visibles están todos hechos
+  /// (otros pedidos de la misma mesa no se tocan).
   void _filtrarPedidosPorDestino() {
     bool esItemVisibleEnCocina(ItemPedido item) {
       final destinoId = item.destinoId;
@@ -229,6 +304,10 @@ class CocinaProvider extends ChangeNotifier {
       if (destino == null) return true;
       return destino.tipo == TipoDestino.pantalla || destino.tipo == TipoDestino.ambos;
     }
+
+    bool esItemHecho(ItemPedido item) =>
+        item.estadoItem == EstadoPedido.listo ||
+        item.estadoItem == EstadoPedido.servido;
 
     List<ItemPedido> filtrarItems(Pedido pedido) {
       final sel = _destinoSeleccionado;
@@ -240,8 +319,19 @@ class CocinaProvider extends ChangeNotifier {
 
     _pedidosFiltrados = _pedidos
         .map((pedido) {
+          // Pedidos ya cerrados no se muestran en cocina
+          if (pedido.estado == EstadoPedido.listo ||
+              pedido.estado == EstadoPedido.servido ||
+              pedido.estado == EstadoPedido.cancelado ||
+              pedido.estado == EstadoPedido.pagado) {
+            return null;
+          }
+
           final items = filtrarItems(pedido);
           if (items.isEmpty) return null;
+
+          // Si todos los platos de esta casilla están hechos, quitar la tarjeta
+          if (items.every(esItemHecho)) return null;
 
           // Crear una copia del pedido solo con los items filtrados
           final pedidoFiltrado = Pedido()
@@ -471,6 +561,15 @@ class CocinaProvider extends ChangeNotifier {
 
   /// Inicia la escucha de cambios en los pedidos
   void _iniciarEscucha() {
+    final ahora = DateTime.now();
+    // Evitar reinicios en ráfaga (watchdog + lifecycle + onError a la vez).
+    if (_ultimoReinicioEscucha != null &&
+        ahora.difference(_ultimoReinicioEscucha!) < const Duration(seconds: 2)) {
+      return;
+    }
+    _ultimoReinicioEscucha = ahora;
+    _escuchaIniciadaEn = ahora;
+
     _pedidosSubscription?.cancel();
     _pedidosSubscription = _repository.watchPedidosCocina().listen(
       (pedidos) {
@@ -478,6 +577,8 @@ class CocinaProvider extends ChangeNotifier {
         final ahora = DateTime.now();
         if (_ultimaOptimista != null &&
             ahora.difference(_ultimaOptimista!).inMilliseconds < 800) {
+          // Aun así marcar latido: el canal de polling está vivo.
+          _ultimaActualizacionOk = ahora;
           return;
         }
         // Detectar nuevos pedidos por ID (1 pitido por batch).
@@ -497,6 +598,7 @@ class CocinaProvider extends ChangeNotifier {
 
         final anteriorCount = _pedidosFiltrados.length;
         _aplicarPedidosDelServidor(pedidos);
+        _ultimaActualizacionOk = ahora;
         _error = null;
 
         // Detectar nuevos pedidos para notificación
@@ -520,6 +622,7 @@ class CocinaProvider extends ChangeNotifier {
     try {
       final list = await _repository.obtenerPedidosCocina();
       _aplicarPedidosDelServidor(list);
+      _ultimaActualizacionOk = DateTime.now();
       _error = null;
       notifyListeners();
     } catch (e) {
@@ -558,11 +661,23 @@ class CocinaProvider extends ChangeNotifier {
   }
 
   /// Actualización optimista: refleja cambio de estado de un ítem en la lista local (modo carta).
+  /// Si todos los ítems del pedido quedan hechos, cierra solo ese pedido (no otros de la misma mesa).
   void _aplicarOptimisticoEstadoItem(int pedidoId, int itemIndex, EstadoPedido nuevoEstado) {
     final idx = _pedidos.indexWhere((p) => p.id == pedidoId);
     if (idx >= 0 && itemIndex >= 0 && itemIndex < _pedidos[idx].items.length) {
       _pendingEstadoItem['${pedidoId}_$itemIndex'] = nuevoEstado;
       _pedidos[idx].items[itemIndex].estadoItem = nuevoEstado;
+
+      final todosHechos = _pedidos[idx].items.every(
+        (item) =>
+            item.estadoItem == EstadoPedido.listo ||
+            item.estadoItem == EstadoPedido.servido,
+      );
+      if (todosHechos) {
+        _pendingEstadoPedido[pedidoId] = EstadoPedido.listo;
+        _pedidos[idx].estado = EstadoPedido.listo;
+      }
+
       _filtrarPedidosPorDestino();
       _marcarOptimistaAplicada();
       notifyListeners();
@@ -612,10 +727,13 @@ class CocinaProvider extends ChangeNotifier {
       await _cargarDestinos();
       final list = await _repository.obtenerPedidosCocina();
       _aplicarPedidosDelServidor(list);
+      _ultimaActualizacionOk = DateTime.now();
     } catch (e) {
       _error = e.toString();
     } finally {
       _cargando = false;
+      // Forzar reinicio aunque el debounce del watchdog diga lo contrario.
+      _ultimoReinicioEscucha = null;
       _iniciarEscucha();
       notifyListeners();
     }
@@ -649,7 +767,8 @@ class CocinaProvider extends ChangeNotifier {
     }
   }
 
-  /// Actualiza el estado de un item específico
+  /// Actualiza el estado de un item específico.
+  /// Al marcar como listo, imprime ticket con destino (mesa) como en modo buffet.
   Future<bool> actualizarEstadoItem(
     int pedidoId,
     int itemIndex,
@@ -667,7 +786,54 @@ class CocinaProvider extends ChangeNotifier {
       estadoAnterior = pedidoOriginal.items[idx].estadoItem;
 
       _aplicarOptimisticoEstadoItem(pedidoId, idx, nuevoEstado);
+
+      // Imprimir comanda al marcar el plato como hecho (mismo ticket que modo buffet)
+      if (nuevoEstado == EstadoPedido.listo &&
+          estadoAnterior != EstadoPedido.listo) {
+        final item = pedidoOriginal.items[idx];
+        try {
+          await _imprimirTicketMesa(
+            pedidoOriginal.mesaNumero,
+            item.nombreProducto,
+            item.productoId,
+            item.cantidad,
+            item.destinoId,
+            item.precioUnitario,
+          );
+        } catch (e) {
+          debugPrint('Error al imprimir ticket de plato listo: $e');
+          _error = 'Plato marcado, pero falló la impresión: $e';
+          notifyListeners();
+        }
+      }
+
       await _repository.actualizarEstadoItem(pedidoId, idx, nuevoEstado);
+
+      // Si todos los platos de ESTE pedido están hechos, cerrarlo (otros de la mesa no se tocan).
+      // Necesario sobre todo si no se pulsó PREPARAR: el pedido sigue "pendiente" y la API lo devolvería.
+      if (nuevoEstado == EstadoPedido.listo) {
+        final pedidoTrasUpdate = _pedidos.firstWhere(
+          (p) => p.id == pedidoId,
+          orElse: () => pedidoOriginal,
+        );
+        final todosHechos = pedidoTrasUpdate.items.every(
+          (item) =>
+              item.estadoItem == EstadoPedido.listo ||
+              item.estadoItem == EstadoPedido.servido,
+        );
+        if (todosHechos) {
+          _pendingEstadoPedido[pedidoId] = EstadoPedido.listo;
+          pedidoTrasUpdate.estado = EstadoPedido.listo;
+          _filtrarPedidosPorDestino();
+          notifyListeners();
+          try {
+            await _repository.marcarListo(pedidoId);
+          } catch (e) {
+            debugPrint('Error al cerrar pedido tras marcar todos los platos: $e');
+          }
+        }
+      }
+
       _refrescarListaPedidos(); // en segundo plano
       return true;
     } catch (e) {
@@ -701,6 +867,8 @@ class CocinaProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _watchdogTimer?.cancel();
+    _lifecycleListener?.dispose();
     _pedidosSubscription?.cancel();
     super.dispose();
   }

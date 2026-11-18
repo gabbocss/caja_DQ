@@ -34,11 +34,18 @@ void main() async {
   }
   print('');
 
-  // 2. Flutter build web
+  // 2. Flutter build web (sin service worker: actualizaciones con solo recargar)
   print('2/3 Ejecutando flutter build web...');
   result = await Process.run(
     'flutter',
-    ['build', 'web'],
+    [
+      'build',
+      'web',
+      '-t',
+      'lib/main_web.dart',
+      '--no-wasm-dry-run',
+      '--pwa-strategy=none',
+    ],
     workingDirectory: projectRoot,
     runInShell: false,
   );
