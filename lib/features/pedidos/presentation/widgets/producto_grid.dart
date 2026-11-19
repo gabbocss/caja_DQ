@@ -272,7 +272,7 @@ class ProductoCard extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            '\$${producto.precio.toStringAsFixed(0)}',
+                            '\$${producto.precio.toStringAsFixed(2)}',
                             style: TextStyle(
                               color: estaAgotado
                                   ? Colors.grey
