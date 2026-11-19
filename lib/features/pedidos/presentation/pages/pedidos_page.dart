@@ -940,6 +940,55 @@ class _PedidosPageState extends State<PedidosPage> {
     );
   }
 
+  /// Pregunta si se quiere imprimir el ticket de un pago parcial (cuota).
+  /// El ticket final al cerrar la cuenta se imprime siempre, sin preguntar.
+  Future<bool?> _preguntarImprimirTicketParcial({
+    required double importeACobrar,
+    required double pendienteRestante,
+  }) async {
+    if (!mounted) return false;
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.print, color: Color(0xFF00D9A5)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '¿Imprimir ticket?',
+                style: TextStyle(color: Colors.white),
+                softWrap: true,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Pago de €${importeACobrar.toStringAsFixed(2)} registrado.\n'
+          'Pendiente: €${pendienteRestante.toStringAsFixed(2)}.\n\n'
+          '¿Desea imprimir el ticket de este pago?',
+          style: const TextStyle(color: Colors.white70, fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('NO'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF00D9A5),
+            ),
+            child: const Text('SÍ, IMPRIMIR'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Confirma un cobro (parcial o total según importe vs pendiente).
   /// Devuelve `true` cobro total, `false` parcial, `null` si falló o se canceló.
   Future<bool?> _confirmarCobro({
@@ -1014,25 +1063,31 @@ class _PedidosPageState extends State<PedidosPage> {
       return true;
     }
 
-    // Pago parcial
+    // Pago parcial: preguntar si se desea imprimir el ticket de este cobro
     final pendienteDespues = _totalPendienteMesa;
-    try {
-      await ImprimirPedidoService.instance.imprimirTicketPagoParcial(
-        mesaNumero: _mesaSeleccionada,
-        items: itemsAntes,
-        totalCuenta: totalBruto,
-        importePagado: importeACobrar,
-        totalRestante: pendienteDespues,
-        metodoPagoEtiqueta: metodo.etiquetaImpresion,
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Pago registrado; error al imprimir: $e'),
-            backgroundColor: Colors.orange,
-          ),
+    final imprimirParcial = await _preguntarImprimirTicketParcial(
+      importeACobrar: importeACobrar,
+      pendienteRestante: pendienteDespues,
+    );
+    if (imprimirParcial == true && mounted) {
+      try {
+        await ImprimirPedidoService.instance.imprimirTicketPagoParcial(
+          mesaNumero: _mesaSeleccionada,
+          items: itemsAntes,
+          totalCuenta: totalBruto,
+          importePagado: importeACobrar,
+          totalRestante: pendienteDespues,
+          metodoPagoEtiqueta: metodo.etiquetaImpresion,
         );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Pago registrado; error al imprimir: $e'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       }
     }
 
