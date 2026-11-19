@@ -693,21 +693,34 @@ class LocalServer {
         final metodo = data['metodo'] as String;
         final importeRecibido = (data['importeRecibido'] as num?)?.toDouble();
         final pagoTotal = data['pagoTotal'] as bool? ?? false;
+        final cuotaTeorica = (data['cuotaTeorica'] as num?)?.toDouble();
+        final cuotaAcordada = (data['cuotaAcordada'] as num?)?.toDouble();
+        final esRedondeoCuota = data['esRedondeoCuota'] as bool? ?? false;
+        final descuentoCondonado =
+            (data['descuentoCondonado'] as num?)?.toDouble() ?? 0.0;
 
         final pendienteAntes = await _db.obtenerTotalPendienteMesa(numero);
-        final esPagoTotal = pagoTotal || importe >= pendienteAntes - 0.009;
-        final double importeCobrado = esPagoTotal
-            ? pendienteAntes
-            : importe.clamp(0, pendienteAntes).toDouble();
+        final cierraConDescuento = descuentoCondonado > 0.009;
+        final esPagoTotal = pagoTotal ||
+            importe >= pendienteAntes - 0.009 ||
+            cierraConDescuento;
+        final double importeCobrado =
+            (esPagoTotal && !cierraConDescuento)
+                ? pendienteAntes
+                : importe.clamp(0, pendienteAntes).toDouble();
 
-        final double? vuelto = importeRecibido != null && esPagoTotal
+        final double? vuelto = importeRecibido != null &&
+                esPagoTotal &&
+                !cierraConDescuento
             ? (importeRecibido - importeCobrado)
                 .clamp(0, double.infinity)
                 .toDouble()
             : null;
 
         double pendienteRestante;
-        if (esPagoTotal) {
+        final isBuffetClose = data['isBuffetClose'] as bool? ?? false;
+
+        if (esPagoTotal && !cierraConDescuento) {
           await RegistroPagoService.instance.registrar(
             RegistroPago(
               fecha: DateTime.now(),
@@ -719,10 +732,53 @@ class LocalServer {
               vuelto: vuelto,
               pendienteRestante: 0,
               cerrado: true,
+              cuotaTeorica: cuotaTeorica,
+              cuotaAcordada: cuotaAcordada,
+              esRedondeoCuota: esRedondeoCuota,
+              nota: esRedondeoCuota ? 'Cuota redondeada' : null,
             ),
           );
           pendienteRestante = 0;
-          final isBuffetClose = data['isBuffetClose'] as bool? ?? false;
+          await _db.liberarMesa(
+            numero,
+            isBuffetClose: isBuffetClose,
+            registrarEnAnalytics: true,
+          );
+        } else if (cierraConDescuento) {
+          await _db.aplicarPagoMesa(numero, importeCobrado);
+          await RegistroPagoService.instance.registrar(
+            RegistroPago(
+              fecha: DateTime.now(),
+              mesaNumero: numero,
+              metodo: metodo,
+              importeCobrado: importeCobrado,
+              esParcial: true,
+              importeRecibido: importeRecibido,
+              pendienteRestante: descuentoCondonado,
+              cuotaTeorica: cuotaTeorica,
+              cuotaAcordada: cuotaAcordada,
+              esRedondeoCuota: true,
+              nota: 'Cuota redondeada',
+            ),
+          );
+          await _db.aplicarPagoMesa(numero, descuentoCondonado);
+          await RegistroPagoService.instance.registrar(
+            RegistroPago(
+              fecha: DateTime.now(),
+              mesaNumero: numero,
+              metodo: 'descuento',
+              importeCobrado: descuentoCondonado,
+              esParcial: false,
+              pendienteRestante: 0,
+              cerrado: true,
+              cuotaTeorica: cuotaTeorica,
+              cuotaAcordada: cuotaAcordada,
+              esRedondeoCuota: true,
+              nota:
+                  'Redondeo cuota · condonado al cerrar (teórica ${(cuotaTeorica ?? pendienteAntes).toStringAsFixed(2)} €)',
+            ),
+          );
+          pendienteRestante = 0;
           await _db.liberarMesa(
             numero,
             isBuffetClose: isBuffetClose,
@@ -740,6 +796,10 @@ class LocalServer {
               importeRecibido: importeRecibido,
               vuelto: vuelto,
               pendienteRestante: pendienteRestante,
+              cuotaTeorica: cuotaTeorica,
+              cuotaAcordada: cuotaAcordada,
+              esRedondeoCuota: esRedondeoCuota,
+              nota: esRedondeoCuota ? 'Cuota redondeada' : null,
             ),
           );
         }

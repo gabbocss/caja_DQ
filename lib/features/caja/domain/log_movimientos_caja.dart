@@ -31,19 +31,46 @@ class LogMovimientosCaja {
 
     for (final cobro in cobros) {
       final metodo = cobro.metodo.toLowerCase();
+      final mesa = 'Mesa ${cobro.mesaNumero}';
+
+      if (cobro.esDescuento) {
+        final detalleNota = (cobro.nota != null && cobro.nota!.trim().isNotEmpty)
+            ? ' · ${cobro.nota!.trim()}'
+            : '';
+        movimientos.add(
+          MovimientoCaja(
+            tipo: 'descuento',
+            fecha: cobro.fecha,
+            descripcion: 'Descuento / redondeo · $mesa$detalleNota',
+            importe: cobro.importeCobrado,
+            metodo: 'descuento',
+            mesaNumero: cobro.mesaNumero,
+            esParcial: cobro.esParcial,
+          ),
+        );
+        continue;
+      }
+
       final entraEnCajon = metodo == 'efectivo' || metodo == 'otros';
       final parcial = cobro.esParcial ? 'parcial' : 'total';
-      final mesa = 'Mesa ${cobro.mesaNumero}';
       final notaVuelto = cobro.vuelto != null && cobro.vuelto! > 0.009
           ? ' · vuelto ${cobro.vuelto!.toStringAsFixed(2)} €'
           : '';
       final notaCajon = entraEnCajon ? '' : ' · no entra en cajón';
+      final notaRedondeo = cobro.esRedondeoCuota && cobro.cuotaAcordada != null
+          ? ' · cuota ${cobro.cuotaAcordada!.toStringAsFixed(2)} €'
+              '${cobro.cuotaTeorica != null ? ' (teórica ${cobro.cuotaTeorica!.toStringAsFixed(2)} €)' : ''}'
+          : '';
+      final detalleNota = (cobro.nota != null && cobro.nota!.trim().isNotEmpty)
+          ? ' · ${cobro.nota!.trim()}'
+          : '';
 
       movimientos.add(
         MovimientoCaja(
           tipo: 'cobro',
           fecha: cobro.fecha,
-          descripcion: 'Cobro $parcial · $mesa · $metodo$notaVuelto$notaCajon',
+          descripcion:
+              'Cobro $parcial · $mesa · $metodo$notaVuelto$notaCajon$notaRedondeo$detalleNota',
           importe: cobro.importeCobrado,
           metodo: metodo,
           mesaNumero: cobro.mesaNumero,
@@ -91,8 +118,9 @@ class LogMovimientosCaja {
   static int _prioridadTipo(String tipo) => switch (tipo) {
         'apertura' => 0,
         'cobro' => 1,
-        'retiro' => 2,
-        'cierre' => 3,
-        _ => 4,
+        'descuento' => 2,
+        'retiro' => 3,
+        'cierre' => 4,
+        _ => 5,
       };
 }

@@ -195,6 +195,154 @@ void main() {
         isFalse,
       );
     });
+
+    test('redondearCuotaAEuro baja a entero y no actúa si ya es limpia', () {
+      expect(DivisionCuenta.redondearCuotaAEuro(22.30), 22);
+      expect(DivisionCuenta.redondearCuotaAEuro(22.00), isNull);
+      expect(DivisionCuenta.redondearCuotaAEuro(0.80), isNull);
+    });
+
+    test('importeSugerido usa cuota acordada hasta invalidarla', () {
+      expectCasi(
+        DivisionCuenta.importeSugerido(
+          pendiente: 45,
+          personas: 2,
+          cuotaAcordada: 22,
+        ),
+        22,
+      );
+      // Sin cuota: reparte el pendiente (incluye céntimos) entre restantes
+      expectCasi(
+        DivisionCuenta.importeSugerido(
+          pendiente: 45,
+          personas: 2,
+          cuotaAcordada: null,
+        ),
+        22.5,
+      );
+    });
+
+    test('cuota acordada baja personas aunque no coincida con la teórica', () {
+      final restantes = DivisionCuenta.personasTrasCobro(
+        importeCobrado: 22,
+        partePorPersona: 22.30,
+        personasAntes: 3,
+        cuotaAcordada: 22,
+        forzarCuota: true,
+      );
+      expect(restantes, 2);
+    });
+
+    test('resto a condonar solo en el último con cuota acordada', () {
+      expectCasi(
+        DivisionCuenta.restoACondonarAlCerrarConCuota(
+          pendienteAntes: 22.90,
+          importeCobrado: 22,
+          personasAntes: 1,
+          usandoCuotaAcordada: true,
+        ),
+        0.90,
+      );
+      expect(
+        DivisionCuenta.restoACondonarAlCerrarConCuota(
+          pendienteAntes: 45,
+          importeCobrado: 22,
+          personasAntes: 2,
+          usandoCuotaAcordada: true,
+        ),
+        0,
+      );
+    });
+  });
+
+  group('Cuota acordada — sin pedidos nuevos vs con pedidos nuevos', () {
+    test('sin pedir más: todos pagan la cuota fijada; resto se condona al final', () {
+      final cuenta = [pedidoCon(precio: 66.90, cantidad: 1)];
+      var personas = 3;
+      var pendiente = pendienteTotal(cuenta);
+      const cuota = 22.0;
+
+      // Persona 1 redondea
+      expectCasi(DivisionCuenta.partePorPersona(pendiente, personas), 22.30);
+      expect(DivisionCuenta.redondearCuotaAEuro(22.30), 22);
+      expectCasi(aplicarPagoSobreCuenta(cuenta, cuota), 44.90);
+      personas = DivisionCuenta.personasTrasCobro(
+        importeCobrado: cuota,
+        partePorPersona: 22.30,
+        personasAntes: personas,
+        cuotaAcordada: cuota,
+        forzarCuota: true,
+      );
+      expect(personas, 2);
+      pendiente = pendienteTotal(cuenta);
+
+      // Sin pedidos nuevos: se sigue sugiriendo 22, no 22.45
+      expectCasi(
+        DivisionCuenta.importeSugerido(
+          pendiente: pendiente,
+          personas: personas,
+          cuotaAcordada: cuota,
+        ),
+        22,
+      );
+      expectCasi(aplicarPagoSobreCuenta(cuenta, cuota), 22.90);
+      personas = DivisionCuenta.personasTrasCobro(
+        importeCobrado: cuota,
+        partePorPersona: DivisionCuenta.partePorPersona(pendiente, 2),
+        personasAntes: personas,
+        cuotaAcordada: cuota,
+      );
+      expect(personas, 1);
+      pendiente = pendienteTotal(cuenta);
+
+      // Último: cobra 22 y condona 0.90
+      final resto = DivisionCuenta.restoACondonarAlCerrarConCuota(
+        pendienteAntes: pendiente,
+        importeCobrado: cuota,
+        personasAntes: 1,
+        usandoCuotaAcordada: true,
+      );
+      expectCasi(resto, 0.90);
+      expectCasi(aplicarPagoSobreCuenta(cuenta, cuota), resto);
+      expectCasi(aplicarPagoSobreCuenta(cuenta, resto), 0);
+      expectCasi(cobradoTotal(cuenta), 66.90);
+    });
+
+    test('si piden más: se anula cuota fija y los céntimos entran en el reparto', () {
+      final t0 = DateTime(2026, 3, 1, 20);
+      final cuenta = [pedidoCon(precio: 66.90, cantidad: 1, fecha: t0)];
+      var personas = 3;
+      const cuota = 22.0;
+
+      aplicarPagoSobreCuenta(cuenta, cuota);
+      personas = DivisionCuenta.personasTrasCobro(
+        importeCobrado: cuota,
+        partePorPersona: 22.30,
+        personasAntes: personas,
+        forzarCuota: true,
+      );
+      expect(personas, 2);
+
+      // Piden más → invalidar cuota acordada (null) y recalcular
+      cuenta.add(
+        pedidoCon(
+          precio: 20,
+          cantidad: 1,
+          fecha: t0.add(const Duration(minutes: 10)),
+          nombre: 'Postre',
+        ),
+      );
+      final pendiente = pendienteTotal(cuenta); // 44.90 + 20 = 64.90
+      expectCasi(pendiente, 64.90);
+      expectCasi(
+        DivisionCuenta.importeSugerido(
+          pendiente: pendiente,
+          personas: personas,
+          cuotaAcordada: null, // invalidada
+        ),
+        32.45,
+      );
+    });
   });
 
   group('División + aplicarPagoSobreCuenta (flujo real de cuenta)', () {

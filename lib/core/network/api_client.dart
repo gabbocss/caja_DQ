@@ -255,6 +255,10 @@ class ApiClient {
     required String metodo,
     double? importeRecibido,
     required bool pagoTotal,
+    double? cuotaTeorica,
+    double? cuotaAcordada,
+    bool esRedondeoCuota = false,
+    double? descuentoCondonado,
   }) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/api/mesas/pago'),
@@ -268,6 +272,10 @@ class ApiClient {
         'metodo': metodo,
         if (importeRecibido != null) 'importeRecibido': importeRecibido,
         'pagoTotal': pagoTotal,
+        if (cuotaTeorica != null) 'cuotaTeorica': cuotaTeorica,
+        if (cuotaAcordada != null) 'cuotaAcordada': cuotaAcordada,
+        if (esRedondeoCuota) 'esRedondeoCuota': esRedondeoCuota,
+        if (descuentoCondonado != null) 'descuentoCondonado': descuentoCondonado,
       }),
     );
     if (response.statusCode != 200) {

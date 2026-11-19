@@ -2,7 +2,7 @@
 ///
 /// Se congela en el cierre para poder auditar el día desde el histórico.
 class MovimientoCaja {
-  /// apertura | cobro | retiro | cierre | nota
+  /// apertura | cobro | descuento | retiro | cierre | nota
   final String tipo;
   final DateTime fecha;
   final String descripcion;

@@ -79,6 +79,8 @@ class _PedidosPageState extends State<PedidosPage> {
   int _cubiertos = 0;
   /// Personas que aún deben pagar al dividir (por mesa). Baja al cobrar una cuota.
   final Map<int, int> _personasRestantesDivisionPorMesa = {};
+  /// Cuota fijada a mano tras redondeo/descuento (por mesa). Se invalida si piden más.
+  final Map<int, double> _cuotaAcordadaPorMesa = {};
   /// Búsqueda de platos dentro de la categoría activa (campo siempre visible).
   String _textoBusqueda = '';
   final TextEditingController _busquedaController = TextEditingController();
@@ -643,20 +645,38 @@ class _PedidosPageState extends State<PedidosPage> {
   }
 
   void _limpiarPersonasDivisionMesa([int? mesa]) {
-    _personasRestantesDivisionPorMesa.remove(mesa ?? _mesaSeleccionada);
+    final m = mesa ?? _mesaSeleccionada;
+    _personasRestantesDivisionPorMesa.remove(m);
+    _cuotaAcordadaPorMesa.remove(m);
   }
 
-  /// Si el importe coincide con una cuota por persona, baja el contador restante.
+  double? _cuotaAcordadaMesa([int? mesa]) =>
+      _cuotaAcordadaPorMesa[mesa ?? _mesaSeleccionada];
+
+  void _guardarCuotaAcordadaMesa(double cuota) {
+    _cuotaAcordadaPorMesa[_mesaSeleccionada] = cuota;
+  }
+
+  /// Los céntimos del redondeo solo se redistribuyen si la mesa pide más.
+  void _invalidarCuotaAcordadaPorNuevosPedidos([int? mesa]) {
+    _cuotaAcordadaPorMesa.remove(mesa ?? _mesaSeleccionada);
+  }
+
+  /// Si el importe coincide con una cuota (teórica o acordada), baja el contador.
   void _registrarCuotaPersonaSiAplica({
     required double importeCobrado,
     required double partePorPersona,
     required int personasAntes,
+    double? cuotaAcordada,
+    bool forzarCuota = false,
   }) {
     _guardarPersonasDivisionMesa(
       DivisionCuenta.personasTrasCobro(
         importeCobrado: importeCobrado,
         partePorPersona: partePorPersona,
         personasAntes: personasAntes,
+        cuotaAcordada: cuotaAcordada,
+        forzarCuota: forzarCuota,
       ),
     );
   }
@@ -814,6 +834,8 @@ class _PedidosPageState extends State<PedidosPage> {
       await DatabaseService.instance
           .sincronizarPendienteMesaDesdeCobros(_mesaSeleccionada);
     }
+    // Al cambiar el consumo, los céntimos del redondeo vuelven al reparto.
+    _invalidarCuotaAcordadaPorNuevosPedidos();
   }
 
   /// Persiste el cobro en servidor o BD local.
@@ -823,16 +845,32 @@ class _PedidosPageState extends State<PedidosPage> {
     required MetodoPagoCuenta metodo,
     required bool pagoTotal,
     double? importeRecibido,
+    double? cuotaTeorica,
+    double? cuotaAcordada,
+    bool esRedondeoCuota = false,
+    int personasAntes = 1,
   }) async {
     final numero = _mesaSeleccionada;
     try {
+      final restoCondonar = DivisionCuenta.restoACondonarAlCerrarConCuota(
+        pendienteAntes: _totalPendienteMesa,
+        importeCobrado: importe,
+        personasAntes: personasAntes,
+        usandoCuotaAcordada: esRedondeoCuota,
+      );
+      final cierraConDescuento = restoCondonar > 0.009;
+
       if (sl.isRegistered<ApiClient>()) {
         final res = await sl<ApiClient>().registrarPagoMesa(
           numeroMesa: numero,
           importe: importe,
           metodo: metodo.name,
           importeRecibido: importeRecibido,
-          pagoTotal: pagoTotal,
+          pagoTotal: pagoTotal || cierraConDescuento,
+          cuotaTeorica: cuotaTeorica,
+          cuotaAcordada: cuotaAcordada,
+          esRedondeoCuota: esRedondeoCuota,
+          descuentoCondonado: cierraConDescuento ? restoCondonar : null,
         );
         final lista = res['pedidos'] as List<dynamic>? ?? [];
         if (mounted) {
@@ -851,12 +889,22 @@ class _PedidosPageState extends State<PedidosPage> {
 
       final db = DatabaseService.instance;
       final pendienteAntes = await db.obtenerTotalPendienteMesa(numero);
-      final esTotal = pagoTotal || importe >= pendienteAntes - 0.009;
-      final double importeCobrado = esTotal
+      final restoLocal = DivisionCuenta.restoACondonarAlCerrarConCuota(
+        pendienteAntes: pendienteAntes,
+        importeCobrado: importe.clamp(0, pendienteAntes).toDouble(),
+        personasAntes: personasAntes,
+        usandoCuotaAcordada: esRedondeoCuota,
+      );
+      final esTotal = pagoTotal ||
+          importe >= pendienteAntes - 0.009 ||
+          restoLocal > 0.009;
+      final double importeCobrado = (esTotal && restoLocal <= 0.009)
           ? pendienteAntes
           : importe.clamp(0, pendienteAntes).toDouble();
 
-      final double? vuelto = importeRecibido != null && esTotal
+      final double? vuelto = importeRecibido != null &&
+              esTotal &&
+              restoLocal <= 0.009
           ? (importeRecibido - importeCobrado)
               .clamp(0, double.infinity)
               .toDouble()
@@ -864,7 +912,7 @@ class _PedidosPageState extends State<PedidosPage> {
 
       double pendienteRestante;
 
-      if (esTotal) {
+      if (esTotal && restoLocal <= 0.009) {
         await RegistroPagoService.instance.registrar(
           RegistroPago(
             fecha: DateTime.now(),
@@ -876,6 +924,52 @@ class _PedidosPageState extends State<PedidosPage> {
             vuelto: vuelto,
             pendienteRestante: 0,
             cerrado: true,
+            cuotaTeorica: cuotaTeorica,
+            cuotaAcordada: cuotaAcordada,
+            esRedondeoCuota: esRedondeoCuota,
+            nota: esRedondeoCuota ? 'Cuota redondeada' : null,
+          ),
+        );
+        await db.liberarMesa(
+          numero,
+          isBuffetClose: _cuentaTieneBuffet(),
+          registrarEnAnalytics: true,
+        );
+        pendienteRestante = 0;
+        if (mounted) setState(() => _cuentaActual = []);
+      } else if (esTotal && restoLocal > 0.009) {
+        // Último comensal con cuota fijada: cobra la cuota y condona el resto.
+        await db.aplicarPagoMesa(numero, importeCobrado);
+        await RegistroPagoService.instance.registrar(
+          RegistroPago(
+            fecha: DateTime.now(),
+            mesaNumero: numero,
+            metodo: metodo.name,
+            importeCobrado: importeCobrado,
+            esParcial: true,
+            importeRecibido: importeRecibido,
+            pendienteRestante: restoLocal,
+            cuotaTeorica: cuotaTeorica,
+            cuotaAcordada: cuotaAcordada,
+            esRedondeoCuota: true,
+            nota: 'Cuota redondeada',
+          ),
+        );
+        await db.aplicarPagoMesa(numero, restoLocal);
+        await RegistroPagoService.instance.registrar(
+          RegistroPago(
+            fecha: DateTime.now(),
+            mesaNumero: numero,
+            metodo: 'descuento',
+            importeCobrado: restoLocal,
+            esParcial: false,
+            pendienteRestante: 0,
+            cerrado: true,
+            cuotaTeorica: cuotaTeorica,
+            cuotaAcordada: cuotaAcordada,
+            esRedondeoCuota: true,
+            nota:
+                'Redondeo cuota · condonado al cerrar (teórica ${(cuotaTeorica ?? pendienteAntes).toStringAsFixed(2)} €)',
           ),
         );
         await db.liberarMesa(
@@ -897,6 +991,10 @@ class _PedidosPageState extends State<PedidosPage> {
             importeRecibido: importeRecibido,
             vuelto: vuelto,
             pendienteRestante: pendienteRestante,
+            cuotaTeorica: cuotaTeorica,
+            cuotaAcordada: cuotaAcordada,
+            esRedondeoCuota: esRedondeoCuota,
+            nota: esRedondeoCuota ? 'Cuota redondeada' : null,
           ),
         );
         await _cargarCuentaMesa(numero);
@@ -995,6 +1093,10 @@ class _PedidosPageState extends State<PedidosPage> {
     required MetodoPagoCuenta metodo,
     required double importeIntroducido,
     double? importeRecibidoEfectivo,
+    double? cuotaTeorica,
+    double? cuotaAcordada,
+    bool esRedondeoCuota = false,
+    int personasAntes = 1,
   }) async {
     if (importeIntroducido <= 0) {
       if (!mounted) return null;
@@ -1008,10 +1110,18 @@ class _PedidosPageState extends State<PedidosPage> {
     }
 
     final pendienteAntes = _totalPendienteMesa;
-    final esPagoTotal = importeIntroducido >= pendienteAntes - 0.009;
-    final double importeACobrar = esPagoTotal
-        ? pendienteAntes
-        : importeIntroducido.clamp(0, pendienteAntes).toDouble();
+    final restoCondonar = DivisionCuenta.restoACondonarAlCerrarConCuota(
+      pendienteAntes: pendienteAntes,
+      importeCobrado: importeIntroducido.clamp(0, pendienteAntes).toDouble(),
+      personasAntes: personasAntes,
+      usandoCuotaAcordada: esRedondeoCuota,
+    );
+    final esPagoTotal = importeIntroducido >= pendienteAntes - 0.009 ||
+        restoCondonar > 0.009;
+    final double importeACobrar =
+        (esPagoTotal && restoCondonar <= 0.009)
+            ? pendienteAntes
+            : importeIntroducido.clamp(0, pendienteAntes).toDouble();
 
     final itemsAntes = _itemsCuentaMesa();
     final totalBruto = _totalCuentaBrutaMesa();
@@ -1021,6 +1131,10 @@ class _PedidosPageState extends State<PedidosPage> {
       metodo: metodo,
       pagoTotal: esPagoTotal,
       importeRecibido: importeRecibidoEfectivo,
+      cuotaTeorica: cuotaTeorica,
+      cuotaAcordada: cuotaAcordada,
+      esRedondeoCuota: esRedondeoCuota,
+      personasAntes: personasAntes,
     );
 
     if (!mounted || resultado == null) return null;
@@ -1128,6 +1242,8 @@ class _PedidosPageState extends State<PedidosPage> {
     var paso = _PasoDialogoPagos.menu;
     var procesando = false;
     var personasDivision = _personasParaDividirCuenta().clamp(1, 99);
+    /// Si el usuario pulsó «Redondear» en este cobro (aún sin confirmar).
+    var redondeoManualActivo = false;
 
     double? parseImporte() {
       final t = importeController.text
@@ -1159,16 +1275,36 @@ class _PedidosPageState extends State<PedidosPage> {
             final importe = parseImporte() ?? 0;
             final pendienteValido =
                 pendiente.isFinite && pendiente > 0.009;
+            final cuotaAcordada = _cuotaAcordadaMesa();
+            final parteTeorica = pendienteValido && personasDivision >= 1
+                ? DivisionCuenta.partePorPersona(pendiente, personasDivision)
+                : 0.0;
+            final partePorPersona = DivisionCuenta.importeSugerido(
+              pendiente: pendienteValido ? pendiente : 0,
+              personas: personasDivision,
+              cuotaAcordada: cuotaAcordada,
+            );
+            final redondeoDisponible =
+                DivisionCuenta.redondearCuotaAEuro(parteTeorica);
+            final usandoCuotaAcordada = redondeoManualActivo ||
+                DivisionCuenta.esImporteCuotaAcordada(
+                  importeCobrado: importe,
+                  cuotaAcordada: cuotaAcordada,
+                );
+            final restoAlCerrar = DivisionCuenta.restoACondonarAlCerrarConCuota(
+              pendienteAntes: pendiente,
+              importeCobrado: importe,
+              personasAntes: personasDivision,
+              usandoCuotaAcordada: usandoCuotaAcordada,
+            );
             final esCobroTotal = pendienteValido &&
-                importe >= pendiente - 0.009 &&
-                importe > 0;
+                importe > 0 &&
+                (importe >= pendiente - 0.009 || restoAlCerrar > 0.009);
             final double? vuelto = metodoSeleccionado == MetodoPagoCuenta.efectivo &&
-                    esCobroTotal
+                    esCobroTotal &&
+                    restoAlCerrar <= 0.009
                 ? (importe - pendiente).toDouble()
                 : null;
-            final partePorPersona = pendienteValido && personasDivision >= 1
-                ? pendiente / personasDivision
-                : 0.0;
 
             void aplicarDivisionEnImporte() {
               if (personasDivision < 1) return;
@@ -1177,14 +1313,34 @@ class _PedidosPageState extends State<PedidosPage> {
                 pendienteInicial,
               );
               if (!p.isFinite || p <= 0.009) return;
-              importeController.text =
-                  (p / personasDivision).toStringAsFixed(2);
+              final sugerido = DivisionCuenta.importeSugerido(
+                pendiente: p,
+                personas: personasDivision,
+                cuotaAcordada: _cuotaAcordadaMesa(),
+              );
+              importeController.text = sugerido.toStringAsFixed(2);
+              redondeoManualActivo = false;
             }
 
             void actualizarPersonasDivision(int nuevo) {
               personasDivision = nuevo.clamp(1, 99);
               _guardarPersonasDivisionMesa(personasDivision);
+              // Cambiar personas invalida la cuota fija previa.
+              _invalidarCuotaAcordadaPorNuevosPedidos();
               aplicarDivisionEnImporte();
+            }
+
+            void aplicarRedondeoManual() {
+              final p = _importeCobroSeguro(
+                _totalPendienteMesa,
+                pendienteInicial,
+              );
+              final teorica =
+                  DivisionCuenta.partePorPersona(p, personasDivision);
+              final redondeada = DivisionCuenta.redondearCuotaAEuro(teorica);
+              if (redondeada == null) return;
+              importeController.text = redondeada.toStringAsFixed(2);
+              redondeoManualActivo = true;
             }
 
             Future<void> confirmar() async {
@@ -1210,7 +1366,16 @@ class _PedidosPageState extends State<PedidosPage> {
               if (metodoSeleccionado == null) return;
 
               final personasAntes = personasDivision;
-              final parteAntes = partePorPersona;
+              final parteAntes = parteTeorica;
+              final cuotaAntes = _cuotaAcordadaMesa();
+              final esRedondeo = redondeoManualActivo ||
+                  DivisionCuenta.esImporteCuotaAcordada(
+                    importeCobrado: valor,
+                    cuotaAcordada: cuotaAntes,
+                  );
+              final cuotaAGuardar = esRedondeo
+                  ? (redondeoManualActivo ? valor : (cuotaAntes ?? valor))
+                  : null;
 
               setDialogState(() => procesando = true);
 
@@ -1221,27 +1386,39 @@ class _PedidosPageState extends State<PedidosPage> {
                     metodoSeleccionado == MetodoPagoCuenta.efectivo
                         ? valor
                         : null,
+                cuotaTeorica: esRedondeo ? parteAntes : null,
+                cuotaAcordada: cuotaAGuardar,
+                esRedondeoCuota: esRedondeo,
+                personasAntes: personasAntes,
               );
               if (!ctx.mounted) return;
 
               if (resultado == true) {
+                _limpiarPersonasDivisionMesa();
                 Navigator.of(ctx).pop();
                 return;
               }
 
               if (resultado == false) {
+                if (esRedondeo && cuotaAGuardar != null) {
+                  _guardarCuotaAcordadaMesa(cuotaAGuardar);
+                }
                 _registrarCuotaPersonaSiAplica(
                   importeCobrado: valor.clamp(0, pendiente).toDouble(),
                   partePorPersona: parteAntes,
                   personasAntes: personasAntes,
+                  cuotaAcordada: cuotaAGuardar ?? cuotaAntes,
+                  forzarCuota: esRedondeo,
                 );
                 pendienteInicial = _totalPendienteMesa;
                 if (pendienteInicial <= 0.009) {
+                  _limpiarPersonasDivisionMesa();
                   Navigator.of(ctx).pop();
                   return;
                 }
                 setDialogState(() {
                   procesando = false;
+                  redondeoManualActivo = false;
                   personasDivision = _personasParaDividirCuenta();
                   aplicarDivisionEnImporte();
                 });
@@ -1281,9 +1458,14 @@ class _PedidosPageState extends State<PedidosPage> {
                                   metodoSeleccionado =
                                       MetodoPagoCuenta.efectivo;
                                   paso = _PasoDialogoPagos.importe;
+                                  redondeoManualActivo = false;
                                   if (pendiente.isFinite && pendiente > 0) {
-                                    importeController.text =
-                                        pendiente.toStringAsFixed(2);
+                                    if (_cuotaAcordadaMesa() != null) {
+                                      aplicarDivisionEnImporte();
+                                    } else {
+                                      importeController.text =
+                                          pendiente.toStringAsFixed(2);
+                                    }
                                   } else {
                                     importeController.clear();
                                   }
@@ -1299,9 +1481,14 @@ class _PedidosPageState extends State<PedidosPage> {
                                   metodoSeleccionado =
                                       MetodoPagoCuenta.tarjeta;
                                   paso = _PasoDialogoPagos.importe;
+                                  redondeoManualActivo = false;
                                   if (pendiente.isFinite && pendiente > 0) {
-                                    importeController.text =
-                                        pendiente.toStringAsFixed(2);
+                                    if (_cuotaAcordadaMesa() != null) {
+                                      aplicarDivisionEnImporte();
+                                    } else {
+                                      importeController.text =
+                                          pendiente.toStringAsFixed(2);
+                                    }
                                   } else {
                                     importeController.clear();
                                   }
@@ -1316,9 +1503,14 @@ class _PedidosPageState extends State<PedidosPage> {
                             : () => setDialogState(() {
                                   metodoSeleccionado = MetodoPagoCuenta.otros;
                                   paso = _PasoDialogoPagos.importe;
+                                  redondeoManualActivo = false;
                                   if (pendiente.isFinite && pendiente > 0) {
-                                    importeController.text =
-                                        pendiente.toStringAsFixed(2);
+                                    if (_cuotaAcordadaMesa() != null) {
+                                      aplicarDivisionEnImporte();
+                                    } else {
+                                      importeController.text =
+                                          pendiente.toStringAsFixed(2);
+                                    }
                                   } else {
                                     importeController.clear();
                                   }
@@ -1375,7 +1567,13 @@ class _PedidosPageState extends State<PedidosPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onChanged: (_) => setDialogState(() {}),
+                    onChanged: (_) => setDialogState(() {
+                      final v = parseImporte();
+                      final r = DivisionCuenta.redondearCuotaAEuro(parteTeorica);
+                      redondeoManualActivo = v != null &&
+                          r != null &&
+                          (v - r).abs() <= 0.009;
+                    }),
                   ),
                   const SizedBox(height: 14),
                   Container(
@@ -1451,7 +1649,10 @@ class _PedidosPageState extends State<PedidosPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '€${partePorPersona.toStringAsFixed(2)} por persona',
+                          cuotaAcordada != null
+                              ? 'Cuota fijada: €${cuotaAcordada.toStringAsFixed(2)}'
+                                  ' (teórica €${parteTeorica.toStringAsFixed(2)})'
+                              : '€${parteTeorica.toStringAsFixed(2)} por persona',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Color(0xFF00D9A5),
@@ -1459,6 +1660,71 @@ class _PedidosPageState extends State<PedidosPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            OutlinedButton(
+                              onPressed: procesando
+                                  ? null
+                                  : () => setDialogState(() {
+                                        aplicarDivisionEnImporte();
+                                      }),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFBB86FC),
+                                side: const BorderSide(
+                                  color: Color(0xFFBB86FC),
+                                ),
+                              ),
+                              child: Text(
+                                'Usar parte (€${partePorPersona.toStringAsFixed(2)})',
+                              ),
+                            ),
+                            if (redondeoDisponible != null)
+                              FilledButton.tonal(
+                                onPressed: procesando
+                                    ? null
+                                    : () => setDialogState(aplicarRedondeoManual),
+                                style: FilledButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: const Color(0xFF6A4C93),
+                                ),
+                                child: Text(
+                                  'Descuento → €${redondeoDisponible.toStringAsFixed(2)}',
+                                ),
+                              ),
+                            if (cuotaAcordada != null)
+                              TextButton(
+                                onPressed: procesando
+                                    ? null
+                                    : () => setDialogState(() {
+                                          _invalidarCuotaAcordadaPorNuevosPedidos();
+                                          redondeoManualActivo = false;
+                                          aplicarDivisionEnImporte();
+                                        }),
+                                child: const Text(
+                                  'Quitar cuota fija',
+                                  style: TextStyle(color: Colors.white54),
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (redondeoManualActivo || cuotaAcordada != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            personasDivision > 1
+                                ? 'Sin pedidos nuevos, el resto también pagará esta cuota. '
+                                    'Si piden más, los céntimos entran en el nuevo reparto.'
+                                : 'Último comensal: el resto de céntimos se registrará como descuento al confirmar.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.purple.shade200,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1473,13 +1739,26 @@ class _PedidosPageState extends State<PedidosPage> {
                       ),
                     ),
                   ],
-                  if (importe > 0 && importe < pendiente - 0.009) ...[
+                  if (importe > 0 &&
+                      importe < pendiente - 0.009 &&
+                      restoAlCerrar <= 0.009) ...[
                     const SizedBox(height: 12),
                     Text(
                       'Pago parcial: quedarán €${(pendiente - importe).toStringAsFixed(2)} pendientes',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.orange.shade300,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                  if (restoAlCerrar > 0.009) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Se condonarán €${restoAlCerrar.toStringAsFixed(2)} (descuento en caja) y se cerrará la cuenta',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.purple.shade200,
                         fontSize: 13,
                       ),
                     ),
@@ -2192,6 +2471,9 @@ class _PedidosPageState extends State<PedidosPage> {
         _ninosBuffet = 0;
         _cubiertos = 0;
       });
+
+      // Nuevos platos: los céntimos del redondeo vuelven al reparto.
+      _invalidarCuotaAcordadaPorNuevosPedidos();
 
       // Actualizar cuenta actual y mesas con cuenta abierta
       _cargarCuentaMesa(_mesaSeleccionada);

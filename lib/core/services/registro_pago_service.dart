@@ -4,7 +4,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Registro de un cobro para el cierre de caja (histórico / arqueo).
+/// Registro de un cobro o ajuste para el cierre de caja (histórico / arqueo).
+///
+/// [metodo] habitual: `efectivo` | `tarjeta` | `otros`.
+/// También `descuento` para condonaciones/redondeos (no entra en cajón).
 class RegistroPago {
   final DateTime fecha;
   final int mesaNumero;
@@ -20,6 +23,14 @@ class RegistroPago {
   final String? sesionCajaId;
   /// `true` cuando el cobro ya se incluyó en un cierre de caja.
   final bool archivadoCaja;
+  /// Cuota teórica (pendiente/personas) cuando se aplicó redondeo manual.
+  final double? cuotaTeorica;
+  /// Importe de cuota fijada a mano (p. ej. 22,00).
+  final double? cuotaAcordada;
+  /// `true` si este cobro usó redondeo/descuento manual de cuota.
+  final bool esRedondeoCuota;
+  /// Nota libre para el log (p. ej. motivo del descuento).
+  final String? nota;
 
   const RegistroPago({
     required this.fecha,
@@ -33,7 +44,14 @@ class RegistroPago {
     this.cerrado = false,
     this.sesionCajaId,
     this.archivadoCaja = false,
+    this.cuotaTeorica,
+    this.cuotaAcordada,
+    this.esRedondeoCuota = false,
+    this.nota,
   });
+
+  /// Condona importe sin movimiento de cajón (redondeo al cerrar, etc.).
+  bool get esDescuento => metodo.toLowerCase() == 'descuento';
 
   Map<String, dynamic> toJson() => {
         'fecha': fecha.toIso8601String(),
@@ -47,6 +65,10 @@ class RegistroPago {
         if (cerrado) 'cerrado': cerrado,
         if (sesionCajaId != null) 'sesionCajaId': sesionCajaId,
         if (archivadoCaja) 'archivadoCaja': archivadoCaja,
+        if (cuotaTeorica != null) 'cuotaTeorica': cuotaTeorica,
+        if (cuotaAcordada != null) 'cuotaAcordada': cuotaAcordada,
+        if (esRedondeoCuota) 'esRedondeoCuota': esRedondeoCuota,
+        if (nota != null && nota!.isNotEmpty) 'nota': nota,
       };
 
   factory RegistroPago.fromJson(Map<String, dynamic> json) => RegistroPago(
@@ -61,6 +83,10 @@ class RegistroPago {
         cerrado: json['cerrado'] as bool? ?? false,
         sesionCajaId: json['sesionCajaId'] as String?,
         archivadoCaja: json['archivadoCaja'] as bool? ?? false,
+        cuotaTeorica: (json['cuotaTeorica'] as num?)?.toDouble(),
+        cuotaAcordada: (json['cuotaAcordada'] as num?)?.toDouble(),
+        esRedondeoCuota: json['esRedondeoCuota'] as bool? ?? false,
+        nota: json['nota'] as String?,
       );
 
   RegistroPago copyWith({
@@ -81,6 +107,10 @@ class RegistroPago {
         cerrado: cerrado ?? this.cerrado,
         sesionCajaId: sesionCajaId ?? this.sesionCajaId,
         archivadoCaja: archivadoCaja ?? this.archivadoCaja,
+        cuotaTeorica: cuotaTeorica,
+        cuotaAcordada: cuotaAcordada,
+        esRedondeoCuota: esRedondeoCuota,
+        nota: nota,
       );
 }
 

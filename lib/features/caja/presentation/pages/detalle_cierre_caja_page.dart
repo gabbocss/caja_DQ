@@ -207,6 +207,7 @@ class DetalleCierreCajaPage extends StatelessWidget {
     final color = switch (m.tipo) {
       'apertura' => const Color(0xFF00D9A5),
       'cobro' => const Color(0xFF4FC3F7),
+      'descuento' => const Color(0xFFBB86FC),
       'retiro' => const Color(0xFFE94560),
       'cierre' => const Color(0xFFFFB347),
       _ => Colors.white54,
@@ -214,6 +215,7 @@ class DetalleCierreCajaPage extends StatelessWidget {
     final icono = switch (m.tipo) {
       'apertura' => Icons.lock_open,
       'cobro' => Icons.payments,
+      'descuento' => Icons.discount_outlined,
       'retiro' => Icons.money_off,
       'cierre' => Icons.lock,
       _ => Icons.circle,
