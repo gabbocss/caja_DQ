@@ -210,6 +210,44 @@ class RegistroPagoService {
     return totales;
   }
 
+  /// Cobros de la sesión aún no archivados en un cierre (orden cronológico).
+  Future<List<RegistroPago>> obtenerPagosSesion(String sesionId) async {
+    try {
+      final lista = await _leerTodos();
+      final deSesion = lista
+          .where((r) => r.sesionCajaId == sesionId && !r.archivadoCaja)
+          .toList()
+        ..sort((a, b) => a.fecha.compareTo(b.fecha));
+      return deSesion;
+    } catch (e) {
+      debugPrint('Error leyendo pagos de sesión $sesionId: $e');
+      return [];
+    }
+  }
+
+  /// Archiva cobros sin sesión (anteriores a la apertura).
+  ///
+  /// No entran en el total del día: su efectivo ya va en el fondo inicial
+  /// al contar la caja, y pueden ser de días atrás.
+  Future<int> archivarCobrosSinSesion() async {
+    try {
+      final lista = await _leerTodos();
+      var archivados = 0;
+      for (var i = 0; i < lista.length; i++) {
+        final r = lista[i];
+        if (r.archivadoCaja) continue;
+        if (r.sesionCajaId != null && r.sesionCajaId!.isNotEmpty) continue;
+        lista[i] = r.copyWith(archivadoCaja: true);
+        archivados++;
+      }
+      if (archivados > 0) await _guardarTodos(lista);
+      return archivados;
+    } catch (e) {
+      debugPrint('Error archivando cobros sin sesión: $e');
+      return 0;
+    }
+  }
+
   /// Marca como archivados los cobros de una sesión tras el cierre de caja.
   Future<void> archivarPagosSesion(String sesionId) async {
     try {

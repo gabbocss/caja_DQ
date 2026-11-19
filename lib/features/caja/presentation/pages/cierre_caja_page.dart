@@ -305,10 +305,17 @@ class _CierreCajaPageState extends State<CierreCajaPage> {
         children: [
           _fila('Fondo inicial', r.fondoInicial, signo: ''),
           _fila('Cobros efectivo', r.totalEfectivo, signo: '+'),
+          _fila('Cobros tarjeta', r.totalTarjeta, signo: '+'),
           _fila('Cobros otros', r.totalOtros, signo: '+'),
           _fila('Retiros', r.totalRetiros, signo: '-'),
           const Divider(color: Colors.white24, height: 24),
           _fila('TOTAL ESPERADO', r.totalEsperado, destacado: true),
+          const SizedBox(height: 6),
+          const Text(
+            'Esperado = fondo + cobros desde la apertura (efectivo + otros) '
+            '− retiros. Tarjeta no entra. Cobros previos van en el fondo.',
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
         ],
       ),
     );

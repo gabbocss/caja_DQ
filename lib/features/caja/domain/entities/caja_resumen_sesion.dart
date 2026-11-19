@@ -7,6 +7,7 @@ class CajaResumenSesion {
   final bool tieneFondo;
   final double fondoInicial;
   final double totalEfectivo;
+  final double totalTarjeta;
   final double totalOtros;
   final double totalRetiros;
   final double totalEsperado;
@@ -18,6 +19,7 @@ class CajaResumenSesion {
     required this.tieneFondo,
     required this.fondoInicial,
     required this.totalEfectivo,
+    this.totalTarjeta = 0,
     required this.totalOtros,
     required this.totalRetiros,
     required this.totalEsperado,

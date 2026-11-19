@@ -7,6 +7,7 @@ import '../../domain/entities/caja_resumen_sesion.dart';
 import '../../domain/entities/cierre_caja.dart';
 import 'anadir_caja_dia_page.dart';
 import 'cierre_caja_page.dart';
+import 'detalle_cierre_caja_page.dart';
 import 'retiro_caja_page.dart';
 
 /// Menú principal de caja: apertura, retiros, cierre e historial.
@@ -186,6 +187,7 @@ class _CajaPageState extends State<CajaPage> {
           const SizedBox(height: 12),
           _miniFila('Fondo', r.fondoInicial),
           _miniFila('Efectivo cobrado', r.totalEfectivo),
+          _miniFila('Tarjeta cobrada', r.totalTarjeta),
           _miniFila('Otros cobrados', r.totalOtros),
           _miniFila('Retiros', r.totalRetiros, negativo: true),
           const Divider(color: Colors.white24, height: 20),
@@ -208,6 +210,12 @@ class _CajaPageState extends State<CajaPage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Esperado = fondo + cobros desde apertura − retiros '
+            '(tarjeta no entra; cobros previos van en el fondo)',
+            style: TextStyle(color: Colors.white38, fontSize: 11),
           ),
         ],
       ),
@@ -326,56 +334,83 @@ class _CajaPageState extends State<CajaPage> {
           )
         else
           ..._historial.map(
-            (c) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+            (c) => Material(
+              color: Colors.transparent,
+              child: InkWell(
                 borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    c.cuadra ? Icons.check_circle : Icons.warning,
-                    color: c.cuadra
-                        ? const Color(0xFF00D9A5)
-                        : const Color(0xFFE94560),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          fmt.format(c.cerradoEn),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          c.cuadra
-                              ? 'Cuadra · ${c.conteoFisico.toStringAsFixed(2)} €'
-                              : 'Descuadre: ${c.diferencia.toStringAsFixed(2)} €',
-                          style: TextStyle(
-                            color: c.cuadra
-                                ? Colors.white54
-                                : const Color(0xFFE94560),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => DetalleCierreCajaPage(cierre: c),
                     ),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16213E),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  Text(
-                    '${c.totalEsperado.toStringAsFixed(2)} €',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        c.cuadra ? Icons.check_circle : Icons.warning,
+                        color: c.cuadra
+                            ? const Color(0xFF00D9A5)
+                            : const Color(0xFFE94560),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              fmt.format(c.cerradoEn),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              c.cuadra
+                                  ? 'Cuadra · ${c.conteoFisico.toStringAsFixed(2)} €'
+                                  : 'Descuadre: ${c.diferencia.toStringAsFixed(2)} €',
+                              style: TextStyle(
+                                color: c.cuadra
+                                    ? Colors.white54
+                                    : const Color(0xFFE94560),
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (c.movimientos.isNotEmpty)
+                              Text(
+                                '${c.movimientos.length} movimientos · tocar para ver',
+                                style: const TextStyle(
+                                  color: Color(0xFF00D9A5),
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${c.totalEsperado.toStringAsFixed(2)} €',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white38,
+                        size: 20,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

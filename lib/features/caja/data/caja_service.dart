@@ -12,6 +12,7 @@ import '../domain/entities/cierre_caja.dart';
 import '../domain/entities/conteo_efectivo.dart';
 import '../domain/entities/retiro_caja.dart';
 import '../domain/entities/sesion_caja.dart';
+import '../domain/log_movimientos_caja.dart';
 
 /// Gestión de sesiones de caja, fondo inicial, retiros y cierres.
 class CajaService {
@@ -125,8 +126,16 @@ class CajaService {
       abiertaEn: DateTime.now(),
       fondoInicial: fondo,
     );
-    // Solo cuentan cobros desde la apertura; los anteriores (huérfanos) no se asignan.
     await _guardarSesionActiva(sesion);
+    // Solo cuentan cobros desde la apertura. Los anteriores (sin sesión) no
+    // se asignan: su efectivo ya está en el fondo contado al abrir.
+    final archivados =
+        await RegistroPagoService.instance.archivarCobrosSinSesion();
+    if (archivados > 0) {
+      debugPrint(
+        'Caja: $archivados cobro(s) previos archivados (no entran en la sesión)',
+      );
+    }
     return sesion;
   }
 
@@ -167,14 +176,15 @@ class CajaService {
     return actualizada;
   }
 
-  /// Totales de cobros en efectivo y otros de la sesión activa.
-  Future<({double efectivo, double otros})> totalesCobrosSesion(
+  /// Totales de cobros de la sesión (efectivo / tarjeta / otros).
+  Future<({double efectivo, double tarjeta, double otros})> totalesCobrosSesion(
     String sesionId,
   ) async {
     final totales =
         await RegistroPagoService.instance.totalesPorMetodoEnSesion(sesionId);
     return (
       efectivo: totales['efectivo'] ?? 0,
+      tarjeta: totales['tarjeta'] ?? 0,
       otros: totales['otros'] ?? 0,
     );
   }
@@ -186,6 +196,7 @@ class CajaService {
       fondoInicial: sesion.totalFondoInicial,
       totalesPorMetodo: {
         'efectivo': cobros.efectivo,
+        'tarjeta': cobros.tarjeta,
         'otros': cobros.otros,
       },
       totalRetiros: sesion.totalRetiros,
@@ -201,6 +212,7 @@ class CajaService {
         tieneFondo: false,
         fondoInicial: 0,
         totalEfectivo: 0,
+        totalTarjeta: 0,
         totalOtros: 0,
         totalRetiros: 0,
         totalEsperado: 0,
@@ -212,6 +224,7 @@ class CajaService {
       fondoInicial: sesion.totalFondoInicial,
       totalesPorMetodo: {
         'efectivo': cobros.efectivo,
+        'tarjeta': cobros.tarjeta,
         'otros': cobros.otros,
       },
       totalRetiros: sesion.totalRetiros,
@@ -221,6 +234,7 @@ class CajaService {
       tieneFondo: sesion.tieneFondoInicial,
       fondoInicial: sesion.totalFondoInicial,
       totalEfectivo: cobros.efectivo,
+      totalTarjeta: cobros.tarjeta,
       totalOtros: cobros.otros,
       totalRetiros: sesion.totalRetiros,
       totalEsperado: esperado,
@@ -229,7 +243,7 @@ class CajaService {
     );
   }
 
-  /// Cierra la sesión activa, guarda el histórico y deja lista una nueva apertura.
+  /// Cierra la sesión activa, guarda el histórico con log y deja lista una nueva apertura.
   Future<CierreCaja> cerrarSesion({
     required ConteoEfectivo conteoFisico,
     required bool cuadra,
@@ -239,31 +253,54 @@ class CajaService {
       throw StateError('No hay sesión de caja abierta para cerrar.');
     }
 
+    final pagos =
+        await RegistroPagoService.instance.obtenerPagosSesion(sesion.id);
     final cobros = await totalesCobrosSesion(sesion.id);
     final totalEsperado = AgregacionCobros.totalEsperadoCaja(
       fondoInicial: sesion.totalFondoInicial,
       totalesPorMetodo: {
         'efectivo': cobros.efectivo,
+        'tarjeta': cobros.tarjeta,
         'otros': cobros.otros,
       },
       totalRetiros: sesion.totalRetiros,
     );
     final fisico = conteoFisico.total;
     final diferencia = fisico - totalEsperado;
+    final cerradoEn = DateTime.now();
+    final cuadraReal = diferencia.abs() < 0.01;
+    if (cuadra != cuadraReal) {
+      debugPrint(
+        'Caja: cuadra UI=$cuadra ≠ recalculado=$cuadraReal (diff=$diferencia)',
+      );
+    }
+
+    final movimientos = LogMovimientosCaja.construir(
+      sesion: sesion,
+      cobros: pagos,
+      conteoFisico: conteoFisico,
+      totalEsperado: totalEsperado,
+      diferencia: diferencia,
+      cuadra: cuadraReal,
+      cerradoEn: cerradoEn,
+    );
 
     final cierre = CierreCaja(
       id: _uuid.v4(),
       sesionId: sesion.id,
-      cerradoEn: DateTime.now(),
+      cerradoEn: cerradoEn,
+      abiertaEn: sesion.abiertaEn,
       fondoInicial: sesion.totalFondoInicial,
       totalEfectivo: cobros.efectivo,
+      totalTarjeta: cobros.tarjeta,
       totalOtros: cobros.otros,
       totalRetiros: sesion.totalRetiros,
       totalEsperado: totalEsperado,
       conteoFisico: fisico,
       diferencia: diferencia,
-      cuadra: cuadra,
+      cuadra: cuadraReal,
       detalleConteoFisico: conteoFisico,
+      movimientos: movimientos,
     );
 
     await _guardarCierre(cierre);

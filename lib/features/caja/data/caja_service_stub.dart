@@ -29,10 +29,10 @@ class CajaService {
     throw UnsupportedError('Caja no disponible en web');
   }
 
-  Future<({double efectivo, double otros})> totalesCobrosSesion(
+  Future<({double efectivo, double tarjeta, double otros})> totalesCobrosSesion(
     String sesionId,
   ) async =>
-      (efectivo: 0.0, otros: 0.0);
+      (efectivo: 0.0, tarjeta: 0.0, otros: 0.0);
 
   Future<double> calcularTotalEsperado(SesionCaja sesion) async => 0;
 
@@ -42,6 +42,7 @@ class CajaService {
         tieneFondo: false,
         fondoInicial: 0,
         totalEfectivo: 0,
+        totalTarjeta: 0,
         totalOtros: 0,
         totalRetiros: 0,
         totalEsperado: 0,
