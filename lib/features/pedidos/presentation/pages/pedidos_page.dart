@@ -1404,19 +1404,6 @@ class _PedidosPageState extends State<PedidosPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        OutlinedButton(
-                          onPressed: procesando || !pendienteValido
-                              ? null
-                              : () => setDialogState(aplicarDivisionEnImporte),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFBB86FC),
-                            side: const BorderSide(color: Color(0xFFBB86FC)),
-                          ),
-                          child: Text(
-                            'Usar parte (€${partePorPersona.toStringAsFixed(2)})',
-                          ),
-                        ),
                       ],
                     ),
                   ),
