@@ -106,7 +106,13 @@ class CarritoPanel extends StatelessWidget {
 
   Widget _buildMesaSelector() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      // Cabecera lo más compacta posible en vertical.
+      padding: EdgeInsets.fromLTRB(
+        8,
+        mostrarSelectorMesas ? 4 : 8,
+        4,
+        mostrarSelectorMesas ? 4 : 8,
+      ),
       decoration: const BoxDecoration(
         color: Color(0xFF0F3460),
         border: Border(
@@ -118,39 +124,50 @@ class CarritoPanel extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.table_restaurant,
-                color: Color(0xFFE94560),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  mostrarSelectorMesas
-                      ? 'MESA SELECCIONADA'
-                      : 'Mesa $mesaSeleccionada',
-                  style: TextStyle(
-                    color: mostrarSelectorMesas ? Colors.white60 : Colors.white,
-                    fontSize: mostrarSelectorMesas ? 12 : 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: mostrarSelectorMesas ? 1 : 0,
+          SizedBox(
+            height: mostrarSelectorMesas ? 22 : 32,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.table_restaurant,
+                  color: const Color(0xFFE94560),
+                  size: mostrarSelectorMesas ? 14 : 20,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    mostrarSelectorMesas
+                        ? 'MESA SELECCIONADA'
+                        : 'Mesa $mesaSeleccionada',
+                    style: TextStyle(
+                      color: mostrarSelectorMesas ? Colors.white60 : Colors.white,
+                      fontSize: mostrarSelectorMesas ? 10 : 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: mostrarSelectorMesas ? 0.6 : 0,
+                      height: 1,
+                    ),
                   ),
                 ),
-              ),
-              if (onMostrarQrMesa != null)
-                IconButton(
-                  onPressed: () => onMostrarQrMesa!(mesaSeleccionada),
-                  icon: const Icon(Icons.qr_code_2),
-                  color: const Color(0xFF00D9A5),
-                  tooltip: 'Ver QR para pedir desde móvil',
-                ),
-            ],
+                if (onMostrarQrMesa != null)
+                  IconButton(
+                    onPressed: () => onMostrarQrMesa!(mesaSeleccionada),
+                    icon: const Icon(Icons.qr_code_2, size: 18),
+                    color: const Color(0xFF00D9A5),
+                    tooltip: 'Ver QR para pedir desde móvil',
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                      minWidth: 28,
+                      minHeight: 22,
+                    ),
+                  ),
+              ],
+            ),
           ),
           if (mostrarSelectorMesas) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             // Selector de mesas con paginación (usa mesas configuradas en Config > Mesas)
             _MesaSelectorPaginado(
               mesaSeleccionada: mesaSeleccionada,
@@ -704,14 +721,15 @@ class _MesaSelectorPaginadoState extends State<_MesaSelectorPaginado> {
         ),
         Expanded(
           child: SizedBox(
-            height: 80,
+            // Altura del bloque de mesas: 20% menos que el valor original (80).
+            height: 64,
             child: GridView.builder(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
                 childAspectRatio: 1,
               ),
               itemCount: _numerosMesas.length,
@@ -774,7 +792,7 @@ class _MesaSelectorPaginadoState extends State<_MesaSelectorPaginado> {
                                     ? const Color(0xFF00D9A5)
                                     : Colors.white60,
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 14,
                           ),
                         ),
                       ),
