@@ -683,6 +683,60 @@ class LocalServer {
       }
     });
 
+    // POST /api/mesas/descuento - Descuento sobre el total (no entra en cajón)
+    router.post('/api/mesas/descuento', (Request request) async {
+      try {
+        final body = await request.readAsString();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        final numero = data['numero'] as int;
+        final importe = (data['importe'] as num).toDouble();
+        final nota = data['nota'] as String? ?? 'Descuento sobre el total';
+        final isBuffetClose = data['isBuffetClose'] as bool? ?? false;
+
+        final pendienteAntes = await _db.obtenerTotalPendienteMesa(numero);
+        final aplicado =
+            importe < pendienteAntes ? importe : pendienteAntes;
+        if (aplicado <= 0.009) {
+          return _errorResponse('Importe de descuento no válido');
+        }
+
+        final pendienteRestante = await _db.aplicarPagoMesa(numero, aplicado);
+        final cierra = pendienteRestante <= 0.009;
+        await RegistroPagoService.instance.registrar(
+          RegistroPago(
+            fecha: DateTime.now(),
+            mesaNumero: numero,
+            metodo: 'descuento',
+            importeCobrado: aplicado,
+            esParcial: !cierra,
+            pendienteRestante: cierra ? 0 : pendienteRestante,
+            cerrado: cierra,
+            nota: nota,
+          ),
+        );
+        if (cierra) {
+          await _db.liberarMesa(
+            numero,
+            isBuffetClose: isBuffetClose,
+            registrarEnAnalytics: true,
+          );
+        }
+
+        final pedidos = await _db.obtenerCuentaMesa(numero);
+        return Response.ok(
+          jsonEncode({
+            'pendienteRestante': cierra ? 0.0 : pendienteRestante,
+            'importeDescontado': aplicado,
+            'esPagoTotal': cierra,
+            'pedidos': pedidos.map((p) => p.toJson()).toList(),
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return _errorResponse('Error al registrar descuento: $e');
+      }
+    });
+
     // POST /api/mesas/pago - Cobro parcial o total sobre la cuenta abierta
     router.post('/api/mesas/pago', (Request request) async {
       try {
@@ -735,7 +789,7 @@ class LocalServer {
               cuotaTeorica: cuotaTeorica,
               cuotaAcordada: cuotaAcordada,
               esRedondeoCuota: esRedondeoCuota,
-              nota: esRedondeoCuota ? 'Cuota redondeada' : null,
+              nota: esRedondeoCuota ? 'Descuento por persona' : null,
             ),
           );
           pendienteRestante = 0;
@@ -758,7 +812,7 @@ class LocalServer {
               cuotaTeorica: cuotaTeorica,
               cuotaAcordada: cuotaAcordada,
               esRedondeoCuota: true,
-              nota: 'Cuota redondeada',
+              nota: 'Descuento por persona',
             ),
           );
           await _db.aplicarPagoMesa(numero, descuentoCondonado);
@@ -775,7 +829,7 @@ class LocalServer {
               cuotaAcordada: cuotaAcordada,
               esRedondeoCuota: true,
               nota:
-                  'Redondeo cuota · condonado al cerrar (teórica ${(cuotaTeorica ?? pendienteAntes).toStringAsFixed(2)} €)',
+                  'Descuento por persona · condonado al cerrar (teórica ${(cuotaTeorica ?? pendienteAntes).toStringAsFixed(2)} €)',
             ),
           );
           pendienteRestante = 0;
@@ -799,7 +853,7 @@ class LocalServer {
               cuotaTeorica: cuotaTeorica,
               cuotaAcordada: cuotaAcordada,
               esRedondeoCuota: esRedondeoCuota,
-              nota: esRedondeoCuota ? 'Cuota redondeada' : null,
+              nota: esRedondeoCuota ? 'Descuento por persona' : null,
             ),
           );
         }

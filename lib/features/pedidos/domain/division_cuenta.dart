@@ -1,3 +1,30 @@
+/// Ámbito de un descuento manual en el cobro.
+enum TipoDescuentoCuenta {
+  /// Se resta una vez del pendiente de la mesa (queda en caja como descuento).
+  total,
+
+  /// Se resta de la cuota por persona y fija esa cuota para el resto.
+  porPersona,
+}
+
+/// Resultado de calcular un descuento manual (sin I/O).
+class ResultadoDescuentoManual {
+  /// Importe de descuento validado (acotado al máximo posible).
+  final double descuentoAplicado;
+
+  /// Nueva cuota por persona (solo en [TipoDescuentoCuenta.porPersona]).
+  final double? cuotaAcordada;
+
+  /// Cuota teórica antes del descuento por persona.
+  final double? cuotaTeorica;
+
+  const ResultadoDescuentoManual({
+    required this.descuentoAplicado,
+    this.cuotaAcordada,
+    this.cuotaTeorica,
+  });
+}
+
 /// Lógica pura de división de cuenta por personas (cubiertos / menú adulto).
 class DivisionCuenta {
   DivisionCuenta._();
@@ -45,15 +72,41 @@ class DivisionCuenta {
     return pendiente / personas;
   }
 
-  /// Redondeo manual a euro entero hacia abajo (p. ej. 22,30 → 22,00).
+  /// Calcula un descuento manual sobre el total o por persona.
   ///
-  /// Devuelve `null` si no hay céntimos que recortar o el resultado no es cobrable.
-  static double? redondearCuotaAEuro(double parteTeorica) {
-    if (!parteTeorica.isFinite || parteTeorica <= 0) return null;
-    final redondeada = parteTeorica.floorToDouble();
-    if (redondeada <= 0.009) return null;
-    if ((parteTeorica - redondeada).abs() <= 0.009) return null;
-    return redondeada;
+  /// - **Total:** [descuentoAplicado] ≤ pendiente.
+  /// - **Por persona:** nueva cuota = teórica − descuento (≥ 0); fija [cuotaAcordada].
+  ///
+  /// Devuelve `null` si el importe no es válido.
+  static ResultadoDescuentoManual? calcularDescuentoManual({
+    required TipoDescuentoCuenta tipo,
+    required double importeDescuento,
+    required double pendiente,
+    required int personas,
+  }) {
+    if (!importeDescuento.isFinite || importeDescuento <= 0.009) return null;
+    if (!pendiente.isFinite || pendiente <= 0.009) return null;
+
+    if (tipo == TipoDescuentoCuenta.total) {
+      final aplicado =
+          importeDescuento < pendiente ? importeDescuento : pendiente;
+      if (aplicado <= 0.009) return null;
+      return ResultadoDescuentoManual(descuentoAplicado: aplicado);
+    }
+
+    if (personas < 1) return null;
+    final teorica = partePorPersona(pendiente, personas);
+    if (teorica <= 0.009) return null;
+    final descuento =
+        importeDescuento < teorica ? importeDescuento : teorica;
+    final cuota = (teorica - descuento).clamp(0.0, teorica);
+    // Debe quedar algo cobrable, o al menos un descuento claro.
+    if (descuento <= 0.009) return null;
+    return ResultadoDescuentoManual(
+      descuentoAplicado: descuento,
+      cuotaAcordada: cuota,
+      cuotaTeorica: teorica,
+    );
   }
 
   /// Importe a sugerir en el diálogo: cuota fijada a mano, o división real.
@@ -82,7 +135,7 @@ class DivisionCuenta {
     return (importeCobrado - partePorPersona).abs() <= toleranciaCuota;
   }
 
-  /// ¿El cobro corresponde a la cuota acordada (redondeo/descuento manual)?
+  /// ¿El cobro corresponde a la cuota acordada (descuento manual)?
   static bool esImporteCuotaAcordada({
     required double importeCobrado,
     required double? cuotaAcordada,

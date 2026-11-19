@@ -196,10 +196,29 @@ void main() {
       );
     });
 
-    test('redondearCuotaAEuro baja a entero y no actúa si ya es limpia', () {
-      expect(DivisionCuenta.redondearCuotaAEuro(22.30), 22);
-      expect(DivisionCuenta.redondearCuotaAEuro(22.00), isNull);
-      expect(DivisionCuenta.redondearCuotaAEuro(0.80), isNull);
+    test('descuento por persona fija cuota = teórica − descuento', () {
+      final r = DivisionCuenta.calcularDescuentoManual(
+        tipo: TipoDescuentoCuenta.porPersona,
+        importeDescuento: 0.30,
+        pendiente: 66.90,
+        personas: 3,
+      );
+      expect(r, isNotNull);
+      expectCasi(r!.cuotaTeorica!, 22.30);
+      expectCasi(r.descuentoAplicado, 0.30);
+      expectCasi(r.cuotaAcordada!, 22.00);
+    });
+
+    test('descuento del total no supera el pendiente', () {
+      final r = DivisionCuenta.calcularDescuentoManual(
+        tipo: TipoDescuentoCuenta.total,
+        importeDescuento: 100,
+        pendiente: 40,
+        personas: 2,
+      );
+      expect(r, isNotNull);
+      expectCasi(r!.descuentoAplicado, 40);
+      expect(r.cuotaAcordada, isNull);
     });
 
     test('importeSugerido usa cuota acordada hasta invalidarla', () {
@@ -262,9 +281,15 @@ void main() {
       var pendiente = pendienteTotal(cuenta);
       const cuota = 22.0;
 
-      // Persona 1 redondea
+      // Persona 1 aplica descuento 0,30 por persona → cuota 22
       expectCasi(DivisionCuenta.partePorPersona(pendiente, personas), 22.30);
-      expect(DivisionCuenta.redondearCuotaAEuro(22.30), 22);
+      final dto = DivisionCuenta.calcularDescuentoManual(
+        tipo: TipoDescuentoCuenta.porPersona,
+        importeDescuento: 0.30,
+        pendiente: pendiente,
+        personas: personas,
+      );
+      expectCasi(dto!.cuotaAcordada!, 22);
       expectCasi(aplicarPagoSobreCuenta(cuenta, cuota), 44.90);
       personas = DivisionCuenta.personasTrasCobro(
         importeCobrado: cuota,

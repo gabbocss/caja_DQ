@@ -927,7 +927,7 @@ class _PedidosPageState extends State<PedidosPage> {
             cuotaTeorica: cuotaTeorica,
             cuotaAcordada: cuotaAcordada,
             esRedondeoCuota: esRedondeoCuota,
-            nota: esRedondeoCuota ? 'Cuota redondeada' : null,
+            nota: esRedondeoCuota ? 'Descuento por persona' : null,
           ),
         );
         await db.liberarMesa(
@@ -952,7 +952,7 @@ class _PedidosPageState extends State<PedidosPage> {
             cuotaTeorica: cuotaTeorica,
             cuotaAcordada: cuotaAcordada,
             esRedondeoCuota: true,
-            nota: 'Cuota redondeada',
+            nota: 'Descuento por persona',
           ),
         );
         await db.aplicarPagoMesa(numero, restoLocal);
@@ -969,7 +969,7 @@ class _PedidosPageState extends State<PedidosPage> {
             cuotaAcordada: cuotaAcordada,
             esRedondeoCuota: true,
             nota:
-                'Redondeo cuota · condonado al cerrar (teórica ${(cuotaTeorica ?? pendienteAntes).toStringAsFixed(2)} €)',
+                'Descuento por persona · condonado al cerrar (teórica ${(cuotaTeorica ?? pendienteAntes).toStringAsFixed(2)} €)',
           ),
         );
         await db.liberarMesa(
@@ -994,7 +994,7 @@ class _PedidosPageState extends State<PedidosPage> {
             cuotaTeorica: cuotaTeorica,
             cuotaAcordada: cuotaAcordada,
             esRedondeoCuota: esRedondeoCuota,
-            nota: esRedondeoCuota ? 'Cuota redondeada' : null,
+            nota: esRedondeoCuota ? 'Descuento por persona' : null,
           ),
         );
         await _cargarCuentaMesa(numero);
@@ -1007,6 +1007,84 @@ class _PedidosPageState extends State<PedidosPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al registrar pago: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
+  /// Aplica un descuento sobre el total de la mesa y lo registra en caja.
+  /// Devuelve el pendiente restante, o `null` si falló.
+  Future<double?> _aplicarDescuentoTotalEnSistema({
+    required double importe,
+  }) async {
+    final numero = _mesaSeleccionada;
+    if (importe <= 0.009) return null;
+    try {
+      if (sl.isRegistered<ApiClient>()) {
+        final res = await sl<ApiClient>().registrarDescuentoMesa(
+          numeroMesa: numero,
+          importe: importe,
+          nota: 'Descuento sobre el total',
+        );
+        final lista = res['pedidos'] as List<dynamic>? ?? [];
+        if (mounted) {
+          setState(() {
+            _cuentaActual = lista
+                .map((e) => Pedido.fromJson(e as Map<String, dynamic>))
+                .toList();
+            for (final p in _cuentaActual) {
+              p.normalizarTotalPendiente();
+            }
+          });
+        }
+        await _cargarMesasConCuentaAbierta();
+        return (res['pendienteRestante'] as num?)?.toDouble() ??
+            _totalPendienteMesa;
+      }
+
+      final db = DatabaseService.instance;
+      final pendienteAntes = await db.obtenerTotalPendienteMesa(numero);
+      final aplicado =
+          importe < pendienteAntes ? importe : pendienteAntes;
+      if (aplicado <= 0.009) return pendienteAntes;
+
+      final pendienteRestante = await db.aplicarPagoMesa(numero, aplicado);
+      final cierra = pendienteRestante <= 0.009;
+      await RegistroPagoService.instance.registrar(
+        RegistroPago(
+          fecha: DateTime.now(),
+          mesaNumero: numero,
+          metodo: 'descuento',
+          importeCobrado: aplicado,
+          esParcial: !cierra,
+          pendienteRestante: cierra ? 0 : pendienteRestante,
+          cerrado: cierra,
+          nota: 'Descuento sobre el total',
+        ),
+      );
+      if (cierra) {
+        await db.liberarMesa(
+          numero,
+          isBuffetClose: _cuentaTieneBuffet(),
+          registrarEnAnalytics: true,
+        );
+        _limpiarPersonasDivisionMesa(numero);
+        if (mounted) setState(() => _cuentaActual = []);
+      } else {
+        // El descuento del total cambia el pendiente: se recalcula el reparto.
+        _invalidarCuotaAcordadaPorNuevosPedidos(numero);
+        await _cargarCuentaMesa(numero);
+      }
+      await _cargarMesasConCuentaAbierta();
+      return cierra ? 0.0 : pendienteRestante;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al registrar descuento: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1224,6 +1302,169 @@ class _PedidosPageState extends State<PedidosPage> {
     return false;
   }
 
+  /// Diálogo para introducir un descuento manual (total o por persona).
+  Future<({TipoDescuentoCuenta tipo, ResultadoDescuentoManual calc})?>
+      _mostrarDialogoImporteDescuento({
+    required BuildContext context,
+    required double pendiente,
+    required double parteTeorica,
+    required int personas,
+  }) async {
+    final controller = TextEditingController();
+    var tipo = TipoDescuentoCuenta.porPersona;
+
+    final resultado = await showDialog<
+        ({TipoDescuentoCuenta tipo, ResultadoDescuentoManual calc})>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            double? parseDto() {
+              final t = controller.text.replaceAll(',', '.').trim();
+              if (t.isEmpty) return null;
+              final v = double.tryParse(t);
+              if (v == null || v.isNaN || v.isInfinite || v <= 0) return null;
+              return v;
+            }
+
+            final preview = parseDto() == null
+                ? null
+                : DivisionCuenta.calcularDescuentoManual(
+                    tipo: tipo,
+                    importeDescuento: parseDto()!,
+                    pendiente: pendiente,
+                    personas: personas,
+                  );
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF16213E),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.discount_outlined, color: Color(0xFFBB86FC)),
+                  SizedBox(width: 8),
+                  Text('Descuento', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Pendiente: €${pendiente.toStringAsFixed(2)} · '
+                    'Cuota: €${parteTeorica.toStringAsFixed(2)}',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<TipoDescuentoCuenta>(
+                    segments: const [
+                      ButtonSegment(
+                        value: TipoDescuentoCuenta.porPersona,
+                        label: Text('Por persona'),
+                        icon: Icon(Icons.person_outline, size: 18),
+                      ),
+                      ButtonSegment(
+                        value: TipoDescuentoCuenta.total,
+                        label: Text('Del total'),
+                        icon: Icon(Icons.receipt_long_outlined, size: 18),
+                      ),
+                    ],
+                    selected: {tipo},
+                    onSelectionChanged: (s) => setLocal(() => tipo = s.first),
+                    style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.resolveWith(
+                        (states) => states.contains(WidgetState.selected)
+                            ? Colors.white
+                            : Colors.white70,
+                      ),
+                      backgroundColor: WidgetStateProperty.resolveWith(
+                        (states) => states.contains(WidgetState.selected)
+                            ? const Color(0xFF6A4C93)
+                            : const Color(0xFF0F3460),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: tipo == TipoDescuentoCuenta.porPersona
+                          ? 'Descuento por persona'
+                          : 'Descuento del total',
+                      labelStyle: const TextStyle(color: Colors.white54),
+                      prefixText: '€ ',
+                      prefixStyle: const TextStyle(
+                        color: Color(0xFFBB86FC),
+                        fontSize: 20,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFF0F3460),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onChanged: (_) => setLocal(() {}),
+                  ),
+                  if (preview != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      tipo == TipoDescuentoCuenta.porPersona
+                          ? 'Nueva cuota: €${preview.cuotaAcordada!.toStringAsFixed(2)}'
+                              ' (−€${preview.descuentoAplicado.toStringAsFixed(2)})'
+                          : 'Pendiente tras descuento: '
+                              '€${(pendiente - preview.descuentoAplicado).toStringAsFixed(2)}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF00D9A5),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: preview == null
+                      ? null
+                      : () => Navigator.of(ctx).pop((
+                            tipo: tipo,
+                            calc: preview,
+                          )),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFBB86FC),
+                  ),
+                  child: const Text('Aplicar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+    if (resultado == null) return null;
+    return (
+      tipo: resultado.tipo,
+      calc: resultado.calc,
+    );
+  }
+
   /// Modal de pagos con menú de métodos y pantalla de importe.
   Future<void> _mostrarDialogoPagos() async {
     if (_cuentaActual.isEmpty) {
@@ -1242,8 +1483,8 @@ class _PedidosPageState extends State<PedidosPage> {
     var paso = _PasoDialogoPagos.menu;
     var procesando = false;
     var personasDivision = _personasParaDividirCuenta().clamp(1, 99);
-    /// Si el usuario pulsó «Redondear» en este cobro (aún sin confirmar).
-    var redondeoManualActivo = false;
+    /// Descuento por persona aplicado en este cobro (aún sin confirmar el pago).
+    var descuentoCuotaActivo = false;
 
     double? parseImporte() {
       final t = importeController.text
@@ -1284,9 +1525,7 @@ class _PedidosPageState extends State<PedidosPage> {
               personas: personasDivision,
               cuotaAcordada: cuotaAcordada,
             );
-            final redondeoDisponible =
-                DivisionCuenta.redondearCuotaAEuro(parteTeorica);
-            final usandoCuotaAcordada = redondeoManualActivo ||
+            final usandoCuotaAcordada = descuentoCuotaActivo ||
                 DivisionCuenta.esImporteCuotaAcordada(
                   importeCobrado: importe,
                   cuotaAcordada: cuotaAcordada,
@@ -1319,7 +1558,7 @@ class _PedidosPageState extends State<PedidosPage> {
                 cuotaAcordada: _cuotaAcordadaMesa(),
               );
               importeController.text = sugerido.toStringAsFixed(2);
-              redondeoManualActivo = false;
+              descuentoCuotaActivo = false;
             }
 
             void actualizarPersonasDivision(int nuevo) {
@@ -1330,17 +1569,82 @@ class _PedidosPageState extends State<PedidosPage> {
               aplicarDivisionEnImporte();
             }
 
-            void aplicarRedondeoManual() {
+            Future<void> abrirDialogoDescuento() async {
               final p = _importeCobroSeguro(
                 _totalPendienteMesa,
                 pendienteInicial,
               );
-              final teorica =
-                  DivisionCuenta.partePorPersona(p, personasDivision);
-              final redondeada = DivisionCuenta.redondearCuotaAEuro(teorica);
-              if (redondeada == null) return;
-              importeController.text = redondeada.toStringAsFixed(2);
-              redondeoManualActivo = true;
+              if (!p.isFinite || p <= 0.009) return;
+              final resultado = await _mostrarDialogoImporteDescuento(
+                context: ctx,
+                pendiente: p,
+                parteTeorica: DivisionCuenta.partePorPersona(
+                  p,
+                  personasDivision,
+                ),
+                personas: personasDivision,
+              );
+              if (resultado == null || !ctx.mounted) return;
+
+              if (resultado.tipo == TipoDescuentoCuenta.total) {
+                setDialogState(() => procesando = true);
+                final pendienteTras =
+                    await _aplicarDescuentoTotalEnSistema(
+                  importe: resultado.calc.descuentoAplicado,
+                );
+                if (!ctx.mounted) return;
+                if (pendienteTras == null) {
+                  setDialogState(() => procesando = false);
+                  return;
+                }
+                if (pendienteTras <= 0.009) {
+                  _limpiarPersonasDivisionMesa();
+                  Navigator.of(ctx).pop();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Descuento de €${resultado.calc.descuentoAplicado.toStringAsFixed(2)} aplicado. Cuenta cerrada.',
+                        ),
+                        backgroundColor: const Color(0xFF00D9A5),
+                      ),
+                    );
+                  }
+                  return;
+                }
+                pendienteInicial = pendienteTras;
+                setDialogState(() {
+                  procesando = false;
+                  descuentoCuotaActivo = false;
+                  personasDivision = _personasParaDividirCuenta();
+                  if (_cuotaAcordadaMesa() != null) {
+                    aplicarDivisionEnImporte();
+                  } else {
+                    importeController.text =
+                        pendienteTras.toStringAsFixed(2);
+                  }
+                });
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Descuento de €${resultado.calc.descuentoAplicado.toStringAsFixed(2)} sobre el total registrado en caja',
+                      ),
+                      backgroundColor: const Color(0xFFBB86FC),
+                    ),
+                  );
+                }
+                return;
+              }
+
+              // Por persona: fija cuota y rellena el importe a cobrar.
+              final cuota = resultado.calc.cuotaAcordada;
+              if (cuota == null) return;
+              _guardarCuotaAcordadaMesa(cuota);
+              setDialogState(() {
+                descuentoCuotaActivo = true;
+                importeController.text = cuota.toStringAsFixed(2);
+              });
             }
 
             Future<void> confirmar() async {
@@ -1368,13 +1672,13 @@ class _PedidosPageState extends State<PedidosPage> {
               final personasAntes = personasDivision;
               final parteAntes = parteTeorica;
               final cuotaAntes = _cuotaAcordadaMesa();
-              final esRedondeo = redondeoManualActivo ||
+              final esDescuentoCuota = descuentoCuotaActivo ||
                   DivisionCuenta.esImporteCuotaAcordada(
                     importeCobrado: valor,
                     cuotaAcordada: cuotaAntes,
                   );
-              final cuotaAGuardar = esRedondeo
-                  ? (redondeoManualActivo ? valor : (cuotaAntes ?? valor))
+              final cuotaAGuardar = esDescuentoCuota
+                  ? (descuentoCuotaActivo ? valor : (cuotaAntes ?? valor))
                   : null;
 
               setDialogState(() => procesando = true);
@@ -1386,9 +1690,9 @@ class _PedidosPageState extends State<PedidosPage> {
                     metodoSeleccionado == MetodoPagoCuenta.efectivo
                         ? valor
                         : null,
-                cuotaTeorica: esRedondeo ? parteAntes : null,
+                cuotaTeorica: esDescuentoCuota ? parteAntes : null,
                 cuotaAcordada: cuotaAGuardar,
-                esRedondeoCuota: esRedondeo,
+                esRedondeoCuota: esDescuentoCuota,
                 personasAntes: personasAntes,
               );
               if (!ctx.mounted) return;
@@ -1400,7 +1704,7 @@ class _PedidosPageState extends State<PedidosPage> {
               }
 
               if (resultado == false) {
-                if (esRedondeo && cuotaAGuardar != null) {
+                if (esDescuentoCuota && cuotaAGuardar != null) {
                   _guardarCuotaAcordadaMesa(cuotaAGuardar);
                 }
                 _registrarCuotaPersonaSiAplica(
@@ -1408,7 +1712,7 @@ class _PedidosPageState extends State<PedidosPage> {
                   partePorPersona: parteAntes,
                   personasAntes: personasAntes,
                   cuotaAcordada: cuotaAGuardar ?? cuotaAntes,
-                  forzarCuota: esRedondeo,
+                  forzarCuota: esDescuentoCuota,
                 );
                 pendienteInicial = _totalPendienteMesa;
                 if (pendienteInicial <= 0.009) {
@@ -1418,7 +1722,7 @@ class _PedidosPageState extends State<PedidosPage> {
                 }
                 setDialogState(() {
                   procesando = false;
-                  redondeoManualActivo = false;
+                  descuentoCuotaActivo = false;
                   personasDivision = _personasParaDividirCuenta();
                   aplicarDivisionEnImporte();
                 });
@@ -1458,7 +1762,7 @@ class _PedidosPageState extends State<PedidosPage> {
                                   metodoSeleccionado =
                                       MetodoPagoCuenta.efectivo;
                                   paso = _PasoDialogoPagos.importe;
-                                  redondeoManualActivo = false;
+                                  descuentoCuotaActivo = false;
                                   if (pendiente.isFinite && pendiente > 0) {
                                     if (_cuotaAcordadaMesa() != null) {
                                       aplicarDivisionEnImporte();
@@ -1481,7 +1785,7 @@ class _PedidosPageState extends State<PedidosPage> {
                                   metodoSeleccionado =
                                       MetodoPagoCuenta.tarjeta;
                                   paso = _PasoDialogoPagos.importe;
-                                  redondeoManualActivo = false;
+                                  descuentoCuotaActivo = false;
                                   if (pendiente.isFinite && pendiente > 0) {
                                     if (_cuotaAcordadaMesa() != null) {
                                       aplicarDivisionEnImporte();
@@ -1503,7 +1807,7 @@ class _PedidosPageState extends State<PedidosPage> {
                             : () => setDialogState(() {
                                   metodoSeleccionado = MetodoPagoCuenta.otros;
                                   paso = _PasoDialogoPagos.importe;
-                                  redondeoManualActivo = false;
+                                  descuentoCuotaActivo = false;
                                   if (pendiente.isFinite && pendiente > 0) {
                                     if (_cuotaAcordadaMesa() != null) {
                                       aplicarDivisionEnImporte();
@@ -1569,10 +1873,10 @@ class _PedidosPageState extends State<PedidosPage> {
                     ),
                     onChanged: (_) => setDialogState(() {
                       final v = parseImporte();
-                      final r = DivisionCuenta.redondearCuotaAEuro(parteTeorica);
-                      redondeoManualActivo = v != null &&
-                          r != null &&
-                          (v - r).abs() <= 0.009;
+                      final cuota = _cuotaAcordadaMesa();
+                      descuentoCuotaActivo = v != null &&
+                          cuota != null &&
+                          (v - cuota).abs() <= 0.009;
                     }),
                   ),
                   const SizedBox(height: 14),
@@ -1682,26 +1986,23 @@ class _PedidosPageState extends State<PedidosPage> {
                                 'Usar parte (€${partePorPersona.toStringAsFixed(2)})',
                               ),
                             ),
-                            if (redondeoDisponible != null)
-                              FilledButton.tonal(
-                                onPressed: procesando
-                                    ? null
-                                    : () => setDialogState(aplicarRedondeoManual),
-                                style: FilledButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor: const Color(0xFF6A4C93),
-                                ),
-                                child: Text(
-                                  'Descuento → €${redondeoDisponible.toStringAsFixed(2)}',
-                                ),
+                            FilledButton.tonal(
+                              onPressed: procesando
+                                  ? null
+                                  : () => abrirDialogoDescuento(),
+                              style: FilledButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor: const Color(0xFF6A4C93),
                               ),
+                              child: const Text('Descuento'),
+                            ),
                             if (cuotaAcordada != null)
                               TextButton(
                                 onPressed: procesando
                                     ? null
                                     : () => setDialogState(() {
                                           _invalidarCuotaAcordadaPorNuevosPedidos();
-                                          redondeoManualActivo = false;
+                                          descuentoCuotaActivo = false;
                                           aplicarDivisionEnImporte();
                                         }),
                                 child: const Text(
@@ -1711,7 +2012,7 @@ class _PedidosPageState extends State<PedidosPage> {
                               ),
                           ],
                         ),
-                        if (redondeoManualActivo || cuotaAcordada != null) ...[
+                        if (descuentoCuotaActivo || cuotaAcordada != null) ...[
                           const SizedBox(height: 8),
                           Text(
                             personasDivision > 1

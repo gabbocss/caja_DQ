@@ -248,6 +248,30 @@ class ApiClient {
     }
   }
 
+  /// Aplica un descuento sobre el total de la mesa (no entra en cajón).
+  Future<Map<String, dynamic>> registrarDescuentoMesa({
+    required int numeroMesa,
+    required double importe,
+    String? nota,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/mesas/descuento'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: json.encode({
+        'numero': numeroMesa,
+        'importe': importe,
+        if (nota != null) 'nota': nota,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al registrar descuento: ${response.statusCode}');
+    }
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
   /// Aplica un cobro parcial o total a la cuenta de la mesa en el servidor.
   Future<Map<String, dynamic>> registrarPagoMesa({
     required int numeroMesa,
