@@ -698,6 +698,41 @@ class DatabaseService {
     return mesas.toList()..sort();
   }
 
+  /// Asigna los precios oficiales del desktop a cada ítem del pedido.
+  ///
+  /// La app de camareros no decide precios: catálogo Isar + config buffet/cubiertos.
+  Future<void> asignarPreciosOficiales(Pedido pedido) async {
+    final config = await obtenerConfiguracionBuffetActiva();
+    for (final item in pedido.items) {
+      if (item.productoId > 0) {
+        final producto = await obtenerProductoPorId(item.productoId);
+        if (producto != null) {
+          item.precioUnitario = producto.precio;
+        }
+        continue;
+      }
+      item.precioUnitario = _precioItemEspecial(item.nombreProducto, config);
+    }
+    pedido.calcularTotal();
+  }
+
+  /// Precio de ítems especiales (sin producto en catálogo).
+  double _precioItemEspecial(String nombreProducto, ConfiguracionBuffet? config) {
+    switch (nombreProducto) {
+      case 'Cubiertos':
+        final precio = config?.precioCubierto ?? 2.0;
+        return (precio.isNaN || precio < 0) ? 2.0 : precio;
+      case 'Buffet - Adulto':
+        final precio = config?.precioAdulto ?? 18.0;
+        return (precio.isNaN || precio < 0) ? 18.0 : precio;
+      case 'Buffet - Niño':
+        final precio = config?.precioNino ?? 9.0;
+        return (precio.isNaN || precio < 0) ? 9.0 : precio;
+      default:
+        return 0;
+    }
+  }
+
   /// Guarda o actualiza un pedido y recalcula pendiente desde Isar.
   Future<int> guardarPedido(Pedido pedido) async {
     pedido.actualizarPendienteDesdeCobrosAcumulados();

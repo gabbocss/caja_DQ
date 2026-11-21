@@ -1071,6 +1071,9 @@ class LocalServer {
         final body = await request.readAsString();
         final json = jsonDecode(body) as Map<String, dynamic>;
         final pedido = Pedido.fromJson(json);
+
+        // Precios solo los decide el desktop (catálogo + config buffet/cubiertos).
+        await _db.asignarPreciosOficiales(pedido);
         
         // Validar disponibilidad de productos antes de guardar (omitir ítems especiales: Cubiertos, Buffet con productoId <= 0)
         final productosNoDisponibles = <String>[];
@@ -1363,6 +1366,9 @@ class LocalServer {
             headers: {'Content-Type': 'application/json'},
           );
         }
+
+        // Precios solo los decide el desktop (catálogo actual), no el cliente QR.
+        await _db.asignarPreciosOficiales(pedido);
 
         // Tiempo de espera obligatorio entre envíos (cliente QR + límite buffet activo)
         if (token != null && token.trim().isNotEmpty) {

@@ -205,11 +205,12 @@ class PedidosMobileProvider extends ChangeNotifier {
           final d = _destinos.where((x) => x.id == destinoId).firstOrNull;
           nombreDestino = d?.nombre;
         }
+        // El precio lo asigna el desktop al recibir el pedido; aquí no se envía.
         itemsPorDestino.putIfAbsent(destinoId, () => []).add(
           ItemPedido.crear(
             productoId: item.producto.id ?? 0,
             nombreProducto: item.producto.nombre,
-            precioUnitario: item.producto.precio,
+            precioUnitario: 0,
             cantidad: item.cantidad,
             notas: item.notas,
             destinoId: destinoId,
@@ -232,9 +233,11 @@ class PedidosMobileProvider extends ChangeNotifier {
       pedido.calcularTotal();
 
       if (sl.isRegistered<ApiClient>()) {
+        // El LocalServer asigna precios oficiales al recibir el POST.
         await sl<ApiClient>().guardarPedido(pedido);
         await loadMesasConCuentaAbierta();
       } else {
+        await DatabaseService.instance.asignarPreciosOficiales(pedido);
         await DatabaseService.instance.guardarPedido(pedido);
         for (final item in pedido.items) {
           if (item.productoId <= 0) continue;

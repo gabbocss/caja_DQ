@@ -50,16 +50,15 @@ class _MesasPageState extends State<MesasPage> {
 
     if (!mounted) return;
     if (esHorarioBuffet && config != null) {
-      await _mostrarDialogoBuffet(context, numeroMesa, config, provider);
+      await _mostrarDialogoBuffet(context, numeroMesa, provider);
     } else {
-      await _mostrarDialogoCubiertos(context, numeroMesa, config, provider);
+      await _mostrarDialogoCubiertos(context, numeroMesa, provider);
     }
   }
 
   Future<void> _mostrarDialogoBuffet(
     BuildContext context,
     int mesa,
-    ConfiguracionBuffet config,
     PedidosMobileProvider provider,
   ) async {
     int adultos = 1;
@@ -154,19 +153,18 @@ class _MesasPageState extends State<MesasPage> {
               onPressed: (adultos + ninos) < 1
                   ? null
                   : () {
-                      final precioA = (config.precioAdulto.isNaN || config.precioAdulto < 0) ? 18.0 : config.precioAdulto;
-                      final precioN = (config.precioNino.isNaN || config.precioNino < 0) ? 9.0 : config.precioNino;
+                      // Cantidades sí; el precio lo fija el desktop al guardar el pedido.
                       final items = <ItemCarrito>[];
                       if (adultos > 0) {
                         items.add(ItemCarrito(
-                          producto: Producto.crear(nombre: 'Buffet - Adulto', precio: precioA, esBuffet: true),
+                          producto: Producto.crear(nombre: 'Buffet - Adulto', precio: 0, esBuffet: true),
                           cantidad: adultos,
                           orden: 1,
                         ));
                       }
                       if (ninos > 0) {
                         items.add(ItemCarrito(
-                          producto: Producto.crear(nombre: 'Buffet - Niño', precio: precioN, esBuffet: true),
+                          producto: Producto.crear(nombre: 'Buffet - Niño', precio: 0, esBuffet: true),
                           cantidad: ninos,
                           orden: 1,
                         ));
@@ -192,11 +190,9 @@ class _MesasPageState extends State<MesasPage> {
   Future<void> _mostrarDialogoCubiertos(
     BuildContext context,
     int mesa,
-    ConfiguracionBuffet? config,
     PedidosMobileProvider provider,
   ) async {
     int cubiertos = 1;
-    final precioCubierto = config?.precioCubierto ?? 2.0;
 
     await showDialog<void>(
       context: context,
@@ -242,31 +238,16 @@ class _MesasPageState extends State<MesasPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F3460),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Precio por cubierto:', style: TextStyle(color: Colors.white70)),
-                    Text('\$${precioCubierto.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF00D9A5), fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
             ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
             FilledButton(
               onPressed: () {
-                final precio = (precioCubierto.isNaN || precioCubierto < 0) ? 2.0 : precioCubierto;
+                // Solo cantidad; el precio del cubierto lo fija el desktop.
                 final items = [
                   ItemCarrito(
-                    producto: Producto.crear(nombre: 'Cubiertos', precio: precio),
+                    producto: Producto.crear(nombre: 'Cubiertos', precio: 0),
                     cantidad: cubiertos,
                     orden: 1,
                   ),

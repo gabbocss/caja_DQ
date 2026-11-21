@@ -461,6 +461,7 @@ class _MesaPlatosPageState extends State<MesaPlatosPage> {
                           gridAltoFraccion: 0.5,
                           cantidadesEnCarrito: cantidadesEnCarrito,
                           productoIdBordeIluminado: _flashProductoId,
+                          mostrarPrecio: false,
                           onProductoTap: (producto) {
                             if (!producto.isAvailable) {
                               ScaffoldMessenger.of(context).showSnackBar(

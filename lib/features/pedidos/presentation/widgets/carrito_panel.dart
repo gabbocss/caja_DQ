@@ -412,6 +412,7 @@ class CarritoPanel extends StatelessWidget {
               ? null
               : () => _abrirDialogoOrdenPlato(context, item.producto),
           estaAgotado: estaAgotado,
+          mostrarPrecio: mostrarSelectorMesas,
         );
       },
     );
@@ -470,7 +471,7 @@ class CarritoPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Resumen de items
+          // Resumen de items (en camareros no se muestran precios)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -481,26 +482,27 @@ class CarritoPanel extends StatelessWidget {
                   fontSize: fontProducto,
                 ),
               ),
-              Row(
-                children: [
-                  Text(
-                    'TOTAL: ',
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: fontTotalLabel,
-                      fontWeight: FontWeight.bold,
+              if (mostrarSelectorMesas)
+                Row(
+                  children: [
+                    Text(
+                      'TOTAL: ',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: fontTotalLabel,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '\$${total.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      color: const Color(0xFF00D9A5),
-                      fontSize: fontTotal,
-                      fontWeight: FontWeight.bold,
+                    Text(
+                      '\$${total.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: const Color(0xFF00D9A5),
+                        fontSize: fontTotal,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
 
@@ -831,6 +833,8 @@ class _CarritoItemTile extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback? onEditarOrden;
   final bool estaAgotado;
+  /// En app camareros los precios los decide solo el desktop.
+  final bool mostrarPrecio;
 
   const _CarritoItemTile({
     required this.item,
@@ -840,6 +844,7 @@ class _CarritoItemTile extends StatelessWidget {
     required this.onRemove,
     this.onEditarOrden,
     this.estaAgotado = false,
+    this.mostrarPrecio = true,
   });
 
   @override
@@ -980,18 +985,19 @@ class _CarritoItemTile extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '\$${subtotal.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: Color(0xFF00D9A5),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          if (mostrarPrecio)
+                            Text(
+                              '\$${subtotal.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: Color(0xFF00D9A5),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
                           if (item.notas != null &&
                               item.notas!.trim().isNotEmpty)
                             Padding(
-                              padding: const EdgeInsets.only(top: 2),
+                              padding: EdgeInsets.only(top: mostrarPrecio ? 2 : 0),
                               child: Text(
                                 item.notas!.trim(),
                                 style: const TextStyle(

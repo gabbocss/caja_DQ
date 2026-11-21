@@ -28,6 +28,8 @@ class ProductoGrid extends StatelessWidget {
   final Map<int, int> cantidadesEnCarrito;
   /// Producto cuyo borde se ilumina un instante al añadirlo (app).
   final int? productoIdBordeIluminado;
+  /// Si es false (app camareros), no muestra precios: solo el desktop los decide.
+  final bool mostrarPrecio;
 
   const ProductoGrid({
     super.key,
@@ -43,6 +45,7 @@ class ProductoGrid extends StatelessWidget {
     this.crossAxisCount,
     this.cantidadesEnCarrito = const {},
     this.productoIdBordeIluminado,
+    this.mostrarPrecio = true,
   });
 
   @override
@@ -144,6 +147,7 @@ class ProductoGrid extends StatelessWidget {
           factorTamanoTarjeta: f,
           cantidadEnCarrito: cantidad,
           iluminarBorde: id > 0 && id == productoIdBordeIluminado,
+          mostrarPrecio: mostrarPrecio,
         );
       },
     );
@@ -162,6 +166,8 @@ class ProductoCard extends StatelessWidget {
   final int cantidadEnCarrito;
   /// Flash breve del borde al añadir al carrito.
   final bool iluminarBorde;
+  /// Si es false, oculta el precio (app camareros).
+  final bool mostrarPrecio;
 
   const ProductoCard({
     super.key,
@@ -172,6 +178,7 @@ class ProductoCard extends StatelessWidget {
     this.factorTamanoTarjeta = 1.0,
     this.cantidadEnCarrito = 0,
     this.iluminarBorde = false,
+    this.mostrarPrecio = true,
   });
 
   @override
@@ -268,22 +275,23 @@ class ProductoCard extends StatelessWidget {
                         ),
                       ),
                       SizedBox(height: 6 * f),
-                      // Precio y estrella buffet a la derecha (sustituye al indicador cocina/barra)
+                      // Precio (solo desktop) y estrella buffet a la derecha
                       Row(
                         children: [
-                          Text(
-                            '\$${producto.precio.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              color: estaAgotado
-                                  ? Colors.grey
-                                  : esBuffetYSabado
-                                      ? const Color(0xFFFFD700)
-                                      : const Color(0xFF00D9A5),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18 * f * escalaTexto,
-                              decoration: estaAgotado ? TextDecoration.lineThrough : null,
+                          if (mostrarPrecio)
+                            Text(
+                              '\$${producto.precio.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                color: estaAgotado
+                                    ? Colors.grey
+                                    : esBuffetYSabado
+                                        ? const Color(0xFFFFD700)
+                                        : const Color(0xFF00D9A5),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18 * f * escalaTexto,
+                                decoration: estaAgotado ? TextDecoration.lineThrough : null,
+                              ),
                             ),
-                          ),
                           const Spacer(),
                           if (producto.esBuffet && !estaAgotado)
                             Container(

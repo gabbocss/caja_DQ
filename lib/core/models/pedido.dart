@@ -96,7 +96,8 @@ class ItemPedido {
     return ItemPedido()
       ..productoId = json['productoId'] as int
       ..nombreProducto = json['nombreProducto'] as String
-      ..precioUnitario = (json['precioUnitario'] as num).toDouble()
+      // El desktop asigna el precio real al recibir el pedido; el cliente puede omitirlo.
+      ..precioUnitario = (json['precioUnitario'] as num?)?.toDouble() ?? 0
       ..cantidad = json['cantidad'] as int? ?? 1
       ..notas = json['notas'] as String?
       ..destinoId = json['destinoId'] as int?
