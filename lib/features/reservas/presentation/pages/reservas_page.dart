@@ -38,6 +38,9 @@ class _ReservasPageState extends State<ReservasPage>
   ReservasProvider? _provider;
   _VistaAndroidReservas _vistaAndroid = _VistaAndroidReservas.menu;
 
+  /// IDs de reservas colapsadas en la agenda (solo UI, no se persiste).
+  final Set<int> _reservasMinimizadas = {};
+
   FranjaReserva _franjaActiva = FranjaReserva.comida;
   HorariosReservas _horarios = HorariosReservas.defaults;
   int? _destinoListaPaellasId;
@@ -374,12 +377,25 @@ class _ReservasPageState extends State<ReservasPage>
         _reservaSeleccionada = null;
       }
       if (mounted) {
-        setState(() {});
+        setState(() {
+          // Al sentar, colapsar la tarjeta para no tapar pendientes.
+          final id = reserva.id;
+          if (id != null) _reservasMinimizadas.add(id);
+        });
         _snack('Mesa $mesa asignada a ${reserva.nombreCliente}', const Color(0xFF00D9A5));
       }
     } catch (e) {
       _snack('Error al asignar mesa: $e', Colors.red);
     }
+  }
+
+  void _toggleMinimizarReserva(int? id) {
+    if (id == null) return;
+    setState(() {
+      if (!_reservasMinimizadas.remove(id)) {
+        _reservasMinimizadas.add(id);
+      }
+    });
   }
 
   Future<void> _cambiarMesa(ReservasProvider provider, Reserva reserva) async {
@@ -1298,6 +1314,8 @@ class _ReservasPageState extends State<ReservasPage>
     final sel = _reservaEditandoId == reserva.id;
     final mesa = reserva.mesaAsignada;
     final estado = reserva.estado;
+    final minimizada =
+        reserva.id != null && _reservasMinimizadas.contains(reserva.id);
 
     Color colorEstado;
     String textoEstado;
@@ -1317,6 +1335,102 @@ class _ReservasPageState extends State<ReservasPage>
       case EstadoReserva.pendiente:
         colorEstado = const Color(0xFFFFB74D);
         textoEstado = 'Pendiente';
+    }
+
+    final botonMinimizar = IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(
+        minWidth: 32,
+        minHeight: 32,
+      ),
+      onPressed: () => _toggleMinimizarReserva(reserva.id),
+      icon: Icon(
+        minimizada ? Icons.unfold_more : Icons.unfold_less,
+        color: Colors.white70,
+      ),
+      tooltip: minimizada ? 'Expandir' : 'Minimizar',
+    );
+
+    final botonCancelar = IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(
+        minWidth: 32,
+        minHeight: 32,
+      ),
+      onPressed: reserva.estado == EstadoReserva.cancelada
+          ? null
+          : () => _confirmarEliminarReserva(provider, reserva),
+      icon: const Icon(Icons.cancel_outlined, color: Color(0xFFE94560)),
+      tooltip: 'Cancelar reserva',
+    );
+
+    if (minimizada) {
+      // Align evita que IntrinsicHeight estire la tarjeta colapsada.
+      return Align(
+        alignment: Alignment.topCenter,
+        child: Material(
+          color: sel ? const Color(0xFF0F3460) : const Color(0xFF16213E),
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => setState(() => _cargarReservaEnFormulario(reserva)),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+              child: Row(
+                children: [
+                  Text(
+                    _formatoHora.format(reserva.fechaHoraLlegada),
+                    style: const TextStyle(
+                      color: Color(0xFF00D9A5),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (mesa != null)
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00D9A5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'M$mesa',
+                        style: const TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  Flexible(
+                    child: Text(
+                      reserva.nombreCliente,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  botonMinimizar,
+                  botonCancelar,
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     return Material(
@@ -1380,19 +1494,8 @@ class _ReservasPageState extends State<ReservasPage>
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    onPressed: reserva.estado == EstadoReserva.cancelada
-                        ? null
-                        : () => _confirmarEliminarReserva(provider, reserva),
-                    icon: const Icon(Icons.cancel_outlined, color: Color(0xFFE94560)),
-                    tooltip: 'Cancelar reserva',
-                  ),
+                  botonMinimizar,
+                  botonCancelar,
                 ],
               ),
               const SizedBox(height: 4),
