@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/core.dart';
 
-/// Previsión de demanda (fase 6): base histórica + firmado + uplift clientes.
+/// Previsión de demanda (fase 6): base histórica por época + firmado + uplift clientes.
 class PrediccionPage extends StatefulWidget {
   const PrediccionPage({super.key});
 
@@ -136,6 +136,7 @@ class _PrediccionPageState extends State<PrediccionPage> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
+                  '${_etiquetaEstacion(ctx['nombreEstacion'])}'
                   '${ctx['esFestivo'] == true ? (ctx['nombreFestivo'] ?? 'Festivo') : (ctx['esFinde'] == true ? 'Fin de semana' : 'Laborable')}'
                   '${ctx['climaResumen'] != null ? ' · ${ctx['climaResumen']}' : ''}'
                   '${ctx['horaOscurece'] != null ? ' · oscurece ${ctx['horaOscurece']}' : ''}',
@@ -250,7 +251,7 @@ class _PrediccionPageState extends State<PrediccionPage> {
                                       if (p['fuenteBase'] != null) ...[
                                         const SizedBox(height: 8),
                                         Text(
-                                          'Fuente base: ${p['fuenteBase']}',
+                                          'Fuente base: ${_etiquetaFuente(p['fuenteBase'] as String?)}',
                                           style: const TextStyle(
                                             color: Colors.white38,
                                             fontSize: 12,
@@ -320,5 +321,47 @@ class _PrediccionPageState extends State<PrediccionPage> {
         ],
       ),
     );
+  }
+
+  /// Prefijo legible de la estación del contexto.
+  String _etiquetaEstacion(Object? nombre) {
+    switch (nombre) {
+      case 'invierno':
+        return 'Invierno · ';
+      case 'primavera':
+        return 'Primavera · ';
+      case 'verano':
+        return 'Verano · ';
+      case 'otono':
+        return 'Otoño · ';
+      default:
+        return '';
+    }
+  }
+
+  /// Etiquetas legibles de la fuente de la media histórica.
+  String _etiquetaFuente(String? fuente) {
+    switch (fuente) {
+      case 'festivo+epoca+dow':
+        return 'festivo + misma época + mismo día';
+      case 'epoca+dow':
+        return 'misma época + mismo día';
+      case 'epoca+dow-escaso':
+        return 'misma época + mismo día (pocos datos)';
+      case 'epoca':
+        return 'misma época del año';
+      case 'festivo+dow':
+        return 'festivo + mismo día';
+      case 'mismo-dow':
+        return 'mismo día de la semana';
+      case 'mismo-dow-escaso':
+        return 'mismo día (pocos datos)';
+      case 'finde':
+        return 'fin de semana / laborable';
+      case 'global':
+        return 'media global';
+      default:
+        return fuente ?? '';
+    }
   }
 }

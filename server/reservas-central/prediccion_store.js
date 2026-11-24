@@ -1,6 +1,6 @@
 /**
  * Predicción de demanda por día/servicio (fase 6).
- * base (histórico + contexto) + uplift (clientes con reserva) + firmado (ítems de reserva).
+ * base (histórico + época + contexto) + uplift (clientes con reserva) + firmado.
  */
 const db = require('./db');
 const { asegurarContextoDia, fechaSolo } = require('./contexto_store');
@@ -8,12 +8,34 @@ const { asegurarContextoDia, fechaSolo } = require('./contexto_store');
 const TZ = process.env.CLIMA_TZ || 'Europe/Rome';
 /** Hora local (0–23) a partir de la cual se considera cena. */
 const HORA_CENA = Number(process.env.PRED_HORA_CENA || 17);
-const VENTANA_DIAS = Number(process.env.PRED_VENTANA_DIAS || 180);
+/** Ventana amplia (~1 año) para poder comparar con la misma estación del año anterior. */
+const VENTANA_DIAS = Number(process.env.PRED_VENTANA_DIAS || 400);
 const MIN_VISITAS_HABITO = Number(process.env.PRED_MIN_VISITAS || 2);
 const FREQ_HABITO = Number(process.env.PRED_FREQ_HABITO || 0.5);
 
+/** Estaciones meteorológicas (hemisferio norte / Italia). */
+const NOMBRE_ESTACION = {
+  0: 'invierno',
+  1: 'primavera',
+  2: 'verano',
+  3: 'otono',
+};
+
 function round1(n) {
   return Math.round(Number(n) * 10) / 10;
+}
+
+/**
+ * Estación meteorológica: 0 invierno, 1 primavera, 2 verano, 3 otoño.
+ * @param {string|Date} fecha YYYY-MM-DD o Date
+ */
+function estacionDesdeFecha(fecha) {
+  const s = typeof fecha === 'string' ? fecha : fechaSolo(fecha);
+  const mes = Number(String(s).slice(5, 7));
+  if (mes === 12 || mes === 1 || mes === 2) return 0;
+  if (mes >= 3 && mes <= 5) return 1;
+  if (mes >= 6 && mes <= 8) return 2;
+  return 3;
 }
 
 /**
@@ -33,10 +55,12 @@ function servicioDesdeTs(ts) {
 }
 
 /**
- * Demanda base: media de unidades/día en días similares (mismo DOW / festivo / finde).
+ * Demanda base: media de unidades/día en días similares
+ * (misma época del año + mismo DOW / festivo / finde).
  */
 async function demandaBase(fecha, servicio) {
   const ctx = await asegurarContextoDia(fecha);
+  const estacion = estacionDesdeFecha(fecha);
   const res = await db.query(
     `WITH diarios AS (
        SELECT
@@ -56,13 +80,33 @@ async function demandaBase(fecha, servicio) {
          d.*,
          COALESCE(c.dia_semana, EXTRACT(DOW FROM d.fecha)::int) AS dia_semana,
          COALESCE(c.es_festivo, false) AS es_festivo,
-         COALESCE(c.es_finde, false) AS es_finde
+         COALESCE(c.es_finde, false) AS es_finde,
+         CASE
+           WHEN EXTRACT(MONTH FROM d.fecha)::int IN (12, 1, 2) THEN 0
+           WHEN EXTRACT(MONTH FROM d.fecha)::int BETWEEN 3 AND 5 THEN 1
+           WHEN EXTRACT(MONTH FROM d.fecha)::int BETWEEN 6 AND 8 THEN 2
+           ELSE 3
+         END AS estacion
        FROM diarios d
        LEFT JOIN contexto_dia c ON c.fecha = d.fecha
      )
      SELECT
        producto_id,
        MAX(nombre_producto) AS nombre_producto,
+       AVG(unidades) FILTER (
+         WHERE estacion = $8 AND dia_semana = $5 AND es_festivo = $6
+       ) AS avg_festivo_epoca_dow,
+       COUNT(*) FILTER (
+         WHERE estacion = $8 AND dia_semana = $5 AND es_festivo = $6
+       ) AS n_festivo_epoca_dow,
+       AVG(unidades) FILTER (
+         WHERE estacion = $8 AND dia_semana = $5
+       ) AS avg_epoca_dow,
+       COUNT(*) FILTER (
+         WHERE estacion = $8 AND dia_semana = $5
+       ) AS n_epoca_dow,
+       AVG(unidades) FILTER (WHERE estacion = $8) AS avg_epoca,
+       COUNT(*) FILTER (WHERE estacion = $8) AS n_epoca,
        AVG(unidades) FILTER (WHERE dia_semana = $5) AS avg_dow,
        COUNT(*) FILTER (WHERE dia_semana = $5) AS n_dow,
        AVG(unidades) FILTER (
@@ -85,6 +129,7 @@ async function demandaBase(fecha, servicio) {
       ctx.diaSemana,
       ctx.esFestivo,
       ctx.esFinde,
+      estacion,
     ],
   );
 
@@ -92,12 +137,32 @@ async function demandaBase(fecha, servicio) {
   for (const row of res.rows) {
     let base = 0;
     let fuente = 'global';
+    const nFestEpoca = Number(row.n_festivo_epoca_dow) || 0;
+    const nEpocaDow = Number(row.n_epoca_dow) || 0;
+    const nEpoca = Number(row.n_epoca) || 0;
     const nFest = Number(row.n_festivo_dow) || 0;
     const nDow = Number(row.n_dow) || 0;
     const nFinde = Number(row.n_finde) || 0;
     const nGlobal = Number(row.n_global) || 0;
 
-    if (ctx.esFestivo && nFest >= 1 && row.avg_festivo_dow != null) {
+    // Prioriza misma época del año para no mezclar verano con invierno.
+    if (
+      ctx.esFestivo &&
+      nFestEpoca >= 1 &&
+      row.avg_festivo_epoca_dow != null
+    ) {
+      base = Number(row.avg_festivo_epoca_dow);
+      fuente = 'festivo+epoca+dow';
+    } else if (nEpocaDow >= 2 && row.avg_epoca_dow != null) {
+      base = Number(row.avg_epoca_dow);
+      fuente = 'epoca+dow';
+    } else if (nEpocaDow >= 1 && row.avg_epoca_dow != null) {
+      base = Number(row.avg_epoca_dow);
+      fuente = 'epoca+dow-escaso';
+    } else if (nEpoca >= 2 && row.avg_epoca != null) {
+      base = Number(row.avg_epoca);
+      fuente = 'epoca';
+    } else if (ctx.esFestivo && nFest >= 1 && row.avg_festivo_dow != null) {
       base = Number(row.avg_festivo_dow);
       fuente = 'festivo+dow';
     } else if (nDow >= 2 && row.avg_dow != null) {
@@ -119,10 +184,25 @@ async function demandaBase(fecha, servicio) {
       nombreProducto: row.nombre_producto,
       base: round1(base),
       fuenteBase: fuente,
-      muestras: { dow: nDow, festivoDow: nFest, finde: nFinde, global: nGlobal },
+      muestras: {
+        epocaDow: nEpocaDow,
+        epoca: nEpoca,
+        festivoEpocaDow: nFestEpoca,
+        dow: nDow,
+        festivoDow: nFest,
+        finde: nFinde,
+        global: nGlobal,
+      },
     });
   }
-  return { ctx, map };
+  return {
+    ctx: {
+      ...ctx,
+      estacion,
+      nombreEstacion: NOMBRE_ESTACION[estacion] || null,
+    },
+    map,
+  };
 }
 
 /**
@@ -390,6 +470,7 @@ async function predecir({ fecha: fechaRaw, servicio: servicioRaw } = {}) {
 module.exports = {
   predecir,
   servicioDesdeTs,
+  estacionDesdeFecha,
   demandaBase,
   demandaFirmada,
   demandaUplift,
