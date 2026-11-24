@@ -26,11 +26,38 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   String? _filtroCategoria;
   /// Filtro de estado: 'disponibles' | 'agotados' | 'sinFoto' | 'noBuffet' | null (todos)
   String? _filtroEstado;
+  bool _mostrarBusqueda = false;
+  String _textoBusqueda = '';
+  final TextEditingController _busquedaController = TextEditingController();
+  final FocusNode _busquedaFocus = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _cargarDatos();
+  }
+
+  @override
+  void dispose() {
+    _busquedaController.dispose();
+    _busquedaFocus.dispose();
+    super.dispose();
+  }
+
+  void _abrirBusqueda() {
+    setState(() => _mostrarBusqueda = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _busquedaFocus.requestFocus();
+    });
+  }
+
+  void _cerrarBusqueda() {
+    setState(() {
+      _mostrarBusqueda = false;
+      _textoBusqueda = '';
+      _busquedaController.clear();
+    });
+    _busquedaFocus.unfocus();
   }
 
   Future<void> _sincronizarCatalogoConVps() async {
@@ -137,7 +164,7 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
     return i == null || i.trim().isEmpty;
   }
 
-  /// Productos visibles: categoría + estado (disponibles / agotados / sin foto / no buffet).
+  /// Productos visibles: categoría + estado + texto de búsqueda.
   List<Producto> get _productosFiltrados {
     var lista = _productosPorCategoria;
     switch (_filtroEstado) {
@@ -149,6 +176,12 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
         lista = lista.where(_productoSinFoto).toList();
       case 'noBuffet':
         lista = lista.where((p) => !p.esBuffet).toList();
+    }
+    final q = _textoBusqueda.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      lista = lista
+          .where((p) => p.nombre.toLowerCase().contains(q))
+          .toList();
     }
     return lista;
   }
@@ -180,6 +213,16 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: _mostrarBusqueda ? _cerrarBusqueda : _abrirBusqueda,
+            icon: Icon(
+              _mostrarBusqueda ? Icons.search_off : Icons.search,
+              color: _mostrarBusqueda
+                  ? const Color(0xFFE94560)
+                  : Colors.white70,
+            ),
+            tooltip: _mostrarBusqueda ? 'Cerrar búsqueda' : 'Buscar producto',
+          ),
           if (PlatformUtils.isDesktop)
             IconButton(
               onPressed:
@@ -207,6 +250,8 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
               children: [
                 // Filtro por categoría
                 _buildFiltroCategorias(),
+
+                if (_mostrarBusqueda) _buildBarraBusqueda(),
                 
                 // Contador de productos
                 _buildContador(),
@@ -219,6 +264,69 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildBarraBusqueda() {
+    return Container(
+      color: const Color(0xFF16213E),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Focus(
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.escape) {
+            _cerrarBusqueda();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: TextField(
+          controller: _busquedaController,
+          focusNode: _busquedaFocus,
+          style: const TextStyle(color: Colors.white),
+          cursorColor: const Color(0xFFE94560),
+          decoration: InputDecoration(
+            hintText: 'Buscar producto por nombre...',
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+            prefixIcon: const Icon(Icons.search, color: Colors.white54),
+            suffixIcon: _textoBusqueda.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.white54),
+                    tooltip: 'Limpiar',
+                    onPressed: () {
+                      setState(() {
+                        _textoBusqueda = '';
+                        _busquedaController.clear();
+                      });
+                      _busquedaFocus.requestFocus();
+                    },
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white54),
+                    tooltip: 'Cerrar búsqueda',
+                    onPressed: _cerrarBusqueda,
+                  ),
+            filled: true,
+            fillColor: const Color(0xFF0F3460),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFFE94560),
+                width: 1.5,
+              ),
+            ),
+          ),
+          onChanged: (v) => setState(() => _textoBusqueda = v),
+        ),
+      ),
     );
   }
 
@@ -302,29 +410,43 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
   }
 
   Widget _buildSinProductos() {
+    final hayBusqueda = _textoBusqueda.trim().isNotEmpty;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.inventory_2_outlined,
+            hayBusqueda ? Icons.search_off : Icons.inventory_2_outlined,
             size: 80,
             color: Colors.white.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'No hay productos',
-            style: TextStyle(color: Colors.white54, fontSize: 18),
+          Text(
+            hayBusqueda
+                ? 'Ningún producto coincide con “${_textoBusqueda.trim()}”'
+                : 'No hay productos',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white54, fontSize: 18),
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _mostrarFormularioProducto(null),
-            icon: const Icon(Icons.add),
-            label: const Text('Añadir producto'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00D9A5),
+          if (hayBusqueda)
+            TextButton.icon(
+              onPressed: _cerrarBusqueda,
+              icon: const Icon(Icons.clear, color: Color(0xFFE94560)),
+              label: const Text(
+                'Limpiar búsqueda',
+                style: TextStyle(color: Color(0xFFE94560)),
+              ),
+            )
+          else
+            ElevatedButton.icon(
+              onPressed: () => _mostrarFormularioProducto(null),
+              icon: const Icon(Icons.add),
+              label: const Text('Añadir producto'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00D9A5),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -332,8 +454,9 @@ class _GestionProductosPageState extends State<GestionProductosPage> {
 
   Widget _buildListaProductos() {
     final lista = _productosFiltrados;
-    // Con filtro de estado activo no se reordena (evitar desordenar el catálogo)
-    final puedeReordenar = _filtroEstado == null;
+    // Con filtro de estado o búsqueda activa no se reordena (evitar desordenar el catálogo)
+    final puedeReordenar =
+        _filtroEstado == null && _textoBusqueda.trim().isEmpty;
 
     if (!puedeReordenar) {
       return ListView.builder(
