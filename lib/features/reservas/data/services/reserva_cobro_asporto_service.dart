@@ -35,6 +35,10 @@ class ReservaCobroAsportoService {
       throw StateError('No hay productos para cobrar');
     }
 
+    // Cobrar con precios del catálogo desktop, no los guardados en el móvil.
+    await DatabaseService.instance
+        .asignarPreciosOficialesAItemsReserva(reserva.itemsReservados);
+
     final total = reserva.totalItemsReservados;
     if (total <= 0) {
       throw StateError('El total a cobrar debe ser mayor que cero');

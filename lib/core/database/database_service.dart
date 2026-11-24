@@ -716,6 +716,28 @@ class DatabaseService {
     pedido.calcularTotal();
   }
 
+  /// Reescribe precios de platos pre-reservados con el catálogo del desktop.
+  ///
+  /// Así una reserva creada con carta desfasada en el móvil cobra el precio actual.
+  Future<void> asignarPreciosOficialesAItemsReserva(
+    List<ItemReserva> items,
+  ) async {
+    final config = await obtenerConfiguracionBuffetActiva();
+    for (final item in items) {
+      if (item.productoId > 0) {
+        final producto = await obtenerProductoPorId(item.productoId);
+        if (producto != null) {
+          item.precioUnitario = producto.precio;
+        }
+        continue;
+      }
+      final especial = _precioItemEspecial(item.nombreProducto, config);
+      if (especial > 0) {
+        item.precioUnitario = especial;
+      }
+    }
+  }
+
   /// Precio de ítems especiales (sin producto en catálogo).
   double _precioItemEspecial(String nombreProducto, ConfiguracionBuffet? config) {
     switch (nombreProducto) {

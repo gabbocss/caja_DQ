@@ -32,6 +32,9 @@ class ReservaAsignacionService {
     final config = await db.obtenerConfiguracionBuffetActiva();
     final esBuffet = config?.esHorarioBuffet() ?? false;
 
+    // Platos pre-reservados: precio actual del desktop, no el del móvil.
+    await db.asignarPreciosOficialesAItemsReserva(reserva.itemsReservados);
+
     final itemsPedido = <ItemPedido>[
       if (esBuffet)
         ItemPedido.crear(
