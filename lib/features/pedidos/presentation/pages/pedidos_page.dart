@@ -1465,7 +1465,7 @@ class _PedidosPageState extends State<PedidosPage> {
     );
   }
 
-  /// Modal de pagos con menú de métodos y pantalla de importe.
+  /// Modal de pagos: primero importe/división, luego forma de pago.
   Future<void> _mostrarDialogoPagos() async {
     if (_cuentaActual.isEmpty) {
       if (!mounted) return;
@@ -1480,7 +1480,8 @@ class _PedidosPageState extends State<PedidosPage> {
 
     final importeController = TextEditingController();
     MetodoPagoCuenta? metodoSeleccionado;
-    var paso = _PasoDialogoPagos.menu;
+    // Primero se elige cuánto cobrar; después la forma de pago.
+    var paso = _PasoDialogoPagos.importe;
     var procesando = false;
     var personasDivision = _personasParaDividirCuenta().clamp(1, 99);
     /// Descuento por persona aplicado en este cobro (aún sin confirmar el pago).
@@ -1502,6 +1503,19 @@ class _PedidosPageState extends State<PedidosPage> {
 
     var pendienteInicial = _totalPendienteMesa;
     _guardarPersonasDivisionMesa(personasDivision);
+
+    // Prefijar importe al abrir (antes se rellenaba al elegir el método).
+    if (pendienteInicial.isFinite && pendienteInicial > 0.009) {
+      if (_cuotaAcordadaMesa() != null) {
+        importeController.text = DivisionCuenta.importeSugerido(
+          pendiente: pendienteInicial,
+          personas: personasDivision,
+          cuotaAcordada: _cuotaAcordadaMesa(),
+        ).toStringAsFixed(2);
+      } else {
+        importeController.text = pendienteInicial.toStringAsFixed(2);
+      }
+    }
 
     await showDialog<void>(
       context: context,
@@ -1539,9 +1553,10 @@ class _PedidosPageState extends State<PedidosPage> {
             final esCobroTotal = pendienteValido &&
                 importe > 0 &&
                 (importe >= pendiente - 0.009 || restoAlCerrar > 0.009);
-            final double? vuelto = metodoSeleccionado == MetodoPagoCuenta.efectivo &&
-                    esCobroTotal &&
-                    restoAlCerrar <= 0.009
+            // Vista previa de vuelto si reciben más del pendiente (aplica al cobrar en efectivo).
+            final double? vuelto = esCobroTotal &&
+                    restoAlCerrar <= 0.009 &&
+                    importe > pendiente + 0.009
                 ? (importe - pendiente).toDouble()
                 : null;
 
@@ -1720,8 +1735,11 @@ class _PedidosPageState extends State<PedidosPage> {
                   Navigator.of(ctx).pop();
                   return;
                 }
+                // Tras cuota/parte: volver a elegir cuánto cobrar.
                 setDialogState(() {
                   procesando = false;
+                  metodoSeleccionado = null;
+                  paso = _PasoDialogoPagos.importe;
                   descuentoCuotaActivo = false;
                   personasDivision = _personasParaDividirCuenta();
                   aplicarDivisionEnImporte();
@@ -1732,14 +1750,46 @@ class _PedidosPageState extends State<PedidosPage> {
               setDialogState(() => procesando = false);
             }
 
+            Future<void> irAFormaDePago() async {
+              if (!pendienteValido) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                    content: Text('No hay importe pendiente válido en la mesa'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              final valor = parseImporte();
+              if (valor == null || valor <= 0) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                    content: Text('Introduzca un importe válido'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+              setDialogState(() {
+                paso = _PasoDialogoPagos.menu;
+                metodoSeleccionado = null;
+              });
+            }
+
+            Future<void> elegirMetodoYCobrar(MetodoPagoCuenta metodo) async {
+              metodoSeleccionado = metodo;
+              await confirmar();
+            }
+
             Widget contenido;
             if (paso == _PasoDialogoPagos.menu) {
+              final aCobrar = parseImporte() ?? 0;
               contenido = Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Pendiente: €${pendiente.toStringAsFixed(2)}',
+                    'A cobrar: €${aCobrar.toStringAsFixed(2)}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFF00D9A5),
@@ -1747,91 +1797,70 @@ class _PedidosPageState extends State<PedidosPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _BotonIconoMetodoPago(
-                        icono: Icons.payments_outlined,
-                        tooltip: 'Efectivo',
-                        colorFondo: const Color(0xFF00D9A5),
-                        colorIcono: Colors.black87,
-                        onPressed: procesando
-                            ? null
-                            : () => setDialogState(() {
-                                  metodoSeleccionado =
-                                      MetodoPagoCuenta.efectivo;
-                                  paso = _PasoDialogoPagos.importe;
-                                  descuentoCuotaActivo = false;
-                                  if (pendiente.isFinite && pendiente > 0) {
-                                    if (_cuotaAcordadaMesa() != null) {
-                                      aplicarDivisionEnImporte();
-                                    } else {
-                                      importeController.text =
-                                          pendiente.toStringAsFixed(2);
-                                    }
-                                  } else {
-                                    importeController.clear();
-                                  }
-                                }),
-                      ),
-                      _BotonIconoMetodoPago(
-                        icono: Icons.credit_card,
-                        tooltip: 'Tarjeta',
-                        colorFondo: const Color(0xFF0F3460),
-                        onPressed: procesando
-                            ? null
-                            : () => setDialogState(() {
-                                  metodoSeleccionado =
-                                      MetodoPagoCuenta.tarjeta;
-                                  paso = _PasoDialogoPagos.importe;
-                                  descuentoCuotaActivo = false;
-                                  if (pendiente.isFinite && pendiente > 0) {
-                                    if (_cuotaAcordadaMesa() != null) {
-                                      aplicarDivisionEnImporte();
-                                    } else {
-                                      importeController.text =
-                                          pendiente.toStringAsFixed(2);
-                                    }
-                                  } else {
-                                    importeController.clear();
-                                  }
-                                }),
-                      ),
-                      _BotonIconoMetodoPago(
-                        tooltip: 'Otros',
-                        colorFondo: const Color(0xFFE94560),
-                        iconoPersonalizado: const _IconoLadronBolsaEuro(),
-                        onPressed: procesando
-                            ? null
-                            : () => setDialogState(() {
-                                  metodoSeleccionado = MetodoPagoCuenta.otros;
-                                  paso = _PasoDialogoPagos.importe;
-                                  descuentoCuotaActivo = false;
-                                  if (pendiente.isFinite && pendiente > 0) {
-                                    if (_cuotaAcordadaMesa() != null) {
-                                      aplicarDivisionEnImporte();
-                                    } else {
-                                      importeController.text =
-                                          pendiente.toStringAsFixed(2);
-                                    }
-                                  } else {
-                                    importeController.clear();
-                                  }
-                                }),
-                      ),
-                    ],
+                  const SizedBox(height: 6),
+                  Text(
+                    'Pendiente mesa: €${pendiente.toStringAsFixed(2)}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
                   ),
+                  if (procesando) ...[
+                    const SizedBox(height: 20),
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFBB86FC),
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _BotonIconoMetodoPago(
+                          tooltip: 'Efectivo',
+                          colorFondo: const Color(0xFF00D9A5),
+                          colorIcono: Colors.black87,
+                          iconoPersonalizado: const _IconoEfectivoEuro(),
+                          onPressed: () => elegirMetodoYCobrar(
+                            MetodoPagoCuenta.efectivo,
+                          ),
+                        ),
+                        _BotonIconoMetodoPago(
+                          icono: Icons.credit_card,
+                          tooltip: 'Tarjeta',
+                          colorFondo: const Color(0xFF0F3460),
+                          onPressed: () => elegirMetodoYCobrar(
+                            MetodoPagoCuenta.tarjeta,
+                          ),
+                        ),
+                        _BotonIconoMetodoPago(
+                          tooltip: 'Otros',
+                          colorFondo: const Color(0xFFE94560),
+                          iconoPersonalizado: const _IconoLadronBolsaEuro(),
+                          onPressed: () => elegirMetodoYCobrar(
+                            MetodoPagoCuenta.otros,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Tras elegir tarjeta, cobre el importe en el terminal SumUp.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.blue.shade200,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               );
             } else {
-              final etiquetaMetodo = metodoSeleccionado?.nombreUI ?? '';
               contenido = Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    '$etiquetaMetodo — Mesa $_mesaSeleccionada',
+                    'Mesa $_mesaSeleccionada',
                     style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   const SizedBox(height: 8),
@@ -1856,9 +1885,7 @@ class _PedidosPageState extends State<PedidosPage> {
                       fontWeight: FontWeight.bold,
                     ),
                     decoration: InputDecoration(
-                      labelText: metodoSeleccionado == MetodoPagoCuenta.efectivo
-                          ? 'Importe recibido'
-                          : 'Importe a cobrar',
+                      labelText: 'Importe a cobrar',
                       labelStyle: const TextStyle(color: Colors.white54),
                       prefixText: '€ ',
                       prefixStyle: const TextStyle(
@@ -2029,17 +2056,6 @@ class _PedidosPageState extends State<PedidosPage> {
                       ],
                     ),
                   ),
-                  if (metodoSeleccionado == MetodoPagoCuenta.tarjeta) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'Tras confirmar, cobre este importe manualmente en el terminal SumUp.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.blue.shade200,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
                   if (importe > 0 &&
                       importe < pendiente - 0.009 &&
                       restoAlCerrar <= 0.009) ...[
@@ -2074,7 +2090,7 @@ class _PedidosPageState extends State<PedidosPage> {
                         border: Border.all(color: const Color(0xFF00D9A5)),
                       ),
                       child: Text(
-                        'Vuelto a devolver: €${vuelto.toStringAsFixed(2)}',
+                        'Vuelto (efectivo): €${vuelto.toStringAsFixed(2)}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Color(0xFF00D9A5),
@@ -2086,20 +2102,16 @@ class _PedidosPageState extends State<PedidosPage> {
                   ],
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: procesando ? null : confirmar,
+                    onPressed: procesando ? null : irAFormaDePago,
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFFBB86FC),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: procesando
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            esCobroTotal ? 'Confirmar cobro total' : 'Confirmar pago parcial',
-                          ),
+                    child: Text(
+                      esCobroTotal
+                          ? 'Continuar — cobro total'
+                          : 'Continuar — pago parcial',
+                    ),
                   ),
                 ],
               );
@@ -2116,9 +2128,9 @@ class _PedidosPageState extends State<PedidosPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      paso == _PasoDialogoPagos.menu
-                          ? 'Pagos — Mesa $_mesaSeleccionada'
-                          : 'Cobro',
+                      paso == _PasoDialogoPagos.importe
+                          ? 'Cobro'
+                          : 'Forma de pago',
                       style: const TextStyle(color: Colors.white, fontSize: 18),
                     ),
                   ),
@@ -2126,13 +2138,13 @@ class _PedidosPageState extends State<PedidosPage> {
               ),
               content: contenido,
               actions: [
-                if (paso == _PasoDialogoPagos.importe)
+                if (paso == _PasoDialogoPagos.menu)
                   TextButton(
                     onPressed: procesando
                         ? null
                         : () => setDialogState(() {
-                              paso = _PasoDialogoPagos.menu;
-                              importeController.clear();
+                              paso = _PasoDialogoPagos.importe;
+                              metodoSeleccionado = null;
                             }),
                     child: const Text('Atrás'),
                   ),
@@ -3236,6 +3248,38 @@ class _BotonIconoMetodoPago extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Billete con símbolo € para distinguir efectivo de tarjeta.
+class _IconoEfectivoEuro extends StatelessWidget {
+  const _IconoEfectivoEuro();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 36,
+      height: 36,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.payments_outlined, size: 30, color: Colors.black87),
+          Positioned(
+            right: 0,
+            bottom: -1,
+            child: Text(
+              '€',
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
